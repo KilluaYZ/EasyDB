@@ -12,7 +12,7 @@ add_library(easydb STATIC ${ALL_OBJECT_FILES})
 
 set(EASYDB_LIBS
         easydb_buffer
-        bustub_catalog
+        easydb_catalog
         easydb_common
         # easydb_concurrency
         # easydb_execution

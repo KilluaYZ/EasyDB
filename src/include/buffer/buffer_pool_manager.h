@@ -127,8 +127,8 @@ class BufferPoolManager {
   //   WritePageGuard; auto ReadPage(page_id_t page_id, AccessType access_type = AccessType::Unknown) -> ReadPageGuard;
   auto FlushPage(page_id_t page_id) -> bool;
   void FlushAllPages();
-  //   auto GetPinCount(page_id_t page_id) -> std::optional<size_t>;
-  auto GetPinCount(page_id_t page_id) -> size_t;
+  auto GetPinCount(page_id_t page_id) -> std::optional<size_t>;
+  //   auto GetPinCount(page_id_t page_id) -> size_t;
 
  private:
   /** @brief The number of frames in the buffer pool. */
