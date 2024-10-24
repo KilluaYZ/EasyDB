@@ -90,3 +90,6 @@ cmake-build-*
 
 # Clangd cache index
 .cache
+
+# Zip files
+*.zip
