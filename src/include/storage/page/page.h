@@ -79,6 +79,11 @@ class Page {
   /** Sets the page LSN. */
   inline void SetLSN(lsn_t lsn) { memcpy(GetData() + OFFSET_LSN, &lsn, sizeof(lsn_t)); }
 
+  // rmdb version
+  // static constexpr size_t OFFSET_PAGE_START = 0;
+  // static constexpr size_t OFFSET_LSN = 0;
+  static constexpr size_t OFFSET_PAGE_HDR = 4;
+
  protected:
   static_assert(sizeof(page_id_t) == 4);
   static_assert(sizeof(lsn_t) == 4);

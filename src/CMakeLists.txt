@@ -17,6 +17,7 @@ set(EASYDB_LIBS
         # easydb_concurrency
         # easydb_execution
         # easydb_recovery
+        easydb_record
         easydb_type
         # easydb_container_disk_hash
         easydb_storage_disk
