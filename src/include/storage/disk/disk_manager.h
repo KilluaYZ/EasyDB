@@ -17,11 +17,13 @@
 #pragma once
 
 #include <atomic>
+#include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <future>
 #include <mutex>
 #include <string>
+#include <unordered_map>
 
 #include "common/config.h"
 
@@ -34,100 +36,89 @@ namespace easydb {
 class DiskManager {
  public:
   /**
-   * Creates a new disk manager that writes to the specified database file.
-   * @param db_file the file name of the database file to write to
+   * Creates a new disk manager that writes to the specified database directory.
+   * @param db_dir the directory name of the database directory to write to
    */
-  explicit DiskManager(const std::filesystem::path &db_file);
-
-  /** FOR TEST / LEADERBOARD ONLY, used by DiskManagerMemory */
-  DiskManager() = default;
+  explicit DiskManager(const std::filesystem::path &db_dir);
 
   virtual ~DiskManager() = default;
 
   /**
-   * Shut down the disk manager and close all the file resources.
-   */
-  void ShutDown();
-
-  /**
-   * @brief Increases the size of the database file.
-   *
-   * This function works like a dynamic array, where the capacity is doubled until all pages can fit.
-   *
-   * @param pages The number of pages the caller wants the file used for storage to support.
-   */
-  virtual void IncreaseDiskSpace(size_t pages);
-
-  /**
    * Write a page to the database file.
+   * @param fd file descriptor of the database file
    * @param page_id id of the page
    * @param page_data raw page data
+   * @param num_bytes number of bytes to write
    */
-  virtual void WritePage(page_id_t page_id, const char *page_data);
+  virtual void WritePage(int fd, page_id_t page_id, const char *page_data, size_t num_bytes);
 
   /**
    * Read a page from the database file.
+   * @param fd file descriptor of the database file
    * @param page_id id of the page
    * @param[out] page_data output buffer
+   * @param num_bytes number of bytes to read
    */
-  virtual void ReadPage(page_id_t page_id, char *page_data);
+  virtual void ReadPage(int fd, page_id_t page_id, char *page_data, size_t num_bytes);
 
   /**
-   * Flush the entire log buffer into disk.
-   * @param log_data raw log data
-   * @param size size of log entry
+   * Allocate a new page in the database file.
+   * @param fd file descriptor of the database file
+   * @return the id of the allocated page
    */
-  void WriteLog(char *log_data, int size);
+  virtual page_id_t AllocatePage(int fd);
+
+  // Directory operations
+  bool IsDir(const std::string &path) { return std::filesystem::is_directory(path); }
+
+  void CreateDir(const std::string &path);
+
+  void DestroyDir(const std::string &path);
+
+  // File operations
+  bool IsFile(const std::string &path) { return std::filesystem::is_regular_file(path); }
+
+  void CreateFile(const std::string &path);
+
+  void DestroyFile(const std::string &path);
+
+  int OpenFile(const std::string &path);
+
+  void CloseFile(int fd);
+
+  auto GetFileSize(const std::string &path) -> int;
+
+  auto GetFileName(int fd) -> std::filesystem::path;
+
+  int GetFileFd(const std::string &path);
 
   /**
-   * Read a log entry from the log file.
-   * @param[out] log_data output buffer
-   * @param size size of the log entry
-   * @param offset offset of the log entry in the file
-   * @return true if the read was successful, false otherwise
+   * Sets the mapping of file descriptor to page number.
+   * @param fd file descriptor of the database file
+   * @param pageno page number
    */
-  auto ReadLog(char *log_data, int size, int offset) -> bool;
-
-  /** @return the number of disk flushes */
-  auto GetNumFlushes() const -> int;
-
-  /** @return true iff the in-memory content has not been flushed yet */
-  auto GetFlushState() const -> bool;
-
-  /** @return the number of disk writes */
-  auto GetNumWrites() const -> int;
+  inline void SetFd2Pageno(int fd, page_id_t pageno) { fd2pageno_[fd] = pageno; }
 
   /**
-   * Sets the future which is used to check for non-blocking flushes.
-   * @param f the non-blocking flush check
+   * Gets the mapping of file descriptor to page number.
+   * @param fd file descriptor of the database file
+   * @return the page number
    */
-  inline void SetFlushLogFuture(std::future<void> *f) { flush_log_f_ = f; }
+  inline auto GetFd2Pageno(int fd) -> page_id_t { return fd2pageno_[fd]; }
 
-  /** Checks if the non-blocking flush future was set. */
-  inline auto HasFlushLogFuture() -> bool { return flush_log_f_ != nullptr; }
-
-  /** @brief returns the log file name */
-  inline auto GetLogFileName() const -> std::filesystem::path { return log_name_; }
+  // Log operations
 
  protected:
-  auto GetFileSize(const std::string &file_name) -> int;
-  // stream to write log file
-  std::fstream log_io_;
-  std::filesystem::path log_name_;
-  // stream to write db file
-  std::fstream db_io_;
-  std::filesystem::path file_name_;
-  int num_flushes_{0};
-  int num_writes_{0};
-  bool flush_log_{false};
-  std::future<void> *flush_log_f_{nullptr};
-  // With multiple buffer pool instances, need to protect file access
-  std::mutex db_io_latch_;
+  static constexpr int MAX_FD = 8192;
 
-  /** @brief The number of pages allocated to the DBMS on disk. */
-  size_t pages_{0};
-  /** @brief The capacity of the file used for storage on disk. */
-  size_t page_capacity_{DEFAULT_DB_IO_SIZE};
+  // streams to write db directory
+  std::filesystem::path dir_name_;
+  std::fstream db_meta_io_;
+  // path to fd and fd to path mapping
+  std::unordered_map<std::filesystem::path, int> path2fd_;
+  std::unordered_map<int, std::filesystem::path> fd2path_;
+  int log_fd_{-1};
+  std::atomic<page_id_t> fd2pageno_[MAX_FD]{};
 };
 
 }  // namespace easydb

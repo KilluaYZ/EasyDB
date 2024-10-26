@@ -14,8 +14,11 @@
  * Copyright (c) 2015-2019, Carnegie Mellon University Database Group
  */
 
+#include <fcntl.h>
 #include <sys/stat.h>
+#include <unistd.h>  // for lseek
 #include <cassert>
+#include <cstddef>
 #include <cstring>
 #include <iostream>
 #include <mutex>
@@ -29,212 +32,247 @@
 
 namespace easydb {
 
-static char *buffer_used;
-
 /**
- * Constructor: open/create a single database file & log file
- * @input db_file: database file name
+ * Constructor: open/create a directory of database files & log files
+ * @input db_dir: database directory name
  */
-DiskManager::DiskManager(const std::filesystem::path &db_file) : file_name_(db_file) {
-  log_name_ = file_name_.filename().stem().string() + ".log";
-
-  log_io_.open(log_name_, std::ios::binary | std::ios::in | std::ios::app | std::ios::out);
-  // directory or file does not exist
-  if (!log_io_.is_open()) {
-    log_io_.clear();
-    // create a new file
-    log_io_.open(log_name_, std::ios::binary | std::ios::trunc | std::ios::out | std::ios::in);
-    if (!log_io_.is_open()) {
-      throw Exception("can't open dblog file");
-    }
+DiskManager::DiskManager(const std::filesystem::path &db_dir) : dir_name_(db_dir) {
+  // create directory if not exist
+  if (!std::filesystem::exists(dir_name_)) {
+    std::filesystem::create_directory(dir_name_);
   }
+  // log_name_ = dir_name_ / (dir_name_.filename().stem().string() + ".log");
 
-  std::scoped_lock scoped_db_io_latch(db_io_latch_);
-  db_io_.open(db_file, std::ios::binary | std::ios::in | std::ios::out);
+  // log_io_.open(log_name_, std::ios::binary | std::ios::in | std::ios::app | std::ios::out);
+  // // directory or file does not exist
+  // if (!log_io_.is_open()) {
+  //   log_io_.clear();
+  //   // create a new file
+  //   log_io_.open(log_name_, std::ios::binary | std::ios::trunc | std::ios::out | std::ios::in);
+  //   if (!log_io_.is_open()) {
+  //     throw Exception("can't open dblog file");
+  //   }
+  // }
+
+  // meta
+  auto db_meta_file = dir_name_ / (dir_name_.filename().stem().string() + ".meta");
+  // std::scoped_lock scoped_db_io_latch(db_io_latch_);
+  db_meta_io_.open(db_meta_file, std::ios::binary | std::ios::in | std::ios::out);
   // directory or file does not exist
-  if (!db_io_.is_open()) {
-    db_io_.clear();
+  if (!db_meta_io_.is_open()) {
+    db_meta_io_.clear();
     // create a new file
-    db_io_.open(db_file, std::ios::binary | std::ios::trunc | std::ios::out | std::ios::in);
-    if (!db_io_.is_open()) {
+    db_meta_io_.open(db_meta_file, std::ios::binary | std::ios::trunc | std::ios::out | std::ios::in);
+    if (!db_meta_io_.is_open()) {
       throw Exception("can't open db file");
     }
   }
-
-  // Initialize the database file.
-  std::filesystem::resize_file(db_file, (page_capacity_ + 1) * PAGE_SIZE);
-  assert(static_cast<size_t>(GetFileSize(file_name_)) >= page_capacity_ * PAGE_SIZE);
-
-  buffer_used = nullptr;
-}
-
-/**
- * Close all file streams
- */
-void DiskManager::ShutDown() {
-  {
-    std::scoped_lock scoped_db_io_latch(db_io_latch_);
-    db_io_.close();
-  }
-  log_io_.close();
-}
-
-/**
- * @brief Increases the size of the file to fit the specified number of pages.
- */
-void DiskManager::IncreaseDiskSpace(size_t pages) {
-  std::scoped_lock scoped_db_io_latch(db_io_latch_);
-
-  if (pages < pages_) {
-    return;
-  }
-
-  pages_ = pages;
-  while (page_capacity_ < pages_) {
-    page_capacity_ *= 2;
-  }
-
-  std::filesystem::resize_file(file_name_, (page_capacity_ + 1) * PAGE_SIZE);
-
-  assert(static_cast<size_t>(GetFileSize(file_name_)) >= page_capacity_ * PAGE_SIZE);
+  // path2fd
+  // fd2path
+  // fd2pageno_
+  memset(fd2pageno_, 0, MAX_FD * (sizeof(std::atomic<page_id_t>) / sizeof(char)));
 }
 
 /**
  * Write the contents of the specified page into disk file
  */
-void DiskManager::WritePage(page_id_t page_id, const char *page_data) {
-  std::scoped_lock scoped_db_io_latch(db_io_latch_);
+void DiskManager::WritePage(int fd, page_id_t page_id, const char *page_data, size_t num_bytes) {
+  // Calculate the offset in the file
   size_t offset = static_cast<size_t>(page_id) * PAGE_SIZE;
 
   // Set the write cursor to the page offset.
-  num_writes_ += 1;
-  db_io_.seekp(offset);
-  db_io_.write(page_data, PAGE_SIZE);
 
-  if (db_io_.bad()) {
-    LOG_DEBUG("I/O error while writing");
+  // Use lseek() to move the file pointer to the beginning of the target page
+  if (lseek(fd, offset, SEEK_SET) == -1) {
+    LOG_DEBUG("lseek error");
     return;
   }
 
-  // Flush the write to disk.
-  db_io_.flush();
+  // Write the page data to the file
+  size_t write_count = write(fd, page_data, num_bytes);
+  if (write_count != num_bytes) {
+    LOG_DEBUG("write error");
+    return;
+  }
 }
 
 /**
  * Read the contents of the specified page into the given memory area
  */
-void DiskManager::ReadPage(page_id_t page_id, char *page_data) {
-  std::scoped_lock scoped_db_io_latch(db_io_latch_);
+void DiskManager::ReadPage(int fd, page_id_t page_id, char *page_data, size_t num_bytes) {
+  // Calculate the offset in the file
   int offset = page_id * PAGE_SIZE;
 
-  // Check if we have read beyond the file length.
-  if (offset > GetFileSize(file_name_)) {
-    LOG_DEBUG("I/O error: Read past the end of file at offset %d", offset);
+  // Use lseek() to move the file pointer to the beginning of the target page
+  if (lseek(fd, offset, SEEK_SET) == -1) {
+    LOG_DEBUG("lseek error");
     return;
   }
 
-  // Set the read cursor to the page offset.
-  db_io_.seekg(offset);
-  db_io_.read(page_data, PAGE_SIZE);
-
-  if (db_io_.bad()) {
-    LOG_DEBUG("I/O error while reading");
+  // Read the page data from the file
+  size_t read_count = read(fd, page_data, num_bytes);
+  if (read_count != num_bytes) {
+    LOG_DEBUG("read error: Read hit the end of file at offset %d, missing %ld bytes", offset, num_bytes - read_count);
     return;
-  }
-
-  // Check if the file ended before we could read a full page.
-  int read_count = db_io_.gcount();
-  if (read_count < PAGE_SIZE) {
-    LOG_DEBUG("I/O error: Read hit the end of file at offset %d, missing %d bytes", offset, PAGE_SIZE - read_count);
-    db_io_.clear();
-    memset(page_data + read_count, 0, PAGE_SIZE - read_count);
   }
 }
 
 /**
- * Write the contents of the log into disk file
- * Only return when sync is done, and only perform sequence write
+ * Allocate a new page in the file and return its page id
  */
-void DiskManager::WriteLog(char *log_data, int size) {
-  // enforce swap log buffer
-  assert(log_data != buffer_used);
-  buffer_used = log_data;
-
-  if (size == 0) {  // no effect on num_flushes_ if log buffer is empty
-    return;
-  }
-
-  flush_log_ = true;
-
-  if (flush_log_f_ != nullptr) {
-    // used for checking non-blocking flushing
-    assert(flush_log_f_->wait_for(std::chrono::seconds(10)) == std::future_status::ready);
-  }
-
-  num_flushes_ += 1;
-  // sequence write
-  log_io_.write(log_data, size);
-
-  // check for I/O error
-  if (log_io_.bad()) {
-    LOG_DEBUG("I/O error while writing log");
-    return;
-  }
-  // needs to flush to keep disk file in sync
-  log_io_.flush();
-  flush_log_ = false;
+page_id_t DiskManager::AllocatePage(int fd) {
+  assert(fd >= 0 && fd < MAX_FD);
+  return fd2pageno_[fd]++;
 }
 
 /**
- * Read the contents of the log into the given memory area
- * Always read from the beginning and perform sequence read
- * @return: false means already reach the end
+ * Create a directory with the given path
  */
-auto DiskManager::ReadLog(char *log_data, int size, int offset) -> bool {
-  if (offset >= GetFileSize(log_name_)) {
-    // LOG_DEBUG("end of log file");
-    // LOG_DEBUG("file size is %d", GetFileSize(log_name_));
-    return false;
+void DiskManager::CreateDir(const std::string &path) {
+  if (std::filesystem::exists(path)) {
+    return;
   }
-  log_io_.seekp(offset);
-  log_io_.read(log_data, size);
-
-  if (log_io_.bad()) {
-    LOG_DEBUG("I/O error while reading log");
-    return false;
-  }
-  // if log file ends before reading "size"
-  int read_count = log_io_.gcount();
-  if (read_count < size) {
-    log_io_.clear();
-    memset(log_data + read_count, 0, size - read_count);
-  }
-
-  return true;
+  std::filesystem::create_directory(path);
 }
 
 /**
- * Returns number of flushes made so far
+ * Destroy a directory with the given path
  */
-auto DiskManager::GetNumFlushes() const -> int { return num_flushes_; }
+void DiskManager::DestroyDir(const std::string &path) {
+  if (std::filesystem::exists(path)) {
+    std::filesystem::remove_all(path);
+  }
+}
 
 /**
- * Returns number of Writes made so far
+ * Create a file with the given path
  */
-auto DiskManager::GetNumWrites() const -> int { return num_writes_; }
+void DiskManager::CreateFile(const std::string &path) {
+  if (IsFile(path)) {
+    LOG_ERROR("file %s already exists", path.c_str());
+    return;
+  }
+  int fd = open(path.c_str(), O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+
+  if (fd == -1) {
+    LOG_ERROR("failed to create file %s", path.c_str());
+    return;
+  }
+  if (close(fd) == -1) {
+    LOG_ERROR("failed to close file %s", path.c_str());
+    return;
+  }
+}
 
 /**
- * Returns true if the log is currently being flushed
+ * Destroy a file with the given path
  */
-auto DiskManager::GetFlushState() const -> bool { return flush_log_; }
+void DiskManager::DestroyFile(const std::string &path) {
+  if (IsFile(path)) {
+    // Check if the file is still opened by any thread
+    if (path2fd_.find(path) != path2fd_.end() && path2fd_[path] != -1) {
+      LOG_ERROR("file %s is still opened by other threads", path.c_str());
+      return;
+    }
+    if (std::filesystem::remove(path) != 0) {
+      LOG_ERROR("failed to remove file %s", path.c_str());
+      return;
+    }
+  } else {
+    LOG_ERROR("file %s does not exist", path.c_str());
+    return;
+  }
+}
 
 /**
- * Private helper function to get disk file size
+ * Open a file with the given path and return its file descriptor
  */
-auto DiskManager::GetFileSize(const std::string &file_name) -> int {
+int DiskManager::OpenFile(const std::string &path) {
+  if (!IsFile(path)) {
+    LOG_ERROR("file %s does not exist", path.c_str());
+    return -1;
+  }
+
+  // Check if the file is already opened
+  if (path2fd_.find(path) != path2fd_.end() && path2fd_[path] != -1) {
+    LOG_ERROR("file %s is already opened by thread %d", path.c_str(), path2fd_[path]);
+    return -1;
+  }
+
+  // Open the file
+  int fd = open(path.c_str(), O_RDWR, S_IRUSR | S_IWUSR);
+
+  if (fd == -1) {
+    LOG_ERROR("failed to open file %s", path.c_str());
+    return -1;
+  }
+
+  // Register the file in the map
+  path2fd_[path] = fd;
+  fd2path_[fd] = path;
+
+  return fd;
+}
+
+/**
+ * Close a file with the given file descriptor
+ */
+void DiskManager::CloseFile(int fd) {
+  if (fd < 0 || fd >= MAX_FD) {
+    LOG_ERROR("invalid file descriptor %d", fd);
+    return;
+  }
+
+  // Check if the file is already closed
+  if (fd2path_.find(fd) == fd2path_.end()) {
+    LOG_WARN("file %s is already closed", fd2path_[fd].c_str());
+    return;
+  }
+
+  // Close the file
+  if (close(fd) == -1) {
+    LOG_ERROR("failed to close file %s", fd2path_[fd].c_str());
+    return;
+  }
+
+  // Unregister the file in the map
+  path2fd_.erase(fd2path_[fd]);
+  fd2path_.erase(fd);
+}
+
+auto DiskManager::GetFileSize(const std::string &path) -> int {
   struct stat stat_buf;
-  int rc = stat(file_name.c_str(), &stat_buf);
+  int rc = stat(path.c_str(), &stat_buf);
   return rc == 0 ? static_cast<int>(stat_buf.st_size) : -1;
+}
+
+/**
+ * Get the name of the file with the given file descriptor
+ */
+auto DiskManager::GetFileName(int fd) -> std::filesystem::path {
+  if (fd < 0 || fd >= MAX_FD) {
+    // LOG_ERROR("invalid file descriptor %d", fd);
+    throw Exception("invalid file descriptor");
+  }
+
+  if (fd2path_.find(fd) == fd2path_.end()) {
+    // LOG_ERROR("file %d is not opened", fd);
+    throw Exception("file is not opened");
+  }
+
+  return fd2path_[fd];
+}
+
+/**
+ * Get the file descriptor of the file with the given path
+ * If the file is not opened, open it and return its file descriptor
+ */
+int DiskManager::GetFileFd(const std::string &path) {
+  if (path2fd_.find(path) == path2fd_.end()) {
+    return OpenFile(path);
+  }
+
+  return path2fd_[path];
 }
 
 }  // namespace easydb
