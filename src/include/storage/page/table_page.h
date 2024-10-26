@@ -43,10 +43,10 @@ static constexpr uint64_t TABLE_PAGE_HEADER_SIZE = 8;
  *
  *  Header format (size in bytes):
  *  ----------------------------------------------------------------------------
- *  | NextPageId (4)| NumTuples(2) | NumDeletedTuples(2) |
+ *  |     NextPageId (4)    |    NumTuples(2)   |     NumDeletedTuples(2)      |
  *  ----------------------------------------------------------------------------
  *  ----------------------------------------------------------------
- *  | Tuple_1 offset+size (4) | Tuple_2 offset+size (4) | ... |
+ *  | Tuple_1 offset+size (4)   | Tuple_2 offset+size (4)  |  ...  |
  *  ----------------------------------------------------------------
  *
  * Tuple format:

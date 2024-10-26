@@ -24,6 +24,7 @@
 
 #include "buffer/lru_replacer.h"
 #include "common/config.h"
+#include "common/errors.h"
 // #include "recovery/log_manager.h"
 #include "storage/disk/disk_manager.h"
 #include "storage/page/page.h"
@@ -31,74 +32,6 @@
 namespace easydb {
 
 class BufferPoolManager;
-class ReadPageGuard;
-class WritePageGuard;
-
-/**
- * @brief A helper class for `BufferPoolManager` that manages a frame of memory and related metadata.
- *
- * This class represents headers for frames of memory that the `BufferPoolManager` stores pages of data into. Note that
- * the actual frames of memory are not stored directly inside a `FrameHeader`, rather the `FrameHeader`s store pointer
- * to the frames and are stored separately them.
- *
- * ---
- *
- * Something that may (or may not) be of interest to you is why the field `data_` is stored as a vector that is
- * allocated on the fly instead of as a direct pointer to some pre-allocated chunk of memory.
- *
- * In a traditional production buffer pool manager, all memory that the buffer pool is intended to manage is allocated
- * in one large contiguous array (think of a very large `malloc` call that allocates several gigabytes of memory up
- * front). This large contiguous block of memory is then divided into contiguous frames. In other words, frames are
- * defined by an offset from the base of the array in page-sized (4 KB) intervals.
- *
- * In BusTub, we instead allocate each frame on its own (via a `std::vector<char>`) in order to easily detect buffer
- * overflow with address sanitizer. Since C++ has no notion of memory safety, it would be very easy to cast a page's
- * data pointer into some large data type and start overwriting other pages of data if they were all contiguous.
- *
- * If you would like to attempt to use more efficient data structures for your buffer pool manager, you are free to do
- * so. However, you will likely benefit significantly from detecting buffer overflow in future projects (especially
- * project 2).
- */
-class FrameHeader {
-  friend class BufferPoolManager;
-  friend class ReadPageGuard;
-  friend class WritePageGuard;
-
- public:
-  explicit FrameHeader(frame_id_t frame_id);
-
- private:
-  auto GetData() const -> const char *;
-  auto GetDataMut() -> char *;
-  void Reset();
-
-  /** @brief The frame ID / index of the frame this header represents. */
-  const frame_id_t frame_id_;
-
-  /** @brief The readers / writer latch for this frame. */
-  std::shared_mutex rwlatch_;
-
-  /** @brief The number of pins on this frame keeping the page in memory. */
-  std::atomic<size_t> pin_count_;
-
-  /** @brief The dirty flag. */
-  bool is_dirty_;
-
-  /**
-   * @brief A pointer to the data of the page that this frame holds.
-   *
-   * If the frame does not hold any page data, the frame contains all null bytes.
-   */
-  std::vector<char> data_;
-
-  /**
-   * TODO(P1): You may add any fields or helper functions under here that you think are necessary.
-   *
-   * One potential optimization you could make is storing an optional page ID of the page that the `FrameHeader` is
-   * currently storing. This might allow you to skip searching for the corresponding (page ID, frame ID) pair somewhere
-   * else in the buffer pool manager...
-   */
-};
 
 /**
  * @brief The declaration of the `BufferPoolManager` class.
@@ -112,43 +45,128 @@ class FrameHeader {
  */
 class BufferPoolManager {
  public:
-  //   BufferPoolManager(size_t num_frames, DiskManager *disk_manager, size_t k_dist = LRUK_REPLACER_K,
-  //                     LogManager *log_manager = nullptr);
   BufferPoolManager(size_t num_frames, DiskManager *disk_manager);
   ~BufferPoolManager();
 
+  /**
+  * @description: mark target page dirty
+  * @param {Page*} page: dirty page
+  */
+  static void MarkDirty(Page* page) { page->is_dirty_ = true; }
+
+  /**
+ * @brief Returns the number of frames that this buffer pool manages.
+ */
   auto Size() const -> size_t;
-  auto NewPage() -> page_id_t;
-  auto DeletePage(page_id_t page_id) -> bool;
-  //   auto CheckedWritePage(page_id_t page_id,
-  //                         AccessType access_type = AccessType::Unknown) -> std::optional<WritePageGuard>;
-  //   auto CheckedReadPage(page_id_t page_id, AccessType access_type = AccessType::Unknown) ->
-  //   std::optional<ReadPageGuard>; auto WritePage(page_id_t page_id, AccessType access_type = AccessType::Unknown) ->
-  //   WritePageGuard; auto ReadPage(page_id_t page_id, AccessType access_type = AccessType::Unknown) -> ReadPageGuard;
-  auto FlushPage(page_id_t page_id) -> bool;
-  void FlushAllPages();
-  auto GetPinCount(page_id_t page_id) -> std::optional<size_t>;
-  //   auto GetPinCount(page_id_t page_id) -> size_t;
+
+ /**
+ * @brief Allocates a new page on disk.
+ * @return The page ID of the newly allocated page.
+ */
+  auto NewPage(PageId*  page_id) -> Page*;
+
+  /**
+  * @description: fetch a page;
+  *              if find page_id from page_table_, the page is in buffer pool, return it and pin_count++;
+  *              if can not find page_id from page_table_, the page in on disk, load it to disk, and return it. Set
+  * pin_count to 1;
+  * @return {Page*} the target page or nullptr.
+  * @param {PageId} page_id : PageId of the target page.
+  * @note: pin the page, need to unpin the page outside
+  */
+  auto FetchPage(PageId  page_id) -> Page*;
+
+
+  /**
+  * @description: unpin a frame in buffer pool.
+  * @return {bool} return false if the target frame.pin_count_ <= 0, else return true.
+  * @param {PageId} page_id: page_id of the target page.
+  * @param {bool} is_dirty: mark if the target frame need to be marked dirty
+  */
+  auto UnpinPage(PageId page_id, bool is_dirty) -> bool;
+
+  /**
+  * @brief Removes a page from the database, both on disk and in memory.
+  *
+  * If the page is pinned in the buffer pool, this function does nothing and returns `false`. Otherwise, this function
+  * removes the page from both disk and memory (if it is still in the buffer pool), returning `true`.
+  *
+  * @param page_id The page ID of the page we want to delete.
+  * @return `false` if the page exists but could not be deleted, `true` if the page didn't exist or deletion succeeded.
+  */
+  auto DeletePage(PageId page_id) -> bool;
+
+  /**
+  * @brief Flushes a page's data out to disk.
+  * @param page_id The page ID of the page to be flushed.
+  * @return `false` if the page could not be found in the page table, otherwise `true`.
+  */
+  auto FlushPage(PageId page_id) -> bool;
+
+  /**
+  * @brief Flushes all page data in a table (distinguished by fd) that is in memory to disk.
+  * @param {int} fd file descriptor
+  */
+  void FlushAllPages(int fd);
+
+  /**
+  * @description: This function flushes all dirty pages in the buffer pool to disk.
+  * @return {void}
+  * @note This function uses a scoped lock to ensure thread safety during the operation.
+  */
+  void FlushAllDirtyPages();
+
+  /**
+  * @brief Recover a known page from disk to the buffer bool.
+  * @return {Page*} return recovered frame，otherwise return nullptr
+  * @param {PageId} page_id: the page_id of the page to be recovered
+  * @note: page_id must have valid fd；
+  *        the pin_count of the output frame is 1，is_dirty is false;
+  *        the page is a wrapper of FetchPage function
+  *
+  */
+  auto RecoverPage(PageId page_id) -> Page*;
 
  private:
+
+  /**
+  * @brief Find a victim frame from the free_frame_list or the replacer.
+  * @return {bool} true: find a victim frame , false: fail to find a victim frame
+  * @param {frame_id_t*} return the frame_id of the found victim frame
+  *
+  */
+  auto FindVictimPage(frame_id_t* frame_id) -> bool;
+
+
+  /**
+  * @brief Update the page data, page meta data (data, is_dirty_, page_id) and page table.
+  * If it is dirty, it should be write back to disk first before update.
+  * @param {Page*} frame : frame to be updated
+  * @param {PageId} new_page_id : new page_id
+  * @param {frame_id_t} new_frame_id : new frame_id
+  * @note after update : PageId is new_page_id; pin_count is 0; is_dirty is false; data reset to 0
+  *
+  */
+  void UpdatePage(Page* frame, PageId new_page_id, frame_id_t new_frame_id);
+
   /** @brief The number of frames in the buffer pool. */
   const size_t num_frames_;
 
   /** @brief The next page ID to be allocated.  */
-  std::atomic<page_id_t> next_page_id_;
+  // std::atomic<PageId> next_page_id_;
 
   /**
    * @brief The latch protecting the buffer pool's inner data structures.
-   *
-   * TODO(P1) We recommend replacing this comment with details about what this latch actually protects.
    */
-  std::shared_ptr<std::mutex> bpm_latch_;
+  std::mutex latch_;      
+  // std::shared_ptr<std::mutex> bpm_latch_;
 
   /** @brief The frame headers of the frames that this buffer pool manages. */
-  std::vector<std::shared_ptr<FrameHeader>> frames_;
+  std::vector<Page> frames_;
+  // std::vector<std::shared_ptr<FrameHeader>> frames_;
 
   /** @brief The page table that keeps track of the mapping between pages and buffer pool frames. */
-  std::unordered_map<page_id_t, frame_id_t> page_table_;
+  std::unordered_map<PageId, frame_id_t, PageIdHash> page_table_;
 
   /** @brief A list of free frames that do not hold any page's data. */
   std::list<frame_id_t> free_frames_;
@@ -156,21 +174,8 @@ class BufferPoolManager {
   /** @brief The replacer to find unpinned / candidate pages for eviction. */
   std::shared_ptr<LRUReplacer> replacer_;
 
-  //   /**
-  //    * @brief A pointer to the log manager.
-  //    *
-  //    * Note: Please ignore this.
-  //    */
-  //   LogManager *log_manager_ __attribute__((__unused__));
+  // std::shared_ptr<DiskManager> disk_manager_;
+  DiskManager* disk_manager_;
 
-  /**
-   * TODO: You may add additional private members and helper functions if you find them necessary.
-   *
-   * There will likely be a lot of code duplication between the different modes of accessing a page.
-   *
-   * We would recommend implementing a helper function that returns the ID of a frame that is free and has nothing
-   * stored inside of it. Additionally, you may also want to implement a helper function that returns either a shared
-   * pointer to a `FrameHeader` that already has a page's data stored inside of it, or an index to said `FrameHeader`.
-   */
 };
 }  // namespace easydb
