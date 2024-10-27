@@ -112,7 +112,8 @@ void DiskManager::ReadPage(int fd, page_id_t page_id, char *page_data, size_t nu
   // Read the page data from the file
   size_t read_count = read(fd, page_data, num_bytes);
   if (read_count != num_bytes) {
-    LOG_DEBUG("read error: Read hit the end of file at offset %d, missing %ld bytes", offset, num_bytes - read_count);
+    LOG_DEBUG("I/O error: Read hit the end of file at offset %d, missing %ld bytes", offset, num_bytes - read_count);
+    memset(page_data + read_count, 0, PAGE_SIZE - read_count);
     return;
   }
 }

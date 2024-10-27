@@ -36,7 +36,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # Includes.
 set(EasyDB_SRC_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/src/include)
-# set(EasyDB_TEST_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/test/include)
+set(EasyDB_TEST_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/test/include)
 set(EasyDB_DEPS_INCLUDE_DIR
         ${PROJECT_SOURCE_DIR}/deps
         # ${PROJECT_SOURCE_DIR}/deps/fmt/include
@@ -46,8 +46,8 @@ set(EasyDB_DEPS_INCLUDE_DIR
         # ${PROJECT_SOURCE_DIR}/deps/backward-cpp
 )
 
-# include_directories(${EasyDB_SRC_INCLUDE_DIR} ${DB_TEST_INCLUDE_DIR} ${DB_DEPS_INCLUDE_DIR})
-include_directories(${EasyDB_SRC_INCLUDE_DIR} ${EasyDB_DEPS_INCLUDE_DIR})
+include_directories(${EasyDB_SRC_INCLUDE_DIR} ${DB_TEST_INCLUDE_DIR} ${DB_DEPS_INCLUDE_DIR})
+# include_directories(${EasyDB_SRC_INCLUDE_DIR} ${EasyDB_DEPS_INCLUDE_DIR})
 include_directories(BEFORE src) # This is needed for gtest.
 
 # #####################################################################################################################
