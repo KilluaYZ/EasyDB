@@ -25,6 +25,41 @@
 
 namespace easydb {
 
+
+/**
+ * @description: declare of each pageId
+ */
+struct PageId {
+    int fd;  //  Page所在的磁盘文件开启后的文件描述符, 来定位打开的文件在内存中的位置
+    page_id_t page_no = INVALID_PAGE_ID;
+
+    friend bool operator==(const PageId &x, const PageId &y) { return x.fd == y.fd && x.page_no == y.page_no; }
+    bool operator<(const PageId& x) const {
+        if(fd < x.fd) return true;
+        return page_no < x.page_no;
+    }
+
+    std::string toString() {
+        return "{fd: " + std::to_string(fd) + " page_no: " + std::to_string(page_no) + "}"; 
+    }
+
+    inline int64_t Get() const {
+        return (static_cast<int64_t>(fd << 16) | page_no);
+    }
+};
+
+
+// PageId的自定义哈希算法, 用于构建unordered_map<PageId, frame_id_t, PageIdHash>
+struct PageIdHash {
+    size_t operator()(const PageId &x) const { return (x.fd << 16) | x.page_no; }
+};
+
+// template <>
+// struct std::hash<PageId> {
+//     size_t operator()(const PageId &obj) const { return std::hash<int64_t>()(obj.Get()); }
+// };
+
+
 /**
  * @brief
  *
@@ -35,14 +70,10 @@ namespace easydb {
 class Page {
   // There is book-keeping information inside the page that should only be relevant to the buffer pool manager.
   friend class BufferPoolManager;
-  friend class ReadPageGuard;
-  friend class WritePageGuard;
 
  public:
   /** Constructor. Zeros out the page data. */
-  Page() : data_(static_cast<size_t>(PAGE_SIZE), 0), page_id_(INVALID_PAGE_ID) {
-    pin_count_.store(0, std::memory_order_relaxed);
-    is_dirty_.store(false, std::memory_order_relaxed);
+  Page() {
     ResetMemory();
   }
 
@@ -53,7 +84,7 @@ class Page {
   inline auto GetData() -> char * { return data_.data(); }
 
   /** @return the page id of this page */
-  inline auto GetPageId() const -> page_id_t { return page_id_; }
+  inline auto GetPageId() const -> PageId { return page_id_; }
 
   /** @return the pin count of this page. */
   inline auto GetPinCount() const -> int { return pin_count_.load(std::memory_order_acquire); }
@@ -94,7 +125,7 @@ class Page {
    */
   inline void ResetMemory() {
     std::fill(data_.begin(), data_.end(), 0);
-    page_id_ = INVALID_PAGE_ID;
+    page_id_.page_no = INVALID_PAGE_ID;
     pin_count_.store(0, std::memory_order_release);
     is_dirty_.store(false, std::memory_order_release);
   }
@@ -109,7 +140,7 @@ class Page {
   std::vector<char> data_;
 
   /** @brief The ID of this page. */
-  page_id_t page_id_;
+  PageId page_id_;
 
   /** @brief The pin count of this page. */
   std::atomic<size_t> pin_count_;
