@@ -1,11 +1,18 @@
-//
-// Created by ziyang on 24-10-24.
-//
+/* Copyright (c) 2023 Renmin University of China
+RMDB is licensed under Mulan PSL v2.
+You can use this software according to the terms and conditions of the Mulan PSL v2.
+You may obtain a copy of Mulan PSL v2 at:
+        http://license.coscl.org.cn/MulanPSL2
+THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+See the Mulan PSL v2 for more details. */
 
-#ifndef DEFS_H
-#define DEFS_H
+#pragma once
+
 #include <iostream>
 #include <map>
+enum AggregationType { MAX_AGG, MIN_AGG, COUNT_AGG, SUM_AGG, NO_AGG };
 // 此处重载了<<操作符，在ColMeta中进行了调用
 template <typename T, typename = typename std::enable_if<std::is_enum<T>::value, T>::type>
 std::ostream &operator<<(std::ostream &os, const T &enum_val) {
@@ -30,12 +37,12 @@ struct Rid {
   friend bool operator!=(const Rid &x, const Rid &y) { return !(x == y); }
 };
 
-enum ColType { TYPE_CHAR, TYPE_VARCHAR, TYPE_INT, TYPE_LONG, TYPE_FLOAT, TYPE_DOUBLE, TYPE_DATE, TYPE_EMPTY };
+enum ColType { TYPE_INT, TYPE_LONG, TYPE_FLOAT, TYPE_DOUBLE, TYPE_VARCHAR, TYPE_CHAR, TYPE_DATE, TYPE_EMPTY };
 
 inline std::string coltype2str(ColType type) {
   std::map<ColType, std::string> m = {
-      {TYPE_CHAR, "CHAR"},   {TYPE_VARCHAR, "VARCHAR"}, {TYPE_INT, "INT"},   {TYPE_LONG, "LONG"},
-      {TYPE_FLOAT, "FLOAT"}, {TYPE_DOUBLE, "DOUBLE"},   {TYPE_DATE, "DATE"}, {TYPE_EMPTY, "EMPTY"},
+      {TYPE_INT, "INT"},         {TYPE_LONG, "LONG"}, {TYPE_FLOAT, "FLOAT"}, {TYPE_DOUBLE, "DOUBLE"},
+      {TYPE_VARCHAR, "VARCHAR"}, {TYPE_CHAR, "CHAR"}, {TYPE_DATE, "DATE"},   {TYPE_EMPTY, "EMPTY"},
   };
   return m.at(type);
 }
@@ -50,5 +57,3 @@ class RecScan {
 
   virtual Rid rid() const = 0;
 };
-
-#endif //DEFS_H
