@@ -78,7 +78,7 @@ class TB_Reader {
 
   void parse_and_create_tab(DiskManager* disk_manager) {
     for(int i = 0;i < columns.size(); ++i) {
-         
+
     }
   }
 };
