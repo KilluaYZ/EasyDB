@@ -68,12 +68,13 @@ class RmFileHandle {
     disk_manager_->SetFd2Pageno(fd, file_hdr_.num_pages);
   }
 
-  RmFileHdr get_file_hdr() { return file_hdr_; }
+  // RmFileHdr get_file_hdr() { return file_hdr_; }
+  RmFileHdr GetFileHdr() { return file_hdr_; }
   int GetFd() { return fd_; }
 
   /* 判断指定位置上是否已经存在一条记录，通过Bitmap来判断 */
   bool IsRecord(const RID &rid) const {
-    RmPageHandle page_handle = fetch_page_handle(rid.GetPageId());
+    RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
     return Bitmap::is_set(page_handle.bitmap, rid.GetSlotNum());  // page的slot_no位置上是否有record
   }
 
@@ -92,16 +93,19 @@ class RmFileHandle {
   //   void update_record(const RID &rid, char *buf, Context *context);
   void UpdateRecord(const RID &rid, char *buf);
 
-  RmPageHandle create_new_page_handle();
+  // RmPageHandle create_new_page_handle();
+  RmPageHandle CreateNewPageHandle();
 
-  RmPageHandle fetch_page_handle(int page_no) const;
-  RmPageHandle FetchPageHandle(page_id_t page_id) const;
+  // RmPageHandle fetch_page_handle(int page_no) const;
+  RmPageHandle FetchPageHandle(page_id_t page_no) const;
 
-//   void set_page_lsn(int page_no, lsn_t lsn);
+  //   void set_page_lsn(int page_no, lsn_t lsn);
 
  private:
-  RmPageHandle create_page_handle();
+  // RmPageHandle create_page_handle();
+  RmPageHandle CreatePageHandle();
 
-  void release_page_handle(RmPageHandle &page_handle);
+  // void release_page_handle(RmPageHandle &page_handle);
+  void ReleasePageHandle(RmPageHandle &page_handle);
 };
 }  // namespace easydb

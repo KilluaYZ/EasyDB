@@ -18,9 +18,9 @@ class RecScan {
  public:
   virtual ~RecScan() = default;
 
-  virtual void next() = 0;
+  virtual void Next() = 0;
 
-  virtual bool is_end() const = 0;
+  virtual bool IsEnd() const = 0;
 
   virtual RID rid() const = 0;
 };
@@ -34,9 +34,9 @@ class RmScan : public RecScan {
  public:
   RmScan(const RmFileHandle *file_handle);
 
-  void next() override;
+  void Next() override;
 
-  bool is_end() const override;
+  bool IsEnd() const override;
 
   RID rid() const override;
 };
