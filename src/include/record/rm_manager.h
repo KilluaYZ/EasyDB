@@ -2,9 +2,9 @@
  *
  * EasyDB
  *
- * rm_defs.h
+ * rm_manager.h
  *
- * Identification: src/include/record/rm_defs.h
+ * Identification: src/include/record/rm_manager.h
  *
  *-------------------------------------------------------------------------
  */
