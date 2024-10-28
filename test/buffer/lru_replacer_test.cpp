@@ -22,89 +22,41 @@ namespace easydb {
 TEST(LRUReplacerTest, TestFunctionality) {
   LRUReplacer lru_replacer(7);
 
-  // Scenario: add six elements to the replacer. We have [1,2,3,4,5]. Frame 6 is non-evictable.
-  lru_replacer.RecordAccess(1);
-  lru_replacer.RecordAccess(2);
-  lru_replacer.RecordAccess(3);
-  lru_replacer.RecordAccess(4);
-  lru_replacer.RecordAccess(5);
-  lru_replacer.RecordAccess(6);
-  lru_replacer.SetEvictable(1, true);
-  lru_replacer.SetEvictable(2, true);
-  lru_replacer.SetEvictable(3, true);
-  lru_replacer.SetEvictable(4, true);
-  lru_replacer.SetEvictable(5, true);
-  lru_replacer.SetEvictable(6, false);
-  ASSERT_EQ(5, lru_replacer.Size());
+  // Scenario: unpin six elements, i.e. add them to the replacer.
+  lru_replacer.Unpin(1);
+  lru_replacer.Unpin(2);
+  lru_replacer.Unpin(3);
+  lru_replacer.Unpin(4);
+  lru_replacer.Unpin(5);
+  lru_replacer.Unpin(6);
+  lru_replacer.Unpin(1);
+  EXPECT_EQ(6, lru_replacer.Size());
 
-  // Scenario: Insert access history for frame 1. Now frame 1 has two access histories.
-  // All other frames have max backward k-dist. The order of eviction is [2,3,4,5,1].
-  lru_replacer.RecordAccess(1);
-
-  // Scenario: Evict three pages from the replacer. Elements with max k-distance should be popped
-  // first based on LRU.
+  // Scenario: get three victims from the lru.
   int value;
   lru_replacer.Victim(&value);
-  ASSERT_EQ(2, value);
+  EXPECT_EQ(1, value);
   lru_replacer.Victim(&value);
-  ASSERT_EQ(3, value);
+  EXPECT_EQ(2, value);
   lru_replacer.Victim(&value);
-  ASSERT_EQ(4, value);
-  ASSERT_EQ(2, lru_replacer.Size());
-  // 5 , 1
+  EXPECT_EQ(3, value);
 
-  // Scenario: Now replacer has frames [5,1].
-  // Insert new frames 3, 4, and update access history for 5. We should end with [3,1,5,4]
-  lru_replacer.RecordAccess(3);
-  lru_replacer.RecordAccess(4);
-  lru_replacer.RecordAccess(5);
-  lru_replacer.RecordAccess(4);
-  lru_replacer.SetEvictable(3, true);
-  lru_replacer.SetEvictable(4, true);
-  ASSERT_EQ(4, lru_replacer.Size());
+  // Scenario: pin elements in the replacer.
+  // Note that 3 has already been victimized, so pinning 3 should have no effect.
+  lru_replacer.Pin(3);
+  lru_replacer.Pin(4);
+  EXPECT_EQ(2, lru_replacer.Size());
 
-  // 5,6,1,3,4,5,4
-  // Scenario: continue looking for victims. We expect 3 to be evicted next.
+  // Scenario: unpin 4. We expect that the reference bit of 4 will be set to 1.
+  lru_replacer.Unpin(4);
+
+  // Scenario: continue looking for victims. We expect these victims.
   lru_replacer.Victim(&value);
-  ASSERT_EQ(1, value);
-  ASSERT_EQ(3, lru_replacer.Size());
-
-  // Set 6 to be evictable. 6 Should be evicted next since it has max backward k-dist.
-  lru_replacer.SetEvictable(6, true);
-  ASSERT_EQ(4, lru_replacer.Size());
+  EXPECT_EQ(5, value);
   lru_replacer.Victim(&value);
-  ASSERT_EQ(6, value);
-  ASSERT_EQ(3, lru_replacer.Size());
-
-  // 3,4,5,4
-
-  // Now we have [1,5,4]. Continue looking for victims.
-  ASSERT_EQ(3, lru_replacer.Size());
-  lru_replacer.SetEvictable(3, false);
-  ASSERT_EQ(2, lru_replacer.Size());
-  ASSERT_EQ(true, lru_replacer.Victim(&value));
-  ASSERT_EQ(5, value);
-  ASSERT_EQ(1, lru_replacer.Size());
-
-  // 3    4
-  // Update access history for 1. Now we have [4,1]. Next victim is 4.
-  lru_replacer.RecordAccess(1);
-  lru_replacer.RecordAccess(1);
-  lru_replacer.SetEvictable(1, true);
-  ASSERT_EQ(2, lru_replacer.Size());
-  ASSERT_EQ(true, lru_replacer.Victim(&value));
-  ASSERT_EQ(value, 4);
-  // 3    1
-  ASSERT_EQ(1, lru_replacer.Size());
+  EXPECT_EQ(6, value);
   lru_replacer.Victim(&value);
-  ASSERT_EQ(value, 1);
-  ASSERT_EQ(0, lru_replacer.Size());
-
-  // These operations should not modify size
-  ASSERT_EQ(false, lru_replacer.Victim(&value));
-  ASSERT_EQ(0, lru_replacer.Size());
-  //   lru_replacer.Remove(1);
-  //   ASSERT_EQ(0, lru_replacer.Size());
+  EXPECT_EQ(4, value);
 }
 
 }  // namespace easydb

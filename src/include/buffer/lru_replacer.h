@@ -28,10 +28,16 @@
 #include "common/macros.h"
 
 namespace easydb {
-
 /**
  * LRUReplacer implements the Least Recently Used replacement policy.
  */
+class LinkListNode {
+ public:
+  frame_id_t val_{0};
+  LinkListNode *prev_{nullptr};
+  LinkListNode *next_{nullptr};
+  explicit LinkListNode(frame_id_t Val) : val_(Val) {}
+};
 class LRUReplacer : public Replacer {
  public:
   /**
@@ -40,30 +46,27 @@ class LRUReplacer : public Replacer {
    */
   explicit LRUReplacer(size_t num_pages);
 
-  DISALLOW_COPY_AND_MOVE(LRUReplacer);
   /**
    * Destroys the LRUReplacer.
    */
   ~LRUReplacer() override;
 
-  // Remove the object that was accessed least recently compared to all the other elements being tracked by the
-  // Replacer, store its contents in the output parameter and return True. If the Replacer is empty return False.
-  auto Victim(frame_id_t *frame_id) -> bool override;
+  bool Victim(frame_id_t *frame_id) override;
 
-  // Set a frame as evictable or non-evictable based on the parameter
-  void SetEvictable(frame_id_t frame_id, bool Evictable) override;
+  void Pin(frame_id_t frame_id) override;
 
-  // Record the event that the given frame id is accessed at the current timestamp
-  void RecordAccess(frame_id_t frame_id);
+  void Unpin(frame_id_t frame_id) override;
 
-  auto Size() -> size_t override;
+  size_t Size() override;
+
+  void DeleteNode(LinkListNode *curr);
 
  private:
-  size_t replacer_size_;
-  std::list<frame_id_t> lru_list_;  // List of frame ids in LRU order
-  std::unordered_map<frame_id_t, std::list<frame_id_t>::iterator> frame_map_;
-  std::unordered_map<frame_id_t, bool> evictable_;  // Track pin status of frames
-  std::mutex latch_;
+  // TODO(student): implement me!
+  std::unordered_map<frame_id_t, LinkListNode *> data_idx_;
+  LinkListNode *head_{nullptr};
+  LinkListNode *tail_{nullptr};
+  std::mutex data_latch_;
 };
 
 }  // namespace easydb

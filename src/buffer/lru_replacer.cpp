@@ -19,65 +19,79 @@
 
 namespace easydb {
 
-LRUReplacer::LRUReplacer(size_t num_frames) : replacer_size_(num_frames) {}
+LRUReplacer::LRUReplacer(size_t num_pages) {}
 
-LRUReplacer::~LRUReplacer() = default;
+LRUReplacer::~LRUReplacer() {
+  LinkListNode *p = head_;
+  while (p != nullptr) {
+    LinkListNode *tmp = p;
+    p = p->next_;
+    delete (tmp);
+  }
+}
 
-auto LRUReplacer::Victim(frame_id_t *frame_id) -> bool {
-  std::scoped_lock<std::mutex> lock(latch_);
-  for (auto it = lru_list_.rbegin(); it != lru_list_.rend(); ++it) {
-    if (evictable_[*it]) {
-      *frame_id = *it;
-      evictable_.erase(*frame_id);
-      frame_map_.erase(*frame_id);
-      lru_list_.erase(std::next(it).base());
-      return true;
+void LRUReplacer::DeleteNode(LinkListNode *curr) {
+  if (curr == head_ && curr == tail_) {
+    head_ = nullptr;
+    tail_ = nullptr;
+  } else if (curr == head_) {
+    head_ = head_->next_;
+    curr->next_->prev_ = curr->prev_;
+  } else if (curr == tail_) {
+    tail_ = tail_->prev_;
+    curr->prev_->next_ = curr->next_;
+  } else {
+    curr->prev_->next_ = curr->next_;
+    curr->next_->prev_ = curr->prev_;
+  }
+  delete (curr);
+}
+bool LRUReplacer::Victim(frame_id_t *frame_id) {
+  data_latch_.lock();
+  if (data_idx_.empty()) {
+    data_latch_.unlock();
+    return false;
+  }
+  *frame_id = head_->val_;
+  data_idx_.erase(head_->val_);
+  LinkListNode *tmp = head_;
+  DeleteNode(tmp);
+  data_latch_.unlock();
+  return true;
+}
+
+void LRUReplacer::Pin(frame_id_t frame_id) {
+  data_latch_.lock();
+  auto it = data_idx_.find(frame_id);
+  if (it != data_idx_.end()) {
+    DeleteNode(data_idx_[frame_id]);
+    data_idx_.erase(it);
+  }
+  data_latch_.unlock();
+}
+
+void LRUReplacer::Unpin(frame_id_t frame_id) {
+  data_latch_.lock();
+  auto it = data_idx_.find(frame_id);
+  if (it == data_idx_.end()) {
+    LinkListNode *new_node = new LinkListNode(frame_id);
+    if (data_idx_.empty()) {
+      head_ = tail_ = new_node;
+    } else {
+      tail_->next_ = new_node;
+      new_node->prev_ = tail_;
+      tail_ = new_node;
     }
+    data_idx_[frame_id] = tail_;
   }
-  return false;
+  data_latch_.unlock();
 }
 
-// Record the event that the given frame id is accessed at the current timestamp
-void LRUReplacer::RecordAccess(frame_id_t frame_id) {
-  std::scoped_lock<std::mutex> lock(latch_);
-  if (frame_map_.count(frame_id)) {
-    lru_list_.erase(frame_map_[frame_id]);
-  } else if (lru_list_.size() >= replacer_size_) {
-    frame_id_t old_frame_id = lru_list_.back();
-    lru_list_.pop_back();
-    frame_map_.erase(old_frame_id);
-    evictable_.erase(old_frame_id);
-  }
-  lru_list_.emplace_front(frame_id);
-  frame_map_[frame_id] = lru_list_.begin();
-  evictable_[frame_id] = true;
-}
-
-// Set a frame as evictable or non-evictable based on the parameter
-void LRUReplacer::SetEvictable(frame_id_t frame_id, bool Evictable) {
-  std::scoped_lock<std::mutex> lock(latch_);
-  if (frame_map_.count(frame_id)) {
-    evictable_[frame_id] = Evictable;
-    // if (!Evictable) {
-    //   lru_list_.remove(frame_id);  // Remove from LRU if it becomes non-evictable
-    // } else if (std::find(lru_list_.begin(), lru_list_.end(), frame_id) == lru_list_.end()) {
-    //   // Add to front if not already present when marked evictable
-    //   lru_list_.emplace_front(frame_id);
-    //   frame_map_[frame_id] = lru_list_.begin();
-    // }
-  }
-}
-
-// Return the number of evictable frames
-auto LRUReplacer::Size() -> size_t {
-  std::scoped_lock<std::mutex> lock(latch_);
-  size_t size = 0;
-  for (const auto &[frame_id, is_evictable] : evictable_) {
-    if (is_evictable) {
-      size++;
-    }
-  }
-  return size;
+size_t LRUReplacer::Size() {
+  data_latch_.lock();
+  size_t ret = data_idx_.size();
+  data_latch_.unlock();
+  return ret;
 }
 
 }  // namespace easydb
