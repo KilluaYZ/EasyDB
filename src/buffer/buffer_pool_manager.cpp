@@ -91,7 +91,8 @@ void FrameHeader::Reset() {
 //   // The page table should have exactly `num_frames_` slots, corresponding to exactly `num_frames_` frames.
 //   page_table_.reserve(num_frames_);
 
-//   // Initialize all of the frame headers, and fill the free frame list with all possible frame IDs (since all frames are
+//   // Initialize all of the frame headers, and fill the free frame list with all possible frame IDs (since all frames
+//   are
 //   // initially free).
 //   for (size_t i = 0; i < num_frames_; i++) {
 //     frames_.push_back(std::make_shared<FrameHeader>(i));
@@ -157,7 +158,6 @@ auto BufferPoolManager::NewPage() -> page_id_t { UNIMPLEMENTED("TODO"); }
  */
 auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool { UNIMPLEMENTED("TODO"); }
 
-
 /**
  * @brief Flushes a page's data out to disk.
  *
@@ -212,8 +212,6 @@ void BufferPoolManager::FlushAllPages() { UNIMPLEMENTED("TODO"); }
  * @param page_id The page ID of the page we want to get the pin count of.
  * @return std::optional<size_t> The pin count if the page exists, otherwise `std::nullopt`.
  */
-auto BufferPoolManager::GetPinCount(page_id_t page_id) -> std::optional<size_t> {
-  UNIMPLEMENTED("TODO");
-}
+auto BufferPoolManager::GetPinCount(page_id_t page_id) -> std::size_t { UNIMPLEMENTED("TODO"); }
 
 }  // namespace easydb

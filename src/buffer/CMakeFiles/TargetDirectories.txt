@@ -1,0 +1,3 @@
+/home/zhouzhigan/DB2024/src/buffer/CMakeFiles/easydb_buffer.dir
+/home/zhouzhigan/DB2024/src/buffer/CMakeFiles/edit_cache.dir
+/home/zhouzhigan/DB2024/src/buffer/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,2 @@
+/usr/bin/ar qc libeasydb.a common/CMakeFiles/easydb_common.dir/config.o buffer/CMakeFiles/easydb_buffer.dir/buffer_pool_manager.o buffer/CMakeFiles/easydb_buffer.dir/lru_replacer.o storage/disk/CMakeFiles/easydb_storage_disk.dir/disk_manager.o storage/page/CMakeFiles/easydb_storage_page.dir/table_page.o
+/usr/bin/ranlib libeasydb.a

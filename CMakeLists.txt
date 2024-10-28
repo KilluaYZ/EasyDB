@@ -3,14 +3,14 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON) # Require C++17 support.
 
-project(DB2024
-        LANGUAGES C CXX
-)
-
 # set(CLANG_SEARCH_PATH "/usr/local/bin" "/usr/bin" "/usr/local/opt/llvm/bin" "/usr/local/opt/llvm@14/bin")
 
 set(CMAKE_C_COMPILER "/usr/bin/clang")
 set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
+
+project(EasyDB
+        LANGUAGES C CXX
+)
 
 # #####################################################################################################################
 # DEPENDENCIES
@@ -24,7 +24,8 @@ enable_testing()
 # #####################################################################################################################
 
 # Compiler flags.
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra -Werror")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra")
+# set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Werror")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -ggdb -fsanitize=address -fno-omit-frame-pointer -fno-optimize-sibling-calls")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -56,6 +57,6 @@ include_directories(BEFORE src) # This is needed for gtest.
 
 add_subdirectory(deps)
 add_subdirectory(src)
-# add_subdirectory(test)
+add_subdirectory(test)
 # add_subdirectory(tools)
 # add_subdirectory(client)
