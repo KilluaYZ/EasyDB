@@ -44,11 +44,10 @@ BufferPoolManager::BufferPoolManager(size_t num_frames, DiskManager *disk_manage
     : num_frames_(num_frames),
       replacer_(std::make_unique<LRUReplacer>(num_frames)),
       disk_manager_(disk_manager)
-    //   disk_manager_(std::make_unique<DiskManager>(disk_manager)) {
-  {
-
+//   disk_manager_(std::make_unique<DiskManager>(disk_manager)) {
+{
   // Allocate all of the in-memory frames up front.
-  frames_ = new Page[num_frames_*PAGE_SIZE];
+  frames_ = new Page[num_frames_ * PAGE_SIZE];
 
   // // The page table should have exactly `num_frames_` slots, corresponding to exactly `num_frames_` frames.
   page_table_.reserve(num_frames_);
@@ -80,7 +79,6 @@ auto BufferPoolManager::NewPage(PageId *page_id) -> Page * {
   // std::scoped_lock latch(*bpm_latch_);
   std::scoped_lock lock{latch_};
 
-
   // 1. Find a victim frame
   frame_id_t frame_id;
   if (!FindVictimPage(&frame_id)) {
@@ -105,11 +103,11 @@ auto BufferPoolManager::NewPage(PageId *page_id) -> Page * {
 
   // 4. Update the frame with the new page ID and pin it
   replacer_->Pin(frame_id);
+  // Reset the page memory
+  frame->ResetMemory();
   frame->page_id_ = *page_id;
   frame->pin_count_ = 1;
   frame->is_dirty_ = false;
-  // Reset the page memory
-  frame->ResetMemory();
 
   return frame;
 }
@@ -126,7 +124,6 @@ auto BufferPoolManager::NewPage(PageId *page_id) -> Page * {
 auto BufferPoolManager::DeletePage(PageId page_id) -> bool {
   // std::scoped_lock latch(*bpm_latch_);
   std::scoped_lock lock{latch_};
-
 
   // 1. Search for the target page in the page_table_
   auto it = page_table_.find(page_id);
@@ -172,7 +169,6 @@ auto BufferPoolManager::DeletePage(PageId page_id) -> bool {
 auto BufferPoolManager::FlushPage(PageId page_id) -> bool {
   // std::scoped_lock latch(*bpm_latch_);
   std::scoped_lock lock{latch_};
-
 
   // 1. Search for the page in the page_table_
   auto it = page_table_.find(page_id);
@@ -260,7 +256,6 @@ auto BufferPoolManager::RecoverPage(PageId page_id) -> Page * {
   // std::scoped_lock latch(*bpm_latch_);
   std::scoped_lock lock{latch_};
 
-
   // 1. Search for the target page in page_table_
   auto it = page_table_.find(page_id);
   if (it != page_table_.end()) {
@@ -338,7 +333,6 @@ auto BufferPoolManager::FindVictimPage(frame_id_t *frame_id) -> bool {
   // std::scoped_lock latch(*bpm_latch_);
   // std::scoped_lock lock{latch_};
 
-
   // 1. Check if there are any free frames available
   if (!free_frames_.empty()) {
     // 1.1 If free frames are available, use one
@@ -368,7 +362,6 @@ auto BufferPoolManager::FindVictimPage(frame_id_t *frame_id) -> bool {
 void BufferPoolManager::UpdatePage(Page *frame, PageId new_page_id, frame_id_t new_frame_id) {
   // std::scoped_lock latch(*bpm_latch_);
   // std::scoped_lock lock{latch_};
-
 
   if (frame->is_dirty_) {
     disk_manager_->WritePage(frame->page_id_.fd, frame->page_id_.page_no, frame->GetData(), PAGE_SIZE);
@@ -400,7 +393,6 @@ void BufferPoolManager::UpdatePage(Page *frame, PageId new_page_id, frame_id_t n
 auto BufferPoolManager::FetchPage(PageId page_id) -> Page * {
   // std::scoped_lock latch(*bpm_latch_);
   std::scoped_lock lock{latch_};
-
 
   // 1. Search for the target page in page_table_
   auto it = page_table_.find(page_id);
@@ -446,7 +438,6 @@ auto BufferPoolManager::FetchPage(PageId page_id) -> Page * {
 auto BufferPoolManager::UnpinPage(PageId page_id, bool is_dirty) -> bool {
   // std::scoped_lock latch(*bpm_latch_);
   std::scoped_lock lock{latch_};
-
 
   // 1. Search for the page in the page_table_
   auto it = page_table_.find(page_id);
