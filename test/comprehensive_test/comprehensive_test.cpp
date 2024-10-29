@@ -108,7 +108,9 @@ void fh_insert(RmFileHandle *fh_, std::vector<Value> &values_, std::vector<ColMe
     val.init_raw(col.len);
     std::memcpy(rec.data + col.offset, val.raw->data, col.len);
   }
-  fh_->InsertRecord(rec.data);
+  // fh_->InsertRecord(rec.data);
+  auto rid = fh_->InsertRecord(rec.data);
+  std::cout << "insert rid:" << rid.GetPageId() << " " << rid.GetSlotNum() << std::endl;
 }
 
 class TB_Reader {
@@ -204,6 +206,8 @@ TEST(EasyDBTest, SimpleTest) {
 
   // 解析table文件，并且将其插入到表中
   tb_reader.parse_and_insert(fh_);
+
+  bpm->FlushAllDirtyPages();
 
   delete fh_;
   delete bpm;
