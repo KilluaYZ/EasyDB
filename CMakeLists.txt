@@ -12,6 +12,10 @@ project(EasyDB
         LANGUAGES C CXX
 )
 
+project(EasyDB
+        LANGUAGES C CXX
+)
+
 # #####################################################################################################################
 # DEPENDENCIES
 # #####################################################################################################################
@@ -58,6 +62,5 @@ include_directories(BEFORE src) # This is needed for gtest.
 add_subdirectory(deps)
 add_subdirectory(src)
 add_subdirectory(test)
-# add_subdirectory(test)
 # add_subdirectory(tools)
 # add_subdirectory(client)
