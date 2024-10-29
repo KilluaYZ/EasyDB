@@ -1,4 +1,0 @@
-/home/zhouzhigan/DB2024/test/CMakeFiles/build-tests.dir
-/home/zhouzhigan/DB2024/test/CMakeFiles/check-tests.dir
-/home/zhouzhigan/DB2024/test/CMakeFiles/edit_cache.dir
-/home/zhouzhigan/DB2024/test/CMakeFiles/rebuild_cache.dir
