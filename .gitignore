@@ -96,6 +96,9 @@ cmake-build-*
 **/CMakeCache.txt 
 **/CMakeFile/
 
+Testing/
+generated/
+
 # Zip files
 *.zip
 
