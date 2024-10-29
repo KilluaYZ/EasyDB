@@ -15,6 +15,7 @@
  */
 
 #include "buffer/buffer_pool_manager.h"
+#include "common/config.h"
 
 namespace easydb {
 
@@ -47,7 +48,7 @@ BufferPoolManager::BufferPoolManager(size_t num_frames, DiskManager *disk_manage
   {
 
   // Allocate all of the in-memory frames up front.
-  // frames_.reserve(num_frames_);
+  frames_ = new Page[num_frames_*PAGE_SIZE];
 
   // // The page table should have exactly `num_frames_` slots, corresponding to exactly `num_frames_` frames.
   page_table_.reserve(num_frames_);
@@ -91,7 +92,7 @@ auto BufferPoolManager::NewPage(PageId *page_id) -> Page * {
   page_id->page_no = disk_manager_->AllocatePage(fd);
 
   // Page* page = &pages_[frame_id];
-  Page *frame = &frames_.at(frame_id);
+  Page *frame = &frames_[frame_id];
 
   // 3. If the frame is dirty, flush its content to disk
   if (frame->is_dirty_) {
@@ -136,7 +137,7 @@ auto BufferPoolManager::DeletePage(PageId page_id) -> bool {
 
   frame_id_t frame_id = it->second;
   // Page* page = &pages_[frame_id];
-  Page *frame = &frames_.at(frame_id);
+  Page *frame = &frames_[frame_id];
 
   // 2. If the target page's pin_count_ is not 0, return false
   if (frame->pin_count_ != 0) {
@@ -182,7 +183,7 @@ auto BufferPoolManager::FlushPage(PageId page_id) -> bool {
 
   frame_id_t frame_id = it->second;
   // Page* page = &pages_[frame_id];
-  Page *frame = &frames_.at(frame_id);
+  Page *frame = &frames_[frame_id];
 
   // 2. Write the page's data to the disk
   disk_manager_->WritePage(page_id.fd, page_id.page_no, frame->GetData(), PAGE_SIZE);
@@ -205,7 +206,7 @@ void BufferPoolManager::FlushAllPages(int fd) {
   for (auto &entry : page_table_) {
     PageId page_id = entry.first;
     frame_id_t frame_id = entry.second;
-    Page *frame = &frames_.at(frame_id);
+    Page *frame = &frames_[frame_id];
     // Page* page = &pages_[frame_id];
 
     // Check if the page belongs to the specified file descriptor
@@ -232,7 +233,7 @@ void BufferPoolManager::FlushAllDirtyPages() {
   for (auto &entry : page_table_) {
     PageId page_id = entry.first;
     frame_id_t frame_id = entry.second;
-    Page *frame = &frames_.at(frame_id);
+    Page *frame = &frames_[frame_id];
     // Page* page = &pages_[frame_id];
 
     // Check if the page belongs to the specified file descriptor
@@ -266,7 +267,7 @@ auto BufferPoolManager::RecoverPage(PageId page_id) -> Page * {
     // 1.1 If the target page is found, pin it and return it
     frame_id_t frame_id = it->second;
     replacer_->Pin(frame_id);
-    Page *frame = &frames_.at(frame_id);
+    Page *frame = &frames_[frame_id];
     // Page* page = &pages_[frame_id];
     frame->pin_count_++;
     return frame;
@@ -279,7 +280,7 @@ auto BufferPoolManager::RecoverPage(PageId page_id) -> Page * {
   }
 
   // Page* page = &pages_[frame_id];
-  Page *frame = &frames_.at(frame_id);
+  Page *frame = &frames_[frame_id];
 
   // 2. If the frame is dirty, update it
   UpdatePage(frame, page_id, frame_id);
@@ -319,7 +320,7 @@ auto BufferPoolManager::RecoverPage(PageId page_id) -> Page * {
 //   if (it != page_table_.end()) {
 //     // 1.1 If the target page is found, return it
 //     frame_id_t frame_id = it->second;
-//     Page *frame = &frames_.at(frame_id);
+//     Page *frame = &frames_[frame_id];
 //     // Page* page = &pages_[frame_id];
 //     return frame->pin_count_;
 //   }
@@ -335,7 +336,7 @@ auto BufferPoolManager::RecoverPage(PageId page_id) -> Page * {
  */
 auto BufferPoolManager::FindVictimPage(frame_id_t *frame_id) -> bool {
   // std::scoped_lock latch(*bpm_latch_);
-  std::scoped_lock lock{latch_};
+  // std::scoped_lock lock{latch_};
 
 
   // 1. Check if there are any free frames available
@@ -366,7 +367,7 @@ auto BufferPoolManager::FindVictimPage(frame_id_t *frame_id) -> bool {
  */
 void BufferPoolManager::UpdatePage(Page *frame, PageId new_page_id, frame_id_t new_frame_id) {
   // std::scoped_lock latch(*bpm_latch_);
-  std::scoped_lock lock{latch_};
+  // std::scoped_lock lock{latch_};
 
 
   if (frame->is_dirty_) {
@@ -407,7 +408,7 @@ auto BufferPoolManager::FetchPage(PageId page_id) -> Page * {
     // 1.1 If the target page is found, pin it and return it
     frame_id_t frame_id = it->second;
     replacer_->Pin(frame_id);
-    Page *frame = &frames_.at(frame_id);
+    Page *frame = &frames_[frame_id];
     // Page* page = &pages_[frame_id];
     frame->pin_count_++;
     return frame;
@@ -419,7 +420,7 @@ auto BufferPoolManager::FetchPage(PageId page_id) -> Page * {
     return nullptr;
   }
 
-  Page *frame = &frames_.at(frame_id);
+  Page *frame = &frames_[frame_id];
   // Page* page = &pages_[frame_id];
 
   // 2. If the victim frame contains a dirty page, update it
@@ -456,7 +457,7 @@ auto BufferPoolManager::UnpinPage(PageId page_id, bool is_dirty) -> bool {
 
   // 1.2 If the page is found, get its pin_count_
   frame_id_t frame_id = it->second;
-  Page *frame = &frames_.at(frame_id);
+  Page *frame = &frames_[frame_id];
   // Page* page = &pages_[frame_id];
 
   // Check the pin_count_

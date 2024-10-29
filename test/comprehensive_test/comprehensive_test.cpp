@@ -178,6 +178,7 @@ class EasyDBTest : public ::testing::Test {
 };
 
 TEST(EasyDBTest, SimpleTest) {
+  system("pwd");
   std::cout << "../../tmp/benchmark_data/" + TEST_FILE_NAME_SUPPLIER << std::endl;
   TB_Reader tb_reader(TEST_FILE_NAME_SUPPLIER, "../../tmp/benchmark_data/" + TEST_FILE_NAME_SUPPLIER);
   // 构造表元数据

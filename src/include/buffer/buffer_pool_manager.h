@@ -162,7 +162,8 @@ class BufferPoolManager {
   // std::shared_ptr<std::mutex> bpm_latch_;
 
   /** @brief The frame headers of the frames that this buffer pool manages. */
-  std::vector<Page> frames_;
+  // std::vector<Page> frames_;
+  Page * frames_;
   // std::vector<std::shared_ptr<FrameHeader>> frames_;
 
   /** @brief The page table that keeps track of the mapping between pages and buffer pool frames. */
