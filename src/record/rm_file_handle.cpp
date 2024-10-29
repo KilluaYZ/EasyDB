@@ -9,7 +9,6 @@
  *-------------------------------------------------------------------------
  */
 
-#pragma once
 #include "record/rm_file_handle.h"
 
 namespace easydb {

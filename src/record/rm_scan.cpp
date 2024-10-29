@@ -9,8 +9,6 @@
  *-------------------------------------------------------------------------
  */
 
-#pragma once
-
 #include "record/rm_scan.h"
 #include <cstdint>
 #include "record/rm_file_handle.h"

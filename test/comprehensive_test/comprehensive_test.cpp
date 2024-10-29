@@ -1,10 +1,7 @@
-#pragma once
-
 #include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <iostream>
-#include <memory>
 #include <string>
 #include <vector>
 #include "buffer/buffer_pool_manager.h"
@@ -15,7 +12,6 @@
 #include "record/rm_defs.h"
 #include "record/rm_file_handle.h"
 #include "storage/disk/disk_manager.h"
-#include "system/sm_defs.h"
 #include "system/sm_meta.h"
 
 namespace easydb {
@@ -110,7 +106,7 @@ void fh_insert(RmFileHandle *fh_, std::vector<Value> &values_, std::vector<ColMe
   }
   // fh_->InsertRecord(rec.data);
   auto rid = fh_->InsertRecord(rec.data);
-  std::cout << "insert rid:" << rid.GetPageId() << " " << rid.GetSlotNum() << std::endl;
+  std::cerr << "[TEST] insert rid: " << rid.GetPageId() << " slot num: " << rid.GetSlotNum() << std::endl;
 }
 
 class TB_Reader {
@@ -180,8 +176,8 @@ class EasyDBTest : public ::testing::Test {
 };
 
 TEST(EasyDBTest, SimpleTest) {
-  system("pwd");
-  std::cout << "../../tmp/benchmark_data/" + TEST_FILE_NAME_SUPPLIER << std::endl;
+  // system("pwd");
+  // std::cout << "../../tmp/benchmark_data/" + TEST_FILE_NAME_SUPPLIER << std::endl;
   TB_Reader tb_reader(TEST_FILE_NAME_SUPPLIER, "../../tmp/benchmark_data/" + TEST_FILE_NAME_SUPPLIER);
   // 构造表元数据
   tb_reader.set_col("S_SUPPKEY", TYPE_INT, 4, 0)
@@ -193,17 +189,20 @@ TEST(EasyDBTest, SimpleTest) {
       .set_col("S_COMMENT", TYPE_VARCHAR, 101, 92);
 
   // 创建DiskManager
+  std::cerr << "[TEST] 创建DiskManager" << std::endl;
   DiskManager *dm = new DiskManager(TEST_DB_NAME);
   std::string path = TEST_DB_NAME + "/" + TEST_TB_NAME;
   create_file(dm, path, 193);
 
   int fd = dm->OpenFile(path);
 
+  std::cerr << "[TEST] 创建BufferPoolManager" << std::endl;
   // 创建BufferPoolManager
   BufferPoolManager *bpm = new BufferPoolManager(100, dm);
 
   RmFileHandle *fh_ = new RmFileHandle(dm, bpm, fd);
 
+  std::cerr << "[TEST] 开始解析和插入数据" << std::endl;
   // 解析table文件，并且将其插入到表中
   tb_reader.parse_and_insert(fh_);
 
