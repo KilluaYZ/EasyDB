@@ -64,7 +64,7 @@ BufferPoolManager::BufferPoolManager(size_t num_frames, DiskManager *disk_manage
  * @brief Destroys the `BufferPoolManager`, freeing up all memory that the buffer pool was using.
  */
 // BufferPoolManager::~BufferPoolManager() = default;
-BufferPoolManager::~BufferPoolManager() = default;
+BufferPoolManager::~BufferPoolManager() { delete[] frames_; };
 
 /**
  * @brief Returns the number of frames that this buffer pool manages.
