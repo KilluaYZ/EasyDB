@@ -22,7 +22,7 @@ set(EASYDB_LIBS
         # easydb_type
         # easydb_container_disk_hash
         easydb_storage_disk
-        # easydb_storage_index
+        easydb_storage_index
         easydb_storage_page
         # easydb_storage_table
         # easydb_planner
