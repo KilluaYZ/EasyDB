@@ -35,6 +35,12 @@ struct Rid {
   friend bool operator==(const Rid &x, const Rid &y) { return x.page_no == y.page_no && x.slot_no == y.slot_no; }
 
   friend bool operator!=(const Rid &x, const Rid &y) { return !(x == y); }
+
+  Rid &operator=(const Rid &rid) {
+    page_no = rid.page_no;
+    slot_no = rid.slot_no;
+    return *this;
+  }
 };
 
 enum ColType { TYPE_INT, TYPE_LONG, TYPE_FLOAT, TYPE_DOUBLE, TYPE_VARCHAR, TYPE_CHAR, TYPE_DATE, TYPE_EMPTY };

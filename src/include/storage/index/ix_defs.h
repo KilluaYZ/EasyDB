@@ -147,6 +147,18 @@ class IxPageHdr {
   page_id_t next_leaf;  // next leaf node's page_no, effective only when is_leaf is true
 };
 
+class IxExtendibleHashPageHdr {
+ public:
+  page_id_t next_free_page_no;  // unused
+  // page_id_t prev_bucket;        // Page number of the previous bucket, default is -1.
+  // page_id_t next_bucket;        // Page number of the next bucket, default is -1.
+  bool is_valid;  // Indicates if the current bucket is valid. Some invalid buckets may be preallocated during a split;
+                  // invalid buckets do not need to be flushed to disk.
+  int local_depth;  // Depth of the current bucket
+  int key_nums;     // Number of keys in the current bucket
+  int size;         // Size of the bucket
+};
+
 class Iid {
  public:
   int page_no;

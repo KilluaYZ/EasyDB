@@ -130,6 +130,10 @@ class IxManager {
     disk_manager_->CloseFile(fd);
   }
 
+  void create_extendible_hash_index(const std::string &filename, const std::vector<ColMeta> &index_cols) {
+    // todo
+  }
+
   void destroy_index(const std::string &filename, const std::vector<ColMeta> &index_cols) {
     std::string ix_name = get_index_name(filename, index_cols);
     disk_manager_->DestroyFile(ix_name);
