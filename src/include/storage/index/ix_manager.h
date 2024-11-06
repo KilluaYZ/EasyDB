@@ -26,7 +26,7 @@ class IxManager {
   IxManager(DiskManager *disk_manager, BufferPoolManager *buffer_pool_manager)
       : disk_manager_(disk_manager), buffer_pool_manager_(buffer_pool_manager) {}
 
-  std::string get_index_name(const std::string &filename, const std::vector<std::string> &index_cols) {
+  std::string GetIndexName(const std::string &filename, const std::vector<std::string> &index_cols) {
     std::string index_name = filename;
     for (size_t i = 0; i < index_cols.size(); ++i) index_name += "_" + index_cols[i];
     index_name += ".idx";
@@ -34,7 +34,7 @@ class IxManager {
     return index_name;
   }
 
-  std::string get_index_name(const std::string &filename, const std::vector<ColMeta> &index_cols) {
+  std::string GetIndexName(const std::string &filename, const std::vector<ColMeta> &index_cols) {
     std::string index_name = filename;
     for (size_t i = 0; i < index_cols.size(); ++i) index_name += "_" + index_cols[i].name;
     index_name += ".idx";
@@ -42,27 +42,27 @@ class IxManager {
     return index_name;
   }
 
-  bool exists(const std::string &filename, const std::vector<ColMeta> &index_cols) {
-    auto ix_name = get_index_name(filename, index_cols);
+  bool Exists(const std::string &filename, const std::vector<ColMeta> &index_cols) {
+    auto ix_name = GetIndexName(filename, index_cols);
     return disk_manager_->IsFile(ix_name);
   }
 
-  bool exists(const std::string &filename, const std::vector<std::string> &index_cols) {
-    auto ix_name = get_index_name(filename, index_cols);
+  bool Exists(const std::string &filename, const std::vector<std::string> &index_cols) {
+    auto ix_name = GetIndexName(filename, index_cols);
     return disk_manager_->IsFile(ix_name);
   }
 
-  void create_index(const std::string &filename, const std::vector<ColMeta> &index_cols) {
-    std::string ix_name = get_index_name(filename, index_cols);
+  void CreateIndex(const std::string &filename, const std::vector<ColMeta> &index_cols) {
+    std::string ix_name = GetIndexName(filename, index_cols);
     // Create index file
     disk_manager_->CreateFile(ix_name);
     // Open index file
     int fd = disk_manager_->OpenFile(ix_name);
 
     // Create file header and write to file
-    // Theoretically we have: |page_hdr| + (|attr| + |rid|) * n <= PAGE_SIZE
+    // Theoretically we have: |page_hdr| + (|attr| + |Rid|) * n <= PAGE_SIZE
     // but we reserve one slot for convenient inserting and deleting, i.e.
-    // |page_hdr| + (|attr| + |rid|) * (n + 1) <= PAGE_SIZE
+    // |page_hdr| + (|attr| + |Rid|) * (n + 1) <= PAGE_SIZE
     int col_tot_len = 0;
     int col_num = index_cols.size();
     for (auto &col : index_cols) {
@@ -71,7 +71,7 @@ class IxManager {
     if (col_tot_len > IX_MAX_COL_LEN) {
       throw InvalidColLengthError(col_tot_len);
     }
-    // 根据 |page_hdr| + (|attr| + |rid|) * (n + 1) <= PAGE_SIZE 求得n的最大值btree_order
+    // 根据 |page_hdr| + (|attr| + |Rid|) * (n + 1) <= PAGE_SIZE 求得n的最大值btree_order
     // 即 n <= btree_order，那么btree_order就是每个结点最多可插入的键值对数量（实际还多留了一个空位，但其不可插入）
     int btree_order = static_cast<int>((PAGE_SIZE - sizeof(IxPageHdr)) / (col_tot_len + sizeof(Rid)) - 1);
     assert(btree_order > 2);
@@ -83,10 +83,10 @@ class IxManager {
       fhdr->col_types_.push_back(index_cols[i].type);
       fhdr->col_lens_.push_back(index_cols[i].len);
     }
-    fhdr->update_tot_len();
+    fhdr->UpdateTotLen();
 
     char *data = new char[fhdr->tot_len_];
-    fhdr->serialize(data);
+    fhdr->Serialize(data);
 
     disk_manager_->WritePage(fd, IX_FILE_HDR_PAGE, data, fhdr->tot_len_);
 
@@ -120,7 +120,7 @@ class IxManager {
           .prev_leaf = IX_LEAF_HEADER_PAGE,
           .next_leaf = IX_LEAF_HEADER_PAGE,
       };
-      // Must write PAGE_SIZE here in case of future fetch_node()
+      // Must write PAGE_SIZE here in case of future FetchNode()
       disk_manager_->WritePage(fd, IX_INIT_ROOT_PAGE, page_buf, PAGE_SIZE);
     }
 
@@ -130,32 +130,32 @@ class IxManager {
     disk_manager_->CloseFile(fd);
   }
 
-  void destroy_index(const std::string &filename, const std::vector<ColMeta> &index_cols) {
-    std::string ix_name = get_index_name(filename, index_cols);
+  void DestroyIndex(const std::string &filename, const std::vector<ColMeta> &index_cols) {
+    std::string ix_name = GetIndexName(filename, index_cols);
     disk_manager_->DestroyFile(ix_name);
   }
 
-  void destroy_index(const std::string &filename, const std::vector<std::string> &index_cols) {
-    std::string ix_name = get_index_name(filename, index_cols);
+  void DestroyIndex(const std::string &filename, const std::vector<std::string> &index_cols) {
+    std::string ix_name = GetIndexName(filename, index_cols);
     disk_manager_->DestroyFile(ix_name);
   }
 
   // 注意这里打开文件，创建并返回了index file handle的指针
-  std::unique_ptr<IxIndexHandle> open_index(const std::string &filename, const std::vector<ColMeta> &index_cols) {
-    std::string ix_name = get_index_name(filename, index_cols);
+  std::unique_ptr<IxIndexHandle> OpenIndex(const std::string &filename, const std::vector<ColMeta> &index_cols) {
+    std::string ix_name = GetIndexName(filename, index_cols);
     int fd = disk_manager_->OpenFile(ix_name);
     return std::make_unique<IxIndexHandle>(disk_manager_, buffer_pool_manager_, fd);
   }
 
-  std::unique_ptr<IxIndexHandle> open_index(const std::string &filename, const std::vector<std::string> &index_cols) {
-    std::string ix_name = get_index_name(filename, index_cols);
+  std::unique_ptr<IxIndexHandle> OpenIndex(const std::string &filename, const std::vector<std::string> &index_cols) {
+    std::string ix_name = GetIndexName(filename, index_cols);
     int fd = disk_manager_->OpenFile(ix_name);
     return std::make_unique<IxIndexHandle>(disk_manager_, buffer_pool_manager_, fd);
   }
 
-  void close_index(const IxIndexHandle *ih) {
+  void CloseIndex(const IxIndexHandle *ih) {
     char *data = new char[ih->file_hdr_->tot_len_];
-    ih->file_hdr_->serialize(data);
+    ih->file_hdr_->Serialize(data);
     disk_manager_->WritePage(ih->fd_, IX_FILE_HDR_PAGE, data, ih->file_hdr_->tot_len_);
     // 缓冲区的所有页刷到磁盘，注意这句话必须写在close_file前面
     buffer_pool_manager_->FlushAllPages(ih->fd_);

@@ -78,5 +78,5 @@ bool RmScan::IsEnd() const {
 /**
  * @brief RmScan内部存放的rid
  */
-RID RmScan::rid() const { return rid_; }
+RID RmScan::GetRid() const { return rid_; }
 }  // namespace easydb

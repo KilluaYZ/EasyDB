@@ -22,7 +22,7 @@ class RecScan {
 
   virtual bool IsEnd() const = 0;
 
-  virtual RID rid() const = 0;
+  virtual RID GetRid() const = 0;
 };
 
 class RmFileHandle;
@@ -38,7 +38,7 @@ class RmScan : public RecScan {
 
   bool IsEnd() const override;
 
-  RID rid() const override;
+  RID GetRid() const override;
 };
 
 }  // namespace easydb

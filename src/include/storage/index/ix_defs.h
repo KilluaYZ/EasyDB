@@ -59,13 +59,13 @@ class IxFileHdr {
     tot_len_ = 0;
   }
 
-  void update_tot_len() {
+  void UpdateTotLen() {
     tot_len_ = 0;
     tot_len_ += sizeof(page_id_t) * 4 + sizeof(int) * 6;
     tot_len_ += sizeof(ColType) * col_num_ + sizeof(int) * col_num_;
   }
 
-  void serialize(char *dest) {
+  void Serialize(char *dest) {
     int offset = 0;
     memcpy(dest + offset, &tot_len_, sizeof(int));
     offset += sizeof(int);
@@ -98,7 +98,7 @@ class IxFileHdr {
     assert(offset == tot_len_);
   }
 
-  void deserialize(char *src) {
+  void Deserialize(char *src) {
     int offset = 0;
     tot_len_ = *reinterpret_cast<const int *>(src + offset);
     offset += sizeof(int);

@@ -24,7 +24,7 @@ enum class Operation { FIND = 0, INSERT, DELETE };  // 三种操作：查找、�
 
 static const bool binary_search = false;
 
-inline int ix_compare(const char *a, const char *b, ColType type, int col_len) {
+inline int IxCompare(const char *a, const char *b, ColType type, int col_len) {
   switch (type) {
     case TYPE_INT: {
       int ia = *(int *)a;
@@ -44,11 +44,11 @@ inline int ix_compare(const char *a, const char *b, ColType type, int col_len) {
   }
 }
 
-inline int ix_compare(const char *a, const char *b, const std::vector<ColType> &col_types,
-                      const std::vector<int> &col_lens) {
+inline int IxCompare(const char *a, const char *b, const std::vector<ColType> &col_types,
+                     const std::vector<int> &col_lens) {
   int offset = 0;
   for (size_t i = 0; i < col_types.size(); ++i) {
-    int res = ix_compare(a + offset, b + offset, col_types[i], col_lens[i]);
+    int res = IxCompare(a + offset, b + offset, col_types[i], col_lens[i]);
     if (res != 0) return res;
     offset += col_lens[i];
   }
@@ -76,78 +76,78 @@ class IxNodeHandle {
     rids = reinterpret_cast<Rid *>(keys + file_hdr->keys_size_);
   }
 
-  int get_size() { return page_hdr->num_key; }
+  int GetSize() { return page_hdr->num_key; }
 
-  void set_size(int size) { page_hdr->num_key = size; }
+  void SetSize(int size) { page_hdr->num_key = size; }
 
-  int get_max_size() { return file_hdr->btree_order_ + 1; }
+  int GetMaxSize() { return file_hdr->btree_order_ + 1; }
 
-  int get_min_size() { return get_max_size() / 2; }
+  int GetMinSize() { return GetMaxSize() / 2; }
 
-  int key_at(int i) { return *(int *)get_key(i); }
+  int KeyAt(int i) { return *(int *)GetKey(i); }
 
   /* 得到第i个孩子结点的page_no */
-  page_id_t value_at(int i) { return get_rid(i)->page_no; }
+  page_id_t ValueAt(int i) { return GetRid(i)->page_no; }
 
-  page_id_t get_page_no() { return page->GetPageId().page_no; }
+  page_id_t GetPageNo() { return page->GetPageId().page_no; }
 
-  PageId get_page_id() { return page->GetPageId(); }
+  PageId GetPageId() { return page->GetPageId(); }
 
-  page_id_t get_next_leaf() { return page_hdr->next_leaf; }
+  page_id_t GetNextLeaf() { return page_hdr->next_leaf; }
 
-  page_id_t get_prev_leaf() { return page_hdr->prev_leaf; }
+  page_id_t GetPrevLeaf() { return page_hdr->prev_leaf; }
 
-  page_id_t get_parent_page_no() { return page_hdr->parent; }
+  page_id_t GetParentPageNo() { return page_hdr->parent; }
 
-  bool is_leaf_page() { return page_hdr->is_leaf; }
+  bool IsLeafPage() { return page_hdr->is_leaf; }
 
-  bool is_root_page() { return get_parent_page_no() == INVALID_PAGE_ID; }
+  bool IsRootPage() { return GetParentPageNo() == INVALID_PAGE_ID; }
 
-  void set_next_leaf(page_id_t page_no) { page_hdr->next_leaf = page_no; }
+  void SetNextLeaf(page_id_t page_no) { page_hdr->next_leaf = page_no; }
 
-  void set_prev_leaf(page_id_t page_no) { page_hdr->prev_leaf = page_no; }
+  void SetPrevLeaf(page_id_t page_no) { page_hdr->prev_leaf = page_no; }
 
-  void set_parent_page_no(page_id_t parent) { page_hdr->parent = parent; }
+  void SetParentPageNo(page_id_t parent) { page_hdr->parent = parent; }
 
-  char *get_key(int key_idx) const { return keys + key_idx * file_hdr->col_tot_len_; }
+  char *GetKey(int key_idx) const { return keys + key_idx * file_hdr->col_tot_len_; }
 
-  Rid *get_rid(int rid_idx) const { return &rids[rid_idx]; }
+  Rid *GetRid(int rid_idx) const { return &rids[rid_idx]; }
 
-  void set_key(int key_idx, const char *key) {
+  void SetKey(int key_idx, const char *key) {
     memcpy(keys + key_idx * file_hdr->col_tot_len_, key, file_hdr->col_tot_len_);
   }
 
-  void set_rid(int rid_idx, const Rid &rid) { rids[rid_idx] = rid; }
+  void SetRid(int rid_idx, const Rid &Rid) { rids[rid_idx] = Rid; }
 
-  int lower_bound(const char *target) const;
+  int LowerBound(const char *target) const;
 
-  int upper_bound(const char *target) const;
+  int UpperBound(const char *target) const;
 
-  void insert_pairs(int pos, const char *key, const Rid *rid, int n);
+  void InsertPairs(int pos, const char *key, const Rid *rid, int n);
 
-  page_id_t internal_lookup(const char *key);
+  page_id_t InternalLookup(const char *key);
 
-  bool leaf_lookup(const char *key, Rid **value);
+  bool LeafLookup(const char *key, Rid **value);
 
-  int insert(const char *key, const Rid &value);
+  int Insert(const char *key, const Rid &value);
 
   // 用于在结点中的指定位置插入单个键值对
-  void insert_pair(int pos, const char *key, const Rid &rid) { insert_pairs(pos, key, &rid, 1); }
+  void InsertPair(int pos, const char *key, const Rid &Rid) { InsertPairs(pos, key, &Rid, 1); }
 
-  void erase_pair(int pos);
+  void ErasePair(int pos);
 
-  int remove(const char *key);
+  int Remove(const char *key);
 
   /**
-   * @brief used in internal node to remove the last key in root node, and return the last child
+   * @brief used in internal node to Remove the last key in root node, and return the last child
    *
    * @return the last child
    */
-  page_id_t remove_and_return_only_child() {
-    assert(get_size() == 1);
-    page_id_t child_page_no = value_at(0);
-    erase_pair(0);
-    assert(get_size() == 0);
+  page_id_t RemoveAndReturnOnlyChild() {
+    assert(GetSize() == 1);
+    page_id_t child_page_no = ValueAt(0);
+    ErasePair(0);
+    assert(GetSize() == 0);
     return child_page_no;
   }
 
@@ -156,10 +156,10 @@ class IxNodeHandle {
    * @param child
    * @return int
    */
-  int find_child(IxNodeHandle *child) {
+  int FindChild(IxNodeHandle *child) {
     int rid_idx;
     for (rid_idx = 0; rid_idx < page_hdr->num_key; rid_idx++) {
-      if (get_rid(rid_idx)->page_no == child->get_page_no()) {
+      if (GetRid(rid_idx)->page_no == child->GetPageNo()) {
         break;
       }
     }
@@ -195,58 +195,58 @@ class IxIndexHandle {
   //   page_id_t insert_entry(const char *key, const Rid &value, Transaction *transaction);
   page_id_t InsertEntry(const char *key, const Rid &value);
 
-  IxNodeHandle *split(IxNodeHandle *node);
+  IxNodeHandle *Split(IxNodeHandle *node);
 
-  //   void insert_into_parent(IxNodeHandle *old_node, const char *key, IxNodeHandle *new_node, Transaction
+  //   void InsertIntoParent(IxNodeHandle *old_node, const char *key, IxNodeHandle *new_node, Transaction
   //   *transaction);
-  void insert_into_parent(IxNodeHandle *old_node, const char *key, IxNodeHandle *new_node);
+  void InsertIntoParent(IxNodeHandle *old_node, const char *key, IxNodeHandle *new_node);
 
   // for delete
   //   bool delete_entry(const char *key, Transaction *transaction);
   bool DeleteEntry(const char *key);
 
-  //   bool coalesce_or_redistribute(IxNodeHandle *node, Transaction *transaction = nullptr,
-  bool coalesce_or_redistribute(IxNodeHandle *node, bool *root_is_latched = nullptr);
-  bool adjust_root(IxNodeHandle *old_root_node);
+  //   bool CoalesceOrRedistribute(IxNodeHandle *node, Transaction *transaction = nullptr,
+  bool CoalesceOrRedistribute(IxNodeHandle *node, bool *root_is_latched = nullptr);
+  bool AdjustRoot(IxNodeHandle *old_root_node);
 
-  void redistribute(IxNodeHandle *neighbor_node, IxNodeHandle *node, IxNodeHandle *parent, int index);
+  void Redistribute(IxNodeHandle *neighbor_node, IxNodeHandle *node, IxNodeHandle *parent, int index);
 
   // Transaction *transaction, bool *root_is_latched);
-  bool coalesce(IxNodeHandle **neighbor_node, IxNodeHandle **node, IxNodeHandle **parent, int index,
+  bool Coalesce(IxNodeHandle **neighbor_node, IxNodeHandle **node, IxNodeHandle **parent, int index,
                 bool *root_is_latched);
 
-  bool erase();
+  bool Erase();
 
-  Iid lower_bound(const char *key);
+  Iid LowerBound(const char *key);
 
-  Iid upper_bound(const char *key);
+  Iid UpperBound(const char *key);
 
-  Iid leaf_end() const;
+  Iid LeafEnd() const;
 
-  Iid leaf_begin() const;
+  Iid LeafBegin() const;
 
  private:
   // 辅助函数
-  void update_root_page_no(page_id_t root) { file_hdr_->root_page_ = root; }
+  void UpdateRootPageNo(page_id_t root) { file_hdr_->root_page_ = root; }
 
-  bool is_empty() const { return file_hdr_->root_page_ == IX_NO_PAGE; }
+  bool IsEmpty() const { return file_hdr_->root_page_ == IX_NO_PAGE; }
 
   // for get/create node
-  IxNodeHandle *fetch_node(int page_no) const;
+  IxNodeHandle *FetchNode(int page_no) const;
 
-  IxNodeHandle *create_node();
+  IxNodeHandle *CreateNode();
 
   // for maintain data structure
-  void maintain_parent(IxNodeHandle *node);
+  void MaintainParent(IxNodeHandle *node);
 
-  void erase_leaf(IxNodeHandle *leaf);
+  void EraseLeaf(IxNodeHandle *leaf);
 
-  void release_node_handle(IxNodeHandle &node);
+  void ReleaseNodeHandle(IxNodeHandle &node);
 
-  void maintain_child(IxNodeHandle *node, int child_idx);
+  void MaintainChild(IxNodeHandle *node, int child_idx);
 
   // for index test
-  Rid get_rid(const Iid &iid) const;
+  Rid GetRid(const Iid &iid) const;
 };
 
 }  // namespace easydb
