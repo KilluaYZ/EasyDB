@@ -11,6 +11,9 @@
 
 #pragma once
 #include <cstring>
+#include "common/config.h"
+#include "storage/page/page.h"
+#include "storage/table/tuple.h"
 
 namespace easydb {
 
@@ -21,19 +24,24 @@ constexpr int RM_MAX_RECORD_SIZE = 512;
 
 /* 文件头，记录表数据文件的元信息，写入磁盘中文件的第0号页面 */
 struct RmFileHdr {
-  int record_size;  // 表中每条记录的大小，由于不包含变长字段，因此当前字段初始化后保持不变
-  int num_pages;             // 文件中分配的页面个数（初始化为1）
-  int num_records_per_page;  // 每个页面最多能存储的元组个数
-  int first_free_page_no;    // 文件中当前第一个包含空闲空间的页面号（初始化为-1）
-  int bitmap_size;           // 每个页面bitmap大小
+  int num_pages;           // 文件中分配的页面个数（初始化为1）
+  int first_free_page_no;  // 文件中当前第一个包含空闲空间的页面号（初始化为-1）
+  // int record_size;  // 表中每条记录的大小，由于不包含变长字段，因此当前字段初始化后保持不变
+  // int num_records_per_page;  // 每个页面最多能存储的元组个数
+  // int bitmap_size;           // 每个页面bitmap大小
+
+  void Init() {
+    num_pages = 1;
+    first_free_page_no = RM_NO_PAGE;
+  }
 };
 
-/* 表数据文件中每个页面的页头，记录每个页面的元信息 */
-struct RmPageHdr {
-  int next_free_page_no;  // 当前页面满了之后，下一个包含空闲空间的页面号（初始化为-1）
-  int num_records;        // 当前页面中当前已经存储的记录个数（初始化为0）
-};
-
+/**
+ * Tuple format:
+ * ---------------------------------------------------------------------
+ * | FIXED-SIZE or VARIED-SIZED OFFSET | PAYLOAD OF VARIED-SIZED FIELD |
+ * ---------------------------------------------------------------------
+ */
 /* 表中的记录 */
 struct RmRecord {
   char *data;               // 记录的数据

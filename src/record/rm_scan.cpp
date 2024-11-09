@@ -44,15 +44,16 @@ void RmScan::Next() {
   // If we have not reached the end of the file
   while (page_no < file_handle_->file_hdr_.num_pages) {
     RmPageHandle page_handle = file_handle_->FetchPageHandle(page_no);
-    uint32_t num_records_per_page = file_handle_->file_hdr_.num_records_per_page;
+    uint32_t num_records = page_handle.GetNumTuples();
+    // uint32_t num_records_per_page = file_handle_->file_hdr_.num_records_per_page;
 
-    // Move to the next slot
-    slot_no = Bitmap::next_bit(true, page_handle.bitmap, num_records_per_page, slot_no);
+    // // Move to the next slot
+    // slot_no = Bitmap::next_bit(true, page_handle.bitmap, num_records_per_page, slot_no);
 
     // Unpin the page that was pinned in 'fetch_page_handle'
     file_handle_->buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), false);
 
-    if (slot_no < num_records_per_page) {
+    if (slot_no < num_records) {
       // Found a valid record in the current page
       return;
     } else {

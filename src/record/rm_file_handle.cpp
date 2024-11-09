@@ -10,8 +10,162 @@
  */
 
 #include "record/rm_file_handle.h"
+#include "common/macros.h"
 
 namespace easydb {
+
+auto RmPageHandle::GetNextTupleOffset(const TupleMeta &meta, const Tuple &tuple) const -> std::optional<uint16_t> {
+  size_t slot_end_offset;
+  if (page_hdr_->num_records > 0) {
+    auto &[offset, size, meta] = tuple_info_[page_hdr_->num_records - 1];
+    slot_end_offset = offset;
+  } else {
+    slot_end_offset = PAGE_SIZE;
+  }
+  auto tuple_offset = slot_end_offset - tuple.GetLength();
+  auto offset_size = TABLE_PAGE_HEADER_SIZE + TUPLE_INFO_SIZE * (page_hdr_->num_records + 1);
+  if (tuple_offset < offset_size) {
+    return std::nullopt;
+  }
+  return tuple_offset;
+}
+
+auto RmPageHandle::InsertTuple(const TupleMeta &meta, const Tuple &tuple) -> std::optional<uint16_t> {
+  auto tuple_offset = GetNextTupleOffset(meta, tuple);
+  if (tuple_offset == std::nullopt) {
+    return std::nullopt;
+  }
+  auto tuple_id = page_hdr_->num_records;
+  tuple_info_[tuple_id] = std::make_tuple(*tuple_offset, tuple.GetLength(), meta);
+  page_hdr_->num_records++;
+  memcpy(page_start_ + *tuple_offset, tuple.data_.data(), tuple.GetLength());
+  return tuple_id;
+}
+
+void RmPageHandle::UpdateTupleMeta(const TupleMeta &meta, const RID &rid) {
+  auto tuple_id = rid.GetSlotNum();
+  if (tuple_id >= page_hdr_->num_records) {
+    throw easydb::Exception("Tuple ID out of range");
+  }
+  auto &[offset, size, old_meta] = tuple_info_[tuple_id];
+  if (!old_meta.is_deleted_ && meta.is_deleted_) {
+    page_hdr_->num_deleted_records++;
+  }
+  tuple_info_[tuple_id] = std::make_tuple(offset, size, meta);
+}
+
+auto RmPageHandle::GetTuple(const RID &rid) const -> std::pair<TupleMeta, Tuple> {
+  auto tuple_id = rid.GetSlotNum();
+  if (tuple_id >= page_hdr_->num_records) {
+    throw easydb::Exception("Tuple ID out of range");
+  }
+  auto &[offset, size, meta] = tuple_info_[tuple_id];
+  Tuple tuple;
+  tuple.data_.resize(size);
+  memmove(tuple.data_.data(), page_start_ + offset, size);
+  tuple.rid_ = rid;
+  return std::make_pair(meta, std::move(tuple));
+}
+
+auto RmPageHandle::GetTupleMeta(const RID &rid) const -> TupleMeta {
+  auto tuple_id = rid.GetSlotNum();
+  if (tuple_id >= page_hdr_->num_records) {
+    throw easydb::Exception("Tuple ID out of range");
+  }
+  auto &[_1, _2, meta] = tuple_info_[tuple_id];
+  return meta;
+}
+
+void RmPageHandle::UpdateTupleInPlaceUnsafe(const TupleMeta &meta, const Tuple &tuple, RID rid) {
+  auto tuple_id = rid.GetSlotNum();
+  if (tuple_id >= page_hdr_->num_records) {
+    throw easydb::Exception("Tuple ID out of range");
+  }
+  auto &[offset, size, old_meta] = tuple_info_[tuple_id];
+  if (size != tuple.GetLength()) {
+    throw easydb::Exception("Tuple size mismatch");
+  }
+  if (!old_meta.is_deleted_ && meta.is_deleted_) {
+    page_hdr_->num_deleted_records++;
+  }
+  tuple_info_[tuple_id] = std::make_tuple(offset, size, meta);
+  memcpy(page_start_ + offset, tuple.data_.data(), tuple.GetLength());
+}
+
+auto RmFileHandle::InsertTuple(const TupleMeta &meta, const Tuple &tuple) -> std::optional<RID> {
+  // 1. Fetch the current first free page handle
+  RmPageHandle page_handle = CreatePageHandle();
+  int page_no = page_handle.page->GetPageId().page_no;
+
+  // 2. Find a free slot in the page handle
+  while (true) {
+    if (page_handle.GetNextTupleOffset(meta, tuple) != std::nullopt) {
+      break;
+    }
+
+    // if there's no tuple in the page, and we can't insert the tuple, then this tuple is too large.
+    EASYDB_ENSURE(page_handle.GetNumTuples() != 0, "tuple is too large, cannot insert");
+
+    auto new_page_handle = CreateNewPageHandle();
+    page_handle.SetNextPageId(new_page_handle.page->GetPageId().page_no);
+
+    page_handle = std::move(new_page_handle);
+  }
+
+  // 3. Insert the tuple to the free slot
+  auto slot_no = *page_handle.InsertTuple(meta, tuple);
+
+  // Unpin the page that was pinned in create_page_handle
+  buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), true);
+
+  return RID(page_no, slot_no);
+}
+
+auto RmFileHandle::DeleteTuple(RID rid) -> bool {
+  RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
+  auto [meta, tuple] = page_handle.GetTuple(rid);
+  if (meta.is_deleted_) {
+    throw InternalError("RmFileHandle::DeleteTuple Error: Tuple already deleted");
+  }
+  meta.is_deleted_ = true;
+  page_handle.UpdateTupleMeta(meta, rid);
+  buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), true);
+  return true;
+}
+
+auto RmFileHandle::UpdateTupleInPlace(const TupleMeta &meta, const Tuple &tuple, RID rid,
+                                   std::function<bool(const TupleMeta &meta, const Tuple &table, RID rid)> &&check)
+    -> bool {
+  RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
+  auto [old_meta, old_tup] = page_handle.GetTuple(rid);
+  if (check == nullptr || check(old_meta, old_tup, rid)) {
+    page_handle.UpdateTupleInPlaceUnsafe(meta, tuple, rid);
+    return true;
+  }
+  return false;
+}
+
+void RmFileHandle::UpdateTupleMeta(const TupleMeta &meta, RID rid) {
+  RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
+  page_handle.UpdateTupleMeta(meta, rid);
+  buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), true);
+}
+
+
+auto RmFileHandle::GetTuple(RID rid) -> std::pair<TupleMeta, Tuple> {
+  RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
+  auto [meta, tuple] = page_handle.GetTuple(rid);
+  buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), true);
+  tuple.rid_ = rid;
+  return std::make_pair(meta, std::move(tuple));
+}
+
+auto RmFileHandle::GetTupleMeta(RID rid) -> TupleMeta {
+  RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
+  TupleMeta meat = page_handle.GetTupleMeta(rid);
+  buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), true);
+  return meat;
+}
 
 /**
  * @description: 获取当前表中记录号为rid的记录
@@ -34,17 +188,11 @@ auto RmFileHandle::GetRecord(const RID &rid) -> std::unique_ptr<RmRecord> {
   // 1. Fetch the page handle for the page that contains the record
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
 
-  // Check if the slot contains a valid record
-  if (!Bitmap::is_set(page_handle.bitmap, rid.GetSlotNum())) {
-    // Unpin the page before throwing an exception
-    buffer_pool_manager_->UnpinPage({fd_, rid.GetPageId()}, false);
-    throw RecordNotFoundError(rid.GetPageId(), rid.GetSlotNum());
-    // throw InternalError("RmFileHandle::get_record: Record not found.");
-  }
-
   // 2. Initialize a unique pointer to RmRecord
-  char *record_data = page_handle.get_slot(rid.GetSlotNum());
-  auto record = std::make_unique<RmRecord>(file_hdr_.record_size, record_data);
+  auto [meta, tuple] = page_handle.GetTuple(rid);
+  tuple.rid_ = rid;
+  // return std::make_pair(meta, std::move(tuple));
+  auto record = std::make_unique<RmRecord>(tuple.GetLength(), tuple.data_.data());
 
   // Unpin the page
   buffer_pool_manager_->UnpinPage({fd_, rid.GetPageId()}, false);
@@ -67,44 +215,7 @@ RID RmFileHandle::InsertRecord(char *buf) {
   // 4. 更新page_handle.page_hdr中的数据结构
   // 注意考虑插入一条记录后页面已满的情况，需要更新file_hdr_.first_free_page_no
   // return RID{-1, -1};
-
-  // 1. Fetch the current first free page handle
-  RmPageHandle page_handle = CreatePageHandle();
-  int page_no = page_handle.page->GetPageId().page_no;
-
-  // 2. Find a free slot in the page handle
-  int slot_no = Bitmap::first_bit(false, page_handle.bitmap, file_hdr_.num_records_per_page);
-  if (slot_no == file_hdr_.num_records_per_page) {
-    // This should not happen as we should have a free slot
-    throw InternalError("RmFileHandle::insert_record Error: No free slot found in a supposedly free page");
-  }
-
-  // // lock manager
-  // if (context != nullptr) {
-  //   auto rid = RID{page_no, slot_no};
-  //   context->lock_mgr_->lock_exclusive_on_record(context->txn_, rid, fd_);
-  // }
-
-  // 3. Copy the data to the free slot
-  char *slot = page_handle.get_slot(slot_no);
-  memcpy(slot, buf, file_hdr_.record_size);
-  // Update the bitmap to mark the slot as used
-  Bitmap::set(page_handle.bitmap, slot_no);
-
-  // 4. Update the page header's num_records and next_free_page_no if necessary
-  page_handle.page_hdr->num_records++;
-  // Check if the page is full
-  if (page_handle.page_hdr->num_records == file_hdr_.num_records_per_page) {
-    // Page is full, update file header to point to the next free page
-    file_hdr_.first_free_page_no = page_handle.page_hdr->next_free_page_no;
-    // Write the updated file header back to disk
-    disk_manager_->WritePage(fd_, RM_FILE_HDR_PAGE, (char *)&file_hdr_, sizeof(file_hdr_));
-  }
-
-  // Unpin the page that was pinned in create_page_handle
-  buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), true);
-
-  return RID{page_no, static_cast<uint32_t>(slot_no)};
+  throw InternalError("RmFileHandle::insert_record removed, use InsertTuple instead.");
 }
 
 /**
@@ -115,34 +226,7 @@ RID RmFileHandle::InsertRecord(char *buf) {
  */
 // void RmFileHandle::insert_record(const RID &rid, char *buf) {
 void RmFileHandle::InsertRecord(const RID &rid, char *buf) {
-  int page_no = rid.GetPageId();
-  int slot_no = rid.GetSlotNum();
-  // 1. Fetch the page handle for the specified page number
-  RmPageHandle page_handle = FetchPageHandle(page_no);
-
-  // 2. Ensure that the specified slot is free
-  if (Bitmap::is_set(page_handle.bitmap, slot_no)) {
-    throw InternalError("RmFileHandle::insert_record Error: Slot is already occupied");
-  }
-
-  // 3. Copy the record data (buf) to the specified slot
-  char *slot_data = page_handle.get_slot(slot_no);
-  memcpy(slot_data, buf, file_hdr_.record_size);
-  // Update the bitmap to mark the slot as used
-  Bitmap::set(page_handle.bitmap, slot_no);
-
-  // 4. Update the page header to reflect the addition of a new record
-  page_handle.page_hdr->num_records++;
-  // Check if the page is now full
-  if (page_handle.page_hdr->num_records == file_hdr_.num_records_per_page) {
-    // Page is now full, update the file header's first_free_page_no
-    file_hdr_.first_free_page_no = page_handle.page_hdr->next_free_page_no;
-    // Write the updated file header back to disk
-    disk_manager_->WritePage(fd_, RM_FILE_HDR_PAGE, (char *)&file_hdr_, sizeof(file_hdr_));
-  }
-
-  // Unpin the page that was pinned in FetchPageHandle
-  buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), true);
+  throw InternalError("RmFileHandle::insert_record not implemented");
 }
 
 /**
@@ -156,30 +240,7 @@ void RmFileHandle::DeleteRecord(const RID &rid) {
   // 1. 获取指定记录所在的page handle
   // 2. 更新page_handle.page_hdr中的数据结构
   // 注意考虑删除一条记录后页面未满的情况，需要调用release_page_handle()
-
-  //   // lock manager
-  //   if (context != nullptr) {
-  //     context->lock_mgr_->lock_exclusive_on_record(context->txn_, rid, fd_);
-  //   }
-
-  // 1. Fetch the page handle for the specified page number
-  RmPageHandle page_handle = FetchPageHandle(rid.GetSlotNum());
-  // Ensure that the specified slot contains a record
-  if (!Bitmap::is_set(page_handle.bitmap, rid.GetSlotNum())) {
-    throw InternalError("RmFileHandle::delete_record: Slot is already empty");
-  }
-  // Update the bitmap to mark the slot as free
-  Bitmap::reset(page_handle.bitmap, rid.GetSlotNum());
-
-  // 2. Update the page header to reflect the deletion of the record
-  page_handle.page_hdr->num_records--;
-  // Check if the page changed from full to non-full
-  if (page_handle.page_hdr->num_records == file_hdr_.num_records_per_page - 1) {
-    ReleasePageHandle(page_handle);
-  }
-
-  // Unpin the page that was pinned in FetchPageHandle
-  buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), true);
+  throw InternalError("RmFileHandle::delete_record removed, use DeleteTuple instead.");
 }
 
 /**
@@ -193,26 +254,7 @@ void RmFileHandle::UpdateRecord(const RID &rid, char *buf) {
   // Todo:
   // 1. 获取指定记录所在的page handle
   // 2. 更新记录
-
-  //   // lock manager
-  //   if (context != nullptr) {
-  //     context->lock_mgr_->lock_exclusive_on_record(context->txn_, rid, fd_);
-  //   }
-
-  // 1. Fetch the page handle for the specified page number
-  RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
-  // Ensure that the specified slot is occupied
-  if (!Bitmap::is_set(page_handle.bitmap, rid.GetSlotNum())) {
-    throw RecordNotFoundError(rid.GetPageId(), rid.GetSlotNum());
-    // throw InternalError("RmFileHandle::update_record Error: RecordNotFoundError");
-  }
-
-  // 2. Update the slot data with the new record data from buf
-  char *slot_data = page_handle.get_slot(rid.GetSlotNum());
-  memcpy(slot_data, buf, file_hdr_.record_size);
-
-  // Unpin the page that was pinned in FetchPageHandle
-  buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), true);
+  throw InternalError("RmFileHandle::update_record removed, use UpdateTupleInPlace instead.");
 }
 
 /**
@@ -278,10 +320,7 @@ RmPageHandle RmFileHandle::CreateNewPageHandle() {
   // 2. Initialize the new page handle
   RmPageHandle new_page_handle(&file_hdr_, new_page);
   // Initialize the new page header
-  new_page_handle.page_hdr->next_free_page_no = RM_NO_PAGE;
-  new_page_handle.page_hdr->num_records = 0;
-  // Initialize the bitmap
-  Bitmap::init(new_page_handle.bitmap, file_hdr_.bitmap_size);
+  new_page_handle.page_hdr_->Init();
 
   // 3. Update the file header
   file_hdr_.num_pages++;
@@ -357,7 +396,7 @@ void RmFileHandle::ReleasePageHandle(RmPageHandle &page_handle) {
   // 2. file_hdr_.first_free_page_no
 
   // If the page becomes non-full, update the next_free_page_no and first_free_page_no
-  page_handle.page_hdr->next_free_page_no = file_hdr_.first_free_page_no;
+  // page_handle.page_hdr->next_free_page_no = file_hdr_.first_free_page_no;
   file_hdr_.first_free_page_no = page_handle.page->GetPageId().page_no;
 
   // Write the updated file header back to disk

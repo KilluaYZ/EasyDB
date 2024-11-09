@@ -31,271 +31,271 @@ struct TabCol {
   }
 };
 
-struct Value {
-  ColType type;  // type of value
-  union {
-    int int_val;  // int value
-    long long long_val;
-    float float_val;  // float value
-    double double_val;
-  };
-  std::string str_val;  // string value
+// struct Value {
+//   ColType type;  // type of value
+//   union {
+//     int int_val;  // int value
+//     long long long_val;
+//     float float_val;  // float value
+//     double double_val;
+//   };
+//   std::string str_val;  // string value
 
-  std::shared_ptr<RmRecord> raw = nullptr;  // raw record buffer
+//   std::shared_ptr<RmRecord> raw = nullptr;  // raw record buffer
 
-  void set_int(int int_val_) {
-    type = TYPE_INT;
-    int_val = int_val_;
-  }
+//   void set_int(int int_val_) {
+//     type = TYPE_INT;
+//     int_val = int_val_;
+//   }
 
-  void set_long(long long long_val_) {
-    type = TYPE_LONG;
-    long_val = long_val_;
-  }
+//   void set_long(long long long_val_) {
+//     type = TYPE_LONG;
+//     long_val = long_val_;
+//   }
 
-  void set_float(float float_val_) {
-    type = TYPE_FLOAT;
-    float_val = float_val_;
-  }
+//   void set_float(float float_val_) {
+//     type = TYPE_FLOAT;
+//     float_val = float_val_;
+//   }
 
-  void set_double(double double_val_) {
-    type = TYPE_DOUBLE;
-    double_val = double_val_;
-  }
+//   void set_double(double double_val_) {
+//     type = TYPE_DOUBLE;
+//     double_val = double_val_;
+//   }
 
-  void set_char(std::string str_val_) {
-    type = TYPE_CHAR;
-    str_val = std::move(str_val_);
-  }
+//   void set_char(std::string str_val_) {
+//     type = TYPE_CHAR;
+//     str_val = std::move(str_val_);
+//   }
 
-  void set_varchar(std::string str_val_) {
-    type = TYPE_VARCHAR;
-    str_val = std::move(str_val_);
-  }
+//   void set_varchar(std::string str_val_) {
+//     type = TYPE_VARCHAR;
+//     str_val = std::move(str_val_);
+//   }
 
-  void init_raw(int len) {
-    assert(raw == nullptr);
-    raw = std::make_shared<RmRecord>(len);
-    if (type == TYPE_INT) {
-      assert(len == sizeof(int));
-      *(int *)(raw->data) = int_val;
-    } else if (type == TYPE_LONG) {
-      assert(len == sizeof(long long));
-      *(long long *)(raw->data) = long_val;
-    } else if (type == TYPE_FLOAT) {
-      assert(len == sizeof(float));
-      *(float *)(raw->data) = float_val;
-    } else if (type == TYPE_DOUBLE) {
-      assert(len == sizeof(double));
-      *(double *)(raw->data) = double_val;
-    } else if (type == TYPE_CHAR || type == TYPE_VARCHAR) {
-      if (len < (int)str_val.size()) {
-        throw StringOverflowError();
-      }
-      memset(raw->data, 0, len);
-      memcpy(raw->data, str_val.c_str(), str_val.size());
-    }
-  }
+//   void init_raw(int len) {
+//     assert(raw == nullptr);
+//     raw = std::make_shared<RmRecord>(len);
+//     if (type == TYPE_INT) {
+//       assert(len == sizeof(int));
+//       *(int *)(raw->data) = int_val;
+//     } else if (type == TYPE_LONG) {
+//       assert(len == sizeof(long long));
+//       *(long long *)(raw->data) = long_val;
+//     } else if (type == TYPE_FLOAT) {
+//       assert(len == sizeof(float));
+//       *(float *)(raw->data) = float_val;
+//     } else if (type == TYPE_DOUBLE) {
+//       assert(len == sizeof(double));
+//       *(double *)(raw->data) = double_val;
+//     } else if (type == TYPE_CHAR || type == TYPE_VARCHAR) {
+//       if (len < (int)str_val.size()) {
+//         throw StringOverflowError();
+//       }
+//       memset(raw->data, 0, len);
+//       memcpy(raw->data, str_val.c_str(), str_val.size());
+//     }
+//   }
 
-  Value *get_value_from_record(RmRecord record, std::vector<ColMeta> cols, std::string col_name) {
-    std::string str;
-    int str_size = 0;
-    for (auto &col : cols) {
-      if (col.name == col_name) {
-        char *data = record.data;
-        switch (col.type) {
-          case TYPE_INT:
-            this->set_int(*(int *)(data + col.offset));
-            break;
-          case TYPE_LONG:
-            this->set_long(*(long long *)(data + col.offset));
-            break;
-          case TYPE_FLOAT:
-            this->set_float(*(float *)(data + col.offset));
-            break;
-          case TYPE_DOUBLE:
-            this->set_double(*(double *)(data + col.offset));
-            break;
-          case TYPE_CHAR:
-            str_size = col.len < (int)strlen(data + col.offset) ? col.len : strlen(data + col.offset);
-            str.assign(data + col.offset, str_size);
-            str[str_size] = '\0';
-            this->set_char(str);
-            break;
-          case TYPE_VARCHAR:
-            str_size = col.len < (int)strlen(data + col.offset) ? col.len : strlen(data + col.offset);
-            str.assign(data + col.offset, str_size);
-            str[str_size] = '\0';
-            this->set_varchar(str);
-            break;
-          default:
-            throw InternalError("unsupported data type.");
-        }
-        return this;
-      }
-    }
-    return nullptr;
-  }
+//   Value *get_value_from_record(RmRecord record, std::vector<ColMeta> cols, std::string col_name) {
+//     std::string str;
+//     int str_size = 0;
+//     for (auto &col : cols) {
+//       if (col.name == col_name) {
+//         char *data = record.data;
+//         switch (col.type) {
+//           case TYPE_INT:
+//             this->set_int(*(int *)(data + col.offset));
+//             break;
+//           case TYPE_LONG:
+//             this->set_long(*(long long *)(data + col.offset));
+//             break;
+//           case TYPE_FLOAT:
+//             this->set_float(*(float *)(data + col.offset));
+//             break;
+//           case TYPE_DOUBLE:
+//             this->set_double(*(double *)(data + col.offset));
+//             break;
+//           case TYPE_CHAR:
+//             str_size = col.len < (int)strlen(data + col.offset) ? col.len : strlen(data + col.offset);
+//             str.assign(data + col.offset, str_size);
+//             str[str_size] = '\0';
+//             this->set_char(str);
+//             break;
+//           case TYPE_VARCHAR:
+//             str_size = col.len < (int)strlen(data + col.offset) ? col.len : strlen(data + col.offset);
+//             str.assign(data + col.offset, str_size);
+//             str[str_size] = '\0';
+//             this->set_varchar(str);
+//             break;
+//           default:
+//             throw InternalError("unsupported data type.");
+//         }
+//         return this;
+//       }
+//     }
+//     return nullptr;
+//   }
 
-  //   bool operator<(const Value &rfh) {
-  //     if (type == rfh.type) {
-  //       switch (type) {
-  //         case TYPE_INT:
-  //           return int_val < rfh.int_val;
-  //         case TYPE_FLOAT:
-  //           return float_val < rfh.float_val;
-  //         case TYPE_STRING:
-  //           return str_val < rfh.str_val;
-  //         default:
-  //           throw InternalError("unsupported data type.");
-  //       }
-  //     } else if (type == TYPE_STRING || rfh.type == TYPE_STRING) {
-  //       throw IncompatibleTypeError(coltype2str(type), coltype2str(rfh.type));
-  //     } else if (type == TYPE_INT) {
-  //       return int_val < rfh.float_val;
-  //     } else {
-  //       return float_val < rfh.int_val;
-  //     }
-  //   }
+//   //   bool operator<(const Value &rfh) {
+//   //     if (type == rfh.type) {
+//   //       switch (type) {
+//   //         case TYPE_INT:
+//   //           return int_val < rfh.int_val;
+//   //         case TYPE_FLOAT:
+//   //           return float_val < rfh.float_val;
+//   //         case TYPE_STRING:
+//   //           return str_val < rfh.str_val;
+//   //         default:
+//   //           throw InternalError("unsupported data type.");
+//   //       }
+//   //     } else if (type == TYPE_STRING || rfh.type == TYPE_STRING) {
+//   //       throw IncompatibleTypeError(coltype2str(type), coltype2str(rfh.type));
+//   //     } else if (type == TYPE_INT) {
+//   //       return int_val < rfh.float_val;
+//   //     } else {
+//   //       return float_val < rfh.int_val;
+//   //     }
+//   //   }
 
-  //   bool operator>(const Value &rfh) {
-  //     if (type == TYPE_EMPTY || rfh.type == TYPE_EMPTY) {
-  //       return false;
-  //     }
-  //     if (type == rfh.type) {
-  //       switch (type) {
-  //         case TYPE_INT:
-  //           return int_val > rfh.int_val;
-  //         case TYPE_FLOAT:
-  //           return float_val > rfh.float_val;
-  //         case TYPE_STRING:
-  //           return str_val > rfh.str_val;
-  //         default:
-  //           throw InternalError("unsupported data type.");
-  //       }
-  //     } else if (type == TYPE_STRING || rfh.type == TYPE_STRING) {
-  //       throw IncompatibleTypeError(coltype2str(type), coltype2str(rfh.type));
-  //     } else if (type == TYPE_INT) {
-  //       return int_val > rfh.float_val;
-  //     } else {
-  //       return float_val > rfh.int_val;
-  //     }
-  //   }
+//   //   bool operator>(const Value &rfh) {
+//   //     if (type == TYPE_EMPTY || rfh.type == TYPE_EMPTY) {
+//   //       return false;
+//   //     }
+//   //     if (type == rfh.type) {
+//   //       switch (type) {
+//   //         case TYPE_INT:
+//   //           return int_val > rfh.int_val;
+//   //         case TYPE_FLOAT:
+//   //           return float_val > rfh.float_val;
+//   //         case TYPE_STRING:
+//   //           return str_val > rfh.str_val;
+//   //         default:
+//   //           throw InternalError("unsupported data type.");
+//   //       }
+//   //     } else if (type == TYPE_STRING || rfh.type == TYPE_STRING) {
+//   //       throw IncompatibleTypeError(coltype2str(type), coltype2str(rfh.type));
+//   //     } else if (type == TYPE_INT) {
+//   //       return int_val > rfh.float_val;
+//   //     } else {
+//   //       return float_val > rfh.int_val;
+//   //     }
+//   //   }
 
-  //   bool operator<=(const Value &rfh) {
-  //     if (type == TYPE_EMPTY || rfh.type == TYPE_EMPTY) {
-  //       return false;
-  //     }
-  //     if (type == rfh.type) {
-  //       switch (type) {
-  //         case TYPE_INT:
-  //           return int_val <= rfh.int_val;
-  //         case TYPE_FLOAT:
-  //           return float_val <= rfh.float_val;
-  //         case TYPE_STRING:
-  //           return str_val <= rfh.str_val;
-  //         default:
-  //           throw InternalError("unsupported data type.");
-  //       }
-  //     } else if (type == TYPE_STRING || rfh.type == TYPE_STRING) {
-  //       throw IncompatibleTypeError(coltype2str(type), coltype2str(rfh.type));
-  //     } else if (type == TYPE_INT) {
-  //       return int_val <= rfh.float_val;
-  //     } else {
-  //       return float_val <= rfh.int_val;
-  //     }
-  //   }
+//   //   bool operator<=(const Value &rfh) {
+//   //     if (type == TYPE_EMPTY || rfh.type == TYPE_EMPTY) {
+//   //       return false;
+//   //     }
+//   //     if (type == rfh.type) {
+//   //       switch (type) {
+//   //         case TYPE_INT:
+//   //           return int_val <= rfh.int_val;
+//   //         case TYPE_FLOAT:
+//   //           return float_val <= rfh.float_val;
+//   //         case TYPE_STRING:
+//   //           return str_val <= rfh.str_val;
+//   //         default:
+//   //           throw InternalError("unsupported data type.");
+//   //       }
+//   //     } else if (type == TYPE_STRING || rfh.type == TYPE_STRING) {
+//   //       throw IncompatibleTypeError(coltype2str(type), coltype2str(rfh.type));
+//   //     } else if (type == TYPE_INT) {
+//   //       return int_val <= rfh.float_val;
+//   //     } else {
+//   //       return float_val <= rfh.int_val;
+//   //     }
+//   //   }
 
-  //   bool operator==(const Value &rfh) {
-  //     if (type == TYPE_EMPTY || rfh.type == TYPE_EMPTY) {
-  //       return false;
-  //     }
-  //     if (type == rfh.type) {
-  //       switch (type) {
-  //         case TYPE_INT:
-  //           return int_val == rfh.int_val;
-  //         case TYPE_FLOAT:
-  //           return float_val == rfh.float_val;
-  //         case TYPE_STRING:
-  //           return str_val == rfh.str_val;
-  //         default:
-  //           throw InternalError("unsupported data type.");
-  //       }
-  //     } else if (type == TYPE_STRING || rfh.type == TYPE_STRING) {
-  //       throw IncompatibleTypeError(coltype2str(type), coltype2str(rfh.type));
-  //     } else if (type == TYPE_INT) {
-  //       return int_val == rfh.float_val;
-  //     } else {
-  //       return float_val == rfh.int_val;
-  //     }
-  //   }
+//   //   bool operator==(const Value &rfh) {
+//   //     if (type == TYPE_EMPTY || rfh.type == TYPE_EMPTY) {
+//   //       return false;
+//   //     }
+//   //     if (type == rfh.type) {
+//   //       switch (type) {
+//   //         case TYPE_INT:
+//   //           return int_val == rfh.int_val;
+//   //         case TYPE_FLOAT:
+//   //           return float_val == rfh.float_val;
+//   //         case TYPE_STRING:
+//   //           return str_val == rfh.str_val;
+//   //         default:
+//   //           throw InternalError("unsupported data type.");
+//   //       }
+//   //     } else if (type == TYPE_STRING || rfh.type == TYPE_STRING) {
+//   //       throw IncompatibleTypeError(coltype2str(type), coltype2str(rfh.type));
+//   //     } else if (type == TYPE_INT) {
+//   //       return int_val == rfh.float_val;
+//   //     } else {
+//   //       return float_val == rfh.int_val;
+//   //     }
+//   //   }
 
-  //   bool operator>=(const Value &rfh) {
-  //     if (type == TYPE_EMPTY || rfh.type == TYPE_EMPTY) {
-  //       return false;
-  //     }
-  //     if (type == rfh.type) {
-  //       switch (type) {
-  //         case TYPE_INT:
-  //           return int_val >= rfh.int_val;
-  //         case TYPE_FLOAT:
-  //           return float_val >= rfh.float_val;
-  //         case TYPE_STRING:
-  //           return str_val >= rfh.str_val;
-  //         default:
-  //           throw InternalError("unsupported data type.");
-  //       }
-  //     } else if (type == TYPE_STRING || rfh.type == TYPE_STRING) {
-  //       throw IncompatibleTypeError(coltype2str(type), coltype2str(rfh.type));
-  //     } else if (type == TYPE_INT) {
-  //       return int_val >= rfh.float_val;
-  //     } else {
-  //       return float_val >= rfh.int_val;
-  //     }
-  //   }
+//   //   bool operator>=(const Value &rfh) {
+//   //     if (type == TYPE_EMPTY || rfh.type == TYPE_EMPTY) {
+//   //       return false;
+//   //     }
+//   //     if (type == rfh.type) {
+//   //       switch (type) {
+//   //         case TYPE_INT:
+//   //           return int_val >= rfh.int_val;
+//   //         case TYPE_FLOAT:
+//   //           return float_val >= rfh.float_val;
+//   //         case TYPE_STRING:
+//   //           return str_val >= rfh.str_val;
+//   //         default:
+//   //           throw InternalError("unsupported data type.");
+//   //       }
+//   //     } else if (type == TYPE_STRING || rfh.type == TYPE_STRING) {
+//   //       throw IncompatibleTypeError(coltype2str(type), coltype2str(rfh.type));
+//   //     } else if (type == TYPE_INT) {
+//   //       return int_val >= rfh.float_val;
+//   //     } else {
+//   //       return float_val >= rfh.int_val;
+//   //     }
+//   //   }
 
-  //   bool operator!=(const Value &rfh) {
-  //     if (type == TYPE_EMPTY || rfh.type == TYPE_EMPTY) {
-  //       return true;
-  //     }
-  //     if (type == rfh.type) {
-  //       switch (type) {
-  //         case TYPE_INT:
-  //           return int_val != rfh.int_val;
-  //         case TYPE_FLOAT:
-  //           return float_val != rfh.float_val;
-  //         case TYPE_STRING:
-  //           return str_val != rfh.str_val;
-  //         default:
-  //           throw InternalError("unsupported data type.");
-  //       }
-  //     } else if (type == TYPE_STRING || rfh.type == TYPE_STRING) {
-  //       throw IncompatibleTypeError(coltype2str(type), coltype2str(rfh.type));
-  //     } else if (type == TYPE_INT) {
-  //       return int_val != rfh.float_val;
-  //     } else {
-  //       return float_val != rfh.int_val;
-  //     }
-  //   }
+//   //   bool operator!=(const Value &rfh) {
+//   //     if (type == TYPE_EMPTY || rfh.type == TYPE_EMPTY) {
+//   //       return true;
+//   //     }
+//   //     if (type == rfh.type) {
+//   //       switch (type) {
+//   //         case TYPE_INT:
+//   //           return int_val != rfh.int_val;
+//   //         case TYPE_FLOAT:
+//   //           return float_val != rfh.float_val;
+//   //         case TYPE_STRING:
+//   //           return str_val != rfh.str_val;
+//   //         default:
+//   //           throw InternalError("unsupported data type.");
+//   //       }
+//   //     } else if (type == TYPE_STRING || rfh.type == TYPE_STRING) {
+//   //       throw IncompatibleTypeError(coltype2str(type), coltype2str(rfh.type));
+//   //     } else if (type == TYPE_INT) {
+//   //       return int_val != rfh.float_val;
+//   //     } else {
+//   //       return float_val != rfh.int_val;
+//   //     }
+//   //   }
 
-  //   Value operator+(const Value &rfh) {
-  //     Value res;
-  //     if (type == TYPE_STRING || rfh.type == TYPE_STRING) {
-  //       throw InternalError("TYPE_STRING don't support operator +.");
-  //     } else {
-  //       if (type == TYPE_FLOAT && rfh.type == TYPE_FLOAT) {
-  //         res.set_float(float_val + rfh.float_val);
-  //       } else if (type == TYPE_FLOAT && rfh.type == TYPE_INT) {
-  //         res.set_float(float_val + rfh.int_val);
-  //       } else if (type == TYPE_INT && rfh.type == TYPE_FLOAT) {
-  //         res.set_float(int_val + rfh.float_val);
-  //       } else {
-  //         res.set_int(int_val + rfh.int_val);
-  //       }
-  //     }
-  //     return res;
-  //   }
-};
+//   //   Value operator+(const Value &rfh) {
+//   //     Value res;
+//   //     if (type == TYPE_STRING || rfh.type == TYPE_STRING) {
+//   //       throw InternalError("TYPE_STRING don't support operator +.");
+//   //     } else {
+//   //       if (type == TYPE_FLOAT && rfh.type == TYPE_FLOAT) {
+//   //         res.set_float(float_val + rfh.float_val);
+//   //       } else if (type == TYPE_FLOAT && rfh.type == TYPE_INT) {
+//   //         res.set_float(float_val + rfh.int_val);
+//   //       } else if (type == TYPE_INT && rfh.type == TYPE_FLOAT) {
+//   //         res.set_float(int_val + rfh.float_val);
+//   //       } else {
+//   //         res.set_int(int_val + rfh.int_val);
+//   //       }
+//   //     }
+//   //     return res;
+//   //   }
+// };
 
 // enum CompOp { OP_EQ, OP_NE, OP_LT, OP_GT, OP_LE, OP_GE };
 
