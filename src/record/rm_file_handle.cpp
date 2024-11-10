@@ -108,6 +108,7 @@ auto RmFileHandle::InsertTuple(const TupleMeta &meta, const Tuple &tuple) -> std
 
     auto new_page_handle = CreateNewPageHandle();
     page_handle.SetNextPageId(new_page_handle.page->GetPageId().page_no);
+    buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), false);
 
     page_handle = std::move(new_page_handle);
   }
@@ -134,7 +135,7 @@ auto RmFileHandle::DeleteTuple(RID rid) -> bool {
 }
 
 auto RmFileHandle::UpdateTupleInPlace(const TupleMeta &meta, const Tuple &tuple, RID rid,
-                                   std::function<bool(const TupleMeta &meta, const Tuple &table, RID rid)> &&check)
+                                      std::function<bool(const TupleMeta &meta, const Tuple &table, RID rid)> &&check)
     -> bool {
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
   auto [old_meta, old_tup] = page_handle.GetTuple(rid);
@@ -150,7 +151,6 @@ void RmFileHandle::UpdateTupleMeta(const TupleMeta &meta, RID rid) {
   page_handle.UpdateTupleMeta(meta, rid);
   buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), true);
 }
-
 
 auto RmFileHandle::GetTuple(RID rid) -> std::pair<TupleMeta, Tuple> {
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
