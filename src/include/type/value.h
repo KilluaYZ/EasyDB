@@ -64,14 +64,16 @@ class Value {
   Value(TypeId type, int32_t i);
   // BIGINT
   Value(TypeId type, int64_t i);
+  // LONG
+  Value(TypeId type, long long ll) { Value(type, static_cast<int64_t>(ll)); }
   // TIMESTAMP
   Value(TypeId type, uint64_t i);
-  // VARCHAR
+  // CHAR and VARCHAR
   Value(TypeId type, const char *data, uint32_t len, bool manage_data);
   Value(TypeId type, const std::string &data);
   Value(TypeId type, const std::vector<double> &data);
 
-  Value() : Value(TypeId::INVALID) {}
+  Value() : Value(TypeId::TYPE_EMPTY) {}
   Value(const Value &other);
   auto operator=(Value other) -> Value &;
   ~Value();

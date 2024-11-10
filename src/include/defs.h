@@ -37,16 +37,6 @@ struct Rid {
   friend bool operator!=(const Rid &x, const Rid &y) { return !(x == y); }
 };
 
-enum ColType { TYPE_INT, TYPE_LONG, TYPE_FLOAT, TYPE_DOUBLE, TYPE_VARCHAR, TYPE_CHAR, TYPE_DATE, TYPE_EMPTY };
-
-inline std::string coltype2str(ColType type) {
-  std::map<ColType, std::string> m = {
-      {TYPE_INT, "INT"},         {TYPE_LONG, "LONG"}, {TYPE_FLOAT, "FLOAT"}, {TYPE_DOUBLE, "DOUBLE"},
-      {TYPE_VARCHAR, "VARCHAR"}, {TYPE_CHAR, "CHAR"}, {TYPE_DATE, "DATE"},   {TYPE_EMPTY, "EMPTY"},
-  };
-  return m.at(type);
-}
-
 class RecScan {
  public:
   virtual ~RecScan() = default;

@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "common/config.h"
+#include "type/type_id.h"
 #include "defs.h"
 
 namespace easydb {

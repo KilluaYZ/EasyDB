@@ -1,3 +1,4 @@
+add_subdirectory(catalog)
 add_subdirectory(common)
 add_subdirectory(type)
 add_subdirectory(storage)
@@ -13,18 +14,18 @@ add_library(easydb STATIC ${ALL_OBJECT_FILES})
 
 set(EASYDB_LIBS
         easydb_buffer
-        # easydb_catalog
+        easydb_catalog
         easydb_common
         # easydb_concurrency
         # easydb_execution
         # easydb_recovery
         easydb_record
-        # easydb_type
+        easydb_type
         # easydb_container_disk_hash
         easydb_storage_disk
         easydb_storage_index
         easydb_storage_page
-        # easydb_storage_table
+        easydb_storage_table
         # easydb_planner
         # easydb_optimizer
         )
