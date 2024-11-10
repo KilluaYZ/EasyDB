@@ -32,6 +32,7 @@ Value::Value(const Value &other) {
   manage_data_ = other.manage_data_;
   value_ = other.value_;
   switch (type_id_) {
+    case TypeId::TYPE_CHAR:
     case TypeId::TYPE_VARCHAR:
       // case TypeId::TYPE_VECTOR:
       if (size_.len_ == EASYDB_VALUE_NULL) {
@@ -285,6 +286,7 @@ Value::Value(TypeId type, const std::vector<double> &data) : Value(type) {
 // delete allocated char array space
 Value::~Value() {
   switch (type_id_) {
+    case TypeId::TYPE_CHAR:
     case TypeId::TYPE_VARCHAR:
       // case TypeId::TYPE_VECTOR:
       if (manage_data_) {
@@ -314,12 +316,14 @@ auto Value::CheckComparable(const Value &o) const -> bool {
         // case TypeId::TYPE_DECIMAL:
         case TypeId::TYPE_FLOAT:
         case TypeId::TYPE_DOUBLE:
+        case TypeId::TYPE_CHAR:
         case TypeId::TYPE_VARCHAR:
           return true;
         default:
           break;
       }  // SWITCH
       break;
+    case TypeId::TYPE_CHAR:
     case TypeId::TYPE_VARCHAR:
       // Anything can be cast to a string!
       return true;
@@ -345,6 +349,7 @@ auto Value::CheckInteger() const -> bool {
 
 auto Value::GetColumn() const -> Column {
   switch (GetTypeId()) {
+    case TypeId::TYPE_CHAR:
     case TypeId::TYPE_VARCHAR:
       // case TypeId::TYPE_VECTOR:
       { return Column{"<val>", GetTypeId(), GetStorageSize()}; }

@@ -16,6 +16,7 @@
 #include "record/rm_file_handle.h"
 #include "storage/disk/disk_manager.h"
 #include "system/sm_meta.h"
+#include "type/type_id.h"
 
 namespace easydb {
 
@@ -140,8 +141,9 @@ class TB_Reader {
     while (file_reader->read_line()) {
       auto splited_str_list = file_reader->get_splited_buf();
       std::vector<Value> values;
+      Value _tmp_val(TypeId::TYPE_EMPTY);
+
       for (uint32_t i = 0; i < schema.GetColumnCount(); i++) {
-        Value _tmp_val;
         // get type
         const auto &col = schema.GetColumn(i);
         TypeId type = col.GetType();
@@ -159,8 +161,6 @@ class TB_Reader {
             _tmp_val = Value(type, std::stod(splited_str_list[i]));
             break;
           case TypeId::TYPE_CHAR:
-            _tmp_val = Value(type, splited_str_list[i]);
-            break;
           case TypeId::TYPE_VARCHAR:
             _tmp_val = Value(type, splited_str_list[i]);
             break;
