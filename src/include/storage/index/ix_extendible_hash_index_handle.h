@@ -161,6 +161,8 @@ class IxExtendibleHashIndexHandle {
 
   bool Erase();
 
+  int get_global_depth() { return global_depth; }
+
  private:
   void ReleaseBucketHandle(IxBucketHandle &bucket);
 
