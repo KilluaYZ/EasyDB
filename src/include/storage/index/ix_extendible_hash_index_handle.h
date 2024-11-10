@@ -149,6 +149,8 @@ class IxExtendibleHashIndexHandle {
 
  public:
   IxExtendibleHashIndexHandle(DiskManager *disk_manager, BufferPoolManager *buffer_pool_manager, int fd);
+  
+  ~IxExtendibleHashIndexHandle();
 
   // for search
   bool GetValue(const char *key, std::vector<Rid> *result);
