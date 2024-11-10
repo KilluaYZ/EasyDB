@@ -12,6 +12,7 @@
 #pragma once
 #include "storage/index/ix_extendible_hash_index_handle.h"
 #include <cmath>
+#include "murmur3/MurmurHash3.h"
 #include "storage/index/ix_defs.h"
 
 namespace easydb {
