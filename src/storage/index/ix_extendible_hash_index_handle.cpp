@@ -12,6 +12,7 @@
 #pragma once
 #include "storage/index/ix_extendible_hash_index_handle.h"
 #include <cmath>
+#include "murmur3/MurmurHash3.h"
 #include "storage/index/ix_defs.h"
 
 namespace easydb {
@@ -420,7 +421,7 @@ void IxExtendibleHashIndexHandle::SplitBucket(int original_index) {
 int IxExtendibleHashIndexHandle::HashFunction(const char *key, int n) {
   int key_size = file_hdr_->col_tot_len_;
   uint64_t hash[2];
-  MurmurHash3_x64_128(reinterpret_cast<const void *>(&key), key_size, 0, reinterpret_cast<void *>(&hash));
+  murmur3::MurmurHash3_x64_128(reinterpret_cast<const void *>(&key), key_size, 0, reinterpret_cast<void *>(&hash));
   return hash[0] % (1 << n);
 }
 

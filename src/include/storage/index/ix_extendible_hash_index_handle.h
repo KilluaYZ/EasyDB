@@ -13,7 +13,6 @@
 
 #include "buffer/buffer_pool_manager.h"
 #include "common/errors.h"
-#include "murmur3/MurmurHash3.h"
 #include "storage/disk/disk_manager.h"
 #include "storage/index/ix_defs.h"
 #include "storage/page/page.h"
