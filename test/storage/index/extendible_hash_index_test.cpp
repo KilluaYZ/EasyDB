@@ -26,7 +26,7 @@ class IxExtendibleHashIndexHandleTest : public ::testing::Test {
  protected:
   void SetUp() override {
     // Create a unique temporary directory
-    temp_dir = std::filesystem::temp_directory_path() / "ix_test_dir";
+    temp_dir =  "ix_test_dir";
     std::filesystem::create_directory(temp_dir);
 
     // Initialize DiskManager

@@ -40,7 +40,7 @@ static constexpr int PAGE_SIZE = 4096;                                        //
 static constexpr int BUFFER_POOL_SIZE = 10;                                   // size of buffer pool
 static constexpr int DEFAULT_DB_IO_SIZE = 16;                                 // starting size of file on disk
 static constexpr int LOG_BUFFER_SIZE = ((BUFFER_POOL_SIZE + 1) * PAGE_SIZE);  // size of a log buffer in byte
-static constexpr int BUCKET_SIZE = 10;                                        // size of extendible hash bucket
+static constexpr int BUCKET_SIZE = 64;                                        // size of extendible hash bucket
 // static constexpr int LRUK_REPLACER_K = 10;                                    // backward k-distance for lru-k
 
 using frame_id_t = int32_t;    // frame id type

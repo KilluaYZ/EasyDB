@@ -197,6 +197,7 @@ class ExtendibleHashIxFileHdr {
         col_num_(col_num),
         col_tot_len_(col_tot_len),
         keys_size_(keys_size) {
+    
     tot_len_ = 0;
   }
 

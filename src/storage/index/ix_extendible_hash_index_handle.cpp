@@ -149,7 +149,7 @@ void IxBucketHandle::DoubleDirectory(int new_size) {
   page_hdr->size = new_size;
   page_hdr->key_nums = new_size;
   // not neccessary
-  memcpy(keys + old_size * key_size, keys, key_size * (new_size - old_size));
+  // memcpy(keys + old_size * key_size, keys, key_size * (new_size - old_size));
   // double directory, the back half directory points to the original bucket.
   for (int i = old_size; i < new_size; i++) {
     rids[i] = rids[i - old_size];
