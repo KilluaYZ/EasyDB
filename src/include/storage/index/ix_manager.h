@@ -153,8 +153,8 @@ class IxManager {
 
     // Create file header and write to file
     ExtendibleHashIxFileHdr *fhdr =
-        new ExtendibleHashIxFileHdr(IX_NO_PAGE, IX_INIT_HASH_NUM_PAGES, IX_INIT_DIRECTORY_PAGE, col_num, col_tot_len,
-                                    (BUCKET_SIZE + 1) * col_tot_len);
+        new ExtendibleHashIxFileHdr(IX_INIT_HASH_FIRST_FREE_PAGES, IX_INIT_HASH_NUM_PAGES, IX_INIT_DIRECTORY_PAGE,
+                                    col_num, col_tot_len, (BUCKET_SIZE + 1) * col_tot_len);
     for (int i = 0; i < col_num; ++i) {
       fhdr->col_types_.push_back(index_cols[i].type);
       fhdr->col_lens_.push_back(index_cols[i].len);
@@ -192,7 +192,8 @@ class IxManager {
     {
       memset(page_buf, 0, PAGE_SIZE);
       auto phdr = reinterpret_cast<IxExtendibleHashPageHdr *>(page_buf);
-      *phdr = {.next_free_page_no = IX_NO_PAGE, .is_valid = true, .local_depth = 1, .key_nums = 2, .size = BUCKET_SIZE};
+      *phdr = {
+          .next_free_page_no = IX_NO_PAGE, .is_valid = true, .local_depth = -1, .key_nums = 2, .size = BUCKET_SIZE};
       char *tp_keys = page_buf + sizeof(IxExtendibleHashPageHdr);
       Rid *tp_rids = reinterpret_cast<Rid *>(tp_keys + fhdr->keys_size_);
       tp_rids[0] = {.page_no = IX_INIT_BUCKET_0_PAGE, .slot_no = IX_NO_PAGE};  // only page_no is valid

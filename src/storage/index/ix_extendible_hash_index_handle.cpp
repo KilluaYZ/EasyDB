@@ -142,23 +142,31 @@ int IxBucketHandle::Find(const char *key, std::vector<Rid> *result) {
   return find ? 1 : 0;
 }
 
-void IxBucketHandle::DoubleDirectory(int old_size, int new_size) {
+void IxBucketHandle::DoubleDirectory(int new_size) {
+  int old_size = new_size / 2;
   std::cerr << "[INDEX ----- DoubleDirectory] old_size = " << old_size << " new_size = " << new_size << std::endl;
   int key_size = file_hdr->col_tot_len_;
   page_hdr->size = new_size;
+  page_hdr->key_nums = new_size;
+  // not neccessary
   memcpy(keys + old_size * key_size, keys, key_size * (new_size - old_size));
-  Rid *old_rids = rids;
-  // Double the size of the old rids
-  rids = new Rid[new_size];
-  for (int i = 0; i < old_size; i++) {
-    rids[i] = old_rids[i];
-  }
-  // For the second half of the new rids
-  // set the pointers to the existing rids
+  // double directory, the back half directory points to the original bucket.
   for (int i = old_size; i < new_size; i++) {
-    rids[i] = old_rids[i - old_size];
+    rids[i] = rids[i - old_size];
   }
-  delete[] old_rids;
+
+  // Rid *old_rids = rids;
+  // // Double the size of the old rids
+  // rids = new Rid[new_size];
+  // for (int i = 0; i < old_size; i++) {
+  //   rids[i] = old_rids[i];
+  // }
+  // // For the second half of the new rids
+  // // set the pointers to the existing rids
+  // for (int i = old_size; i < new_size; i++) {
+  //   rids[i] = old_rids[i - old_size];
+  // }
+  // delete[] old_rids;
 }
 
 IxExtendibleHashIndexHandle::IxExtendibleHashIndexHandle(DiskManager *disk_manager,
@@ -177,7 +185,7 @@ IxExtendibleHashIndexHandle::IxExtendibleHashIndexHandle(DiskManager *disk_manag
   int now_page_no = disk_manager_->GetFd2Pageno(fd);
   disk_manager_->SetFd2Pageno(fd, now_page_no + 1);
   global_depth = 1;
-  size_per_bucket = 4;
+  size_per_bucket = BUCKET_SIZE;
 }
 
 IxExtendibleHashIndexHandle::~IxExtendibleHashIndexHandle() { delete file_hdr_; }
@@ -209,7 +217,7 @@ bool IxExtendibleHashIndexHandle::GetValue(const char *key, std::vector<Rid> *re
  * @note 若插入成功，则返回插入到的桶的page_no；若插入失败(重复的key)，则返回-1
  */
 page_id_t IxExtendibleHashIndexHandle::InsertEntry(const char *key, const Rid &value) {
-  std::scoped_lock lock{root_latch_};
+  // std::scoped_lock lock{root_latch_};
   int index = HashFunction(key, global_depth);
   std::cerr << "[INDEX ----- InsertEntry] index = " << index << " rid = {" << value.page_no << "," << value.slot_no
             << "}" << std::endl;
@@ -242,14 +250,17 @@ page_id_t IxExtendibleHashIndexHandle::InsertEntry(const char *key, const Rid &v
     int pair_index = original_index + pow(2, old_local_depth);
     IxBucketHandle *pair_bucket = CreateBucket(pair_index, key, new_local_depth);
     // Update pointers in the directory
-    UpdatePointers(pair_index, new_local_depth);
+    // UpdatePointers(pair_index, new_local_depth);
     // Distribute the values in the original bucket between the original and the new bucket
     SplitBucket(original_index);
-    pair_bucket->Insert(key, value);
+    InsertEntry(key, value);
+    // pair_bucket->Insert(key, value);
     buffer_pool_manager_->UnpinPage(original_bucket->get_page_id(), true);
     delete original_bucket;
     buffer_pool_manager_->UnpinPage(pair_bucket->get_page_id(), true);
-    return pair_bucket->get_page_no();
+    int tp_page_no = pair_bucket->get_page_no();
+    delete pair_bucket;
+    return tp_page_no;
   }
 }
 
@@ -389,34 +400,33 @@ IxBucketHandle *IxExtendibleHashIndexHandle::CreateBucket(int index, const char 
   file_hdr_->num_pages_++;
 
   PageId new_page_id = {.fd = fd_, .page_no = INVALID_PAGE_ID};
-  // 从3开始分配page_no，第一次分配之后，new_page_id.page_no=3，file_hdr_.num_pages=4
   Page *page = buffer_pool_manager_->NewPage(&new_page_id);
   bucket = new IxBucketHandle(file_hdr_, page, new_local_depth, BUCKET_SIZE, false);
   Rid tmp;
-  tmp.page_no = bucket->get_page_no();
-  directory_bucket->Insert(index, key, tmp);  // slot_number is not important?
+  tmp.page_no = bucket->get_page_no();  // slot_number is not used
+  directory_bucket->Insert(index, key, tmp);
   buffer_pool_manager_->UnpinPage(directory_bucket->get_page_id(), false);
   delete directory_bucket;
   return bucket;
 }
 
-// Update pointers in the directory
-void IxExtendibleHashIndexHandle::UpdatePointers(int index, int new_local_depth) {
-  std::cerr << "[INDEX ----- DoubleDirectory] index = " << index << " new_local_depth = " << new_local_depth
-            << std::endl;
-  // Get the number of entries in the directory
-  IxBucketHandle *directory_bucket = FetchBucket(file_hdr_->directory_page_);
-  int numOfEntries = pow(2, global_depth);
-  // Find the indices in the directory that have the same value with the index
-  // based on the rightmost n bitsq
-  for (int i = 0; i < numOfEntries; i++) {
-    if (HashFunction(directory_bucket->get_key(i), new_local_depth) == index) {
-      directory_bucket->Update(i, index);
-    }
-  }
-  buffer_pool_manager_->UnpinPage(directory_bucket->get_page_id(), false);
-  delete directory_bucket;
-}
+// // Update pointers in the directory
+// void IxExtendibleHashIndexHandle::UpdatePointers(int index, int new_local_depth) {
+//   std::cerr << "[INDEX ----- UpdatePointers] index = " << index << " new_local_depth = " << new_local_depth
+//             << std::endl;
+//   // Get the number of entries in the directory
+//   IxBucketHandle *directory_bucket = FetchBucket(file_hdr_->directory_page_);
+//   int numOfEntries = pow(2, global_depth);
+//   // Find the indices in the directory that have the same value with the index
+//   // based on the rightmost n bitsq
+//   for (int i = 0; i < numOfEntries; i++) {
+//     if ( == index) {
+//       directory_bucket->Update(i, index);
+//     }
+//   }
+//   buffer_pool_manager_->UnpinPage(directory_bucket->get_page_id(), false);
+//   delete directory_bucket;
+// }
 
 void IxExtendibleHashIndexHandle::DoubleDirectory() {
   std::cerr << "[INDEX ----- DoubleDirectory] global_depth = " << global_depth << std::endl;
@@ -424,9 +434,9 @@ void IxExtendibleHashIndexHandle::DoubleDirectory() {
   global_depth++;
   // The directory size should the 2 to the power of global depth
   int directory_size = pow(2, global_depth);
-  int old_size = directory_size / 2;
+  // int old_size = directory_size / 2;
   IxBucketHandle *directory_bucket = FetchBucket(file_hdr_->directory_page_);
-  directory_bucket->DoubleDirectory(old_size, directory_size);
+  directory_bucket->DoubleDirectory(directory_size);
   buffer_pool_manager_->UnpinPage(directory_bucket->get_page_id(), false);
   delete directory_bucket;
 }
@@ -434,9 +444,10 @@ void IxExtendibleHashIndexHandle::DoubleDirectory() {
 void IxExtendibleHashIndexHandle::SplitBucket(int original_index) {
   std::cerr << "[INDEX ----- SplitBucket] original_index = " << original_index << std::endl;
   IxBucketHandle *original_bucket = FindBucketPage(original_index);
-  IxBucketHandle temp_bucket = *original_bucket;
+  int numOfKeys = original_bucket->GetNumOfKeys();
+  IxBucketHandle temp_bucket;
+  memcpy(&temp_bucket, original_bucket, sizeof(temp_bucket));
   original_bucket->Clear();
-  int numOfKeys = temp_bucket.GetNumOfKeys();
   for (int i = 0; i < numOfKeys; i++) {
     InsertEntry(temp_bucket.get_key(i), *temp_bucket.get_rid(i));
   }

@@ -225,7 +225,7 @@ TEST_F(IxExtendibleHashIndexHandleTest, BucketSplit) {
 
   // Optionally, verify that global depth has increased
   // Since global_depth is set to 1 initially, after a split it should be 2
-  EXPECT_EQ(index_handle->getGlobalDepth(), 1);
+  EXPECT_EQ(index_handle->getGlobalDepth(), 2);
   index_manager->close_index(index_handle);
   index_manager->destroy_index(index_file, index_cols);
 }

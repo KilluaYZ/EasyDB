@@ -98,7 +98,7 @@ class IxBucketHandle {
 
   void Reorganize(int pos);
 
-  void DoubleDirectory(int old_size, int new_size);
+  void DoubleDirectory(int new_size);
 
   void Update(int old_idx, int new_idx);
 };

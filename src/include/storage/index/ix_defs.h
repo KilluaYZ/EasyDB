@@ -32,6 +32,7 @@ constexpr int IX_INIT_DIRECTORY_PAGE = 1;
 constexpr int IX_INIT_BUCKET_0_PAGE = 2;
 constexpr int IX_INIT_BUCKET_1_PAGE = 3;
 constexpr int IX_INIT_HASH_NUM_PAGES = 4;
+constexpr int IX_INIT_HASH_FIRST_FREE_PAGES = 4;
 
 inline int ix_compare(const char *a, const char *b, ColType type, int col_len) {
   switch (type) {
