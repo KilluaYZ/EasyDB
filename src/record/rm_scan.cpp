@@ -25,10 +25,8 @@ RmScan::RmScan(const RmFileHandle *file_handle) : file_handle_(file_handle) {
 
   // Initialize file_handle and set rid_ to the first valid record
   // Start from the first data page (page 0 is the file header)
-  // Initialize slot_no to -1 to start scanning from the beginning
+  // Initialize slot_no to 0 to start scanning from the beginning
   rid_.Set(RM_FIRST_RECORD_PAGE, 0);
-  // Move to the first valid record
-  Next();
 }
 
 /**
@@ -42,7 +40,7 @@ void RmScan::Next() {
   auto slot_no = rid_.GetSlotNum();
 
   // If we have not reached the end of the file
-  while (page_no < file_handle_->file_hdr_.num_pages) {
+  if (page_no < file_handle_->file_hdr_.num_pages) {
     RmPageHandle page_handle = file_handle_->FetchPageHandle(page_no);
     uint32_t num_records_per_page = file_handle_->file_hdr_.num_records_per_page;
 
@@ -52,11 +50,8 @@ void RmScan::Next() {
     // Unpin the page that was pinned in 'fetch_page_handle'
     file_handle_->buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), false);
 
-    if (slot_no < num_records_per_page) {
-      // Found a valid record in the current page
-      break;
-    } else {
-      // Move to the next page
+    // Not found a valid slot, move to the next page
+    if (slot_no >= num_records_per_page) {
       page_no++;
       slot_no = 0;
     }
