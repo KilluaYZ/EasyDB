@@ -211,7 +211,7 @@ class BPlusTreeDrawer : public DotDrawer {
     for (int i = 0; i < _node->GetSize(); i++) {
       auto child = GetChild(_node, i);
       *outfile << getNodeName(_node) << " : " << "f" << i << " : s -> " << getNodeName(child) << " : n" << std::endl;
-      if (!_node->IsLeafPage()) printNode(child);
+      if (!child->IsLeafPage()) printNode(child);
     }
   }
 
