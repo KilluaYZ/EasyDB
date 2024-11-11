@@ -10,6 +10,7 @@
  */
 
 #include "storage/index/ix_index_handle.h"
+#include <memory>
 #include "storage/index/ix_defs.h"
 
 namespace easydb {
@@ -266,12 +267,15 @@ IxIndexHandle::IxIndexHandle(DiskManager *disk_manager, BufferPoolManager *buffe
   char *buf = new char[PAGE_SIZE];
   memset(buf, 0, PAGE_SIZE);
   disk_manager_->ReadPage(fd, IX_FILE_HDR_PAGE, buf, PAGE_SIZE);
-  file_hdr_ = new IxFileHdr();
+  // file_hdr_ = new IxFileHdr();
+  file_hdr_ = std::make_unique<IxFileHdr>();
   file_hdr_->Deserialize(buf);
 
   // disk_manager管理的fd对应的文件中，设置从file_hdr_->num_pages开始分配page_no
   int now_page_no = disk_manager_->GetFd2Pageno(fd);
   disk_manager_->SetFd2Pageno(fd, now_page_no + 1);
+
+  delete[] buf;
 }
 
 /**
@@ -544,10 +548,14 @@ page_id_t IxIndexHandle::InsertEntry(const char *key, const RID &value) {
     delete new_sibling;
   }
 
+  auto page_no = leaf_node->GetPageNo();
+
   // Unpin leaf node that was pinned in 'find_leaf_page'
   buffer_pool_manager_->UnpinPage(leaf_node->GetPageId(), true);
 
-  return leaf_node->GetPageNo();
+  delete leaf_node;
+
+  return page_no;
 }
 
 /**
@@ -983,7 +991,8 @@ IxNodeHandle *IxIndexHandle::GetRoot() const { return FetchNode(file_hdr_->root_
  */
 IxNodeHandle *IxIndexHandle::FetchNode(int page_no) const {
   Page *page = buffer_pool_manager_->FetchPage(PageId{fd_, page_no});
-  IxNodeHandle *node = new IxNodeHandle(file_hdr_, page);
+  IxNodeHandle *node = new IxNodeHandle(file_hdr_.get(), page);
+  // auto node = std::make_unique<IxNodeHandle>(file_hdr_, page);
 
   return node;
 }
@@ -1005,7 +1014,7 @@ IxNodeHandle *IxIndexHandle::CreateNode() {
   PageId new_page_id = {.fd = fd_, .page_no = INVALID_PAGE_ID};
   // 从3开始分配page_no，第一次分配之后，new_page_id.page_no=3，file_hdr_.num_pages=4
   Page *page = buffer_pool_manager_->NewPage(&new_page_id);
-  node = new IxNodeHandle(file_hdr_, page);
+  node = new IxNodeHandle(file_hdr_.get(), page);
   return node;
 }
 

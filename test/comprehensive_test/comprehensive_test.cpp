@@ -141,6 +141,7 @@ class TB_Reader {
   ~TB_Reader() { delete file_reader; }
 
   void parse_and_insert(RmFileHandle *fh_) {
+    // for (int i = 0; i < 1 && file_reader->read_line(); i++)
     while (file_reader->read_line()) {
       auto splited_str_list = file_reader->get_splited_buf();
       std::vector<Value> values_;
@@ -218,6 +219,8 @@ class BPlusTreeDrawer : public DotDrawer {
     assert(root_node->IsRootPage());
 
     *outfile << "}";
+
+    delete root_node;
   }
 };
 
@@ -277,10 +280,10 @@ TEST(EasyDBTest, SimpleTest) {
 
   // 创建index
   IxManager *ix_manager_ = new IxManager(dm, bpm);
-  ix_manager_->CreateIndex(TEST_TB_NAME, index_cols);
+  ix_manager_->CreateIndex(path, index_cols);
 
   // 将表中已经存在的记录插入到新创建的index中
-  auto Ixh = ix_manager_->OpenIndex(TEST_TB_NAME, index_cols);
+  auto Ixh = ix_manager_->OpenIndex(path, index_cols);
   RmScan scan(fh_);
   while (!scan.IsEnd()) {
     auto rid = scan.GetRid();

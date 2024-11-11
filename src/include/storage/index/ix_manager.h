@@ -128,6 +128,9 @@ class IxManager {
 
     // Close index file
     disk_manager_->CloseFile(fd);
+
+    delete fhdr;
+    delete[] data;
   }
 
   void DestroyIndex(const std::string &filename, const std::vector<ColMeta> &index_cols) {
