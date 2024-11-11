@@ -555,6 +555,10 @@ page_id_t IxIndexHandle::InsertEntry(const char *key, const RID &value) {
 
   delete leaf_node;
 
+  if (file_hdr_->root_page_ == 4) {
+    auto root = FetchNode(file_hdr_->root_page_);
+    delete root;
+  }
   return page_no;
 }
 

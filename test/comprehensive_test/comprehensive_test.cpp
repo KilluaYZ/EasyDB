@@ -3,6 +3,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -15,6 +16,7 @@
 #include "record/rm_file_handle.h"
 #include "record/rm_scan.h"
 #include "storage/disk/disk_manager.h"
+#include "storage/index/ix_defs.h"
 #include "storage/index/ix_index_handle.h"
 #include "storage/index/ix_manager.h"
 #include "system/sm_meta.h"
@@ -141,8 +143,9 @@ class TB_Reader {
   ~TB_Reader() { delete file_reader; }
 
   void parse_and_insert(RmFileHandle *fh_) {
-    // for (int i = 0; i < 1 && file_reader->read_line(); i++)
-    while (file_reader->read_line()) {
+    for (int i = 0; i < 24 && file_reader->read_line(); i++)
+    // while (file_reader->read_line())
+    {
       auto splited_str_list = file_reader->get_splited_buf();
       std::vector<Value> values_;
       for (int i = 0; i < (int)columns.size(); i++) {
@@ -200,25 +203,74 @@ class BPlusTreeDrawer : public DotDrawer {
  private:
   IxIndexHandle *b_plus_tree = nullptr;
   void printNode(IxNodeHandle *_node) {
-    if (_node->IsRootPage()) {
-      // 如果是根节点
-    } else if (_node->IsLeafPage()) {
-      // 如果是叶节点
-    } else {
-      // 如果是中间节点
+    if (_node == nullptr) return;
+
+    // 先声明这个节点
+    *outfile << getNodeDesc(_node) << std::endl;
+    // 然后声明与子节点的关系
+    for (int i = 0; i < _node->GetSize(); i++) {
+      auto child = GetChild(_node, i);
+      *outfile << getNodeName(_node) << " : " << "f" << i << " : s -> " << getNodeName(child) << " : n" << std::endl;
+      if (!_node->IsLeafPage()) printNode(child);
     }
+  }
+
+  // 得到第i个孩子节点
+  IxNodeHandle *GetChild(IxNodeHandle *_node, int i) {
+    page_id_t child_page_id = _node->ValueAt(i);
+    return b_plus_tree->FetchNode(child_page_id);
+  }
+
+  std::string getAnonymousNodeStr(IxNodeHandle *_node) {
+    std::stringstream ss;
+    int num = _node->GetSize();
+    int i = 0;
+    for (; i < num - 1; i++) {
+      ss << "<f" << i << "> | ";
+    }
+    ss << "<f" << i << "> ";
+    return ss.str();
+  }
+
+  std::string getNodeRidStr(IxNodeHandle *_node) {
+    std::stringstream ss;
+    int num = _node->GetSize();
+    int i = 0;
+    for (; i < num - 1; i++) {
+      ss << _node->GetRid(i) << " | ";
+    }
+    ss << _node->GetRid(i) << " ";
+    return ss.str();
+  }
+
+  std::string getNodeName(IxNodeHandle *_node) {
+    std::stringstream ss;
+    // ss << "Node" << *(int *)_node->GetKey(0);
+    ss << "Node" << _node->GetRid(0);
+    return ss.str();
+  }
+
+  std::string getNodeDesc(IxNodeHandle *_node) {
+    std::stringstream ss;
+    ss << getNodeName(_node) << "[label=\"{{" << getNodeRidStr(_node) << "} | {" << getAnonymousNodeStr(_node)
+       << "}}\"]";
+    return ss.str();
   }
 
  public:
   BPlusTreeDrawer(std::string file_name, IxIndexHandle *_b_plus_tree)
       : DotDrawer(file_name), b_plus_tree(_b_plus_tree) {}
   void print() override {
-    *outfile << "digraph{" << std::endl << "node[shape=record];" << std::endl;
+    *outfile << "@startuml" << std::endl;
+    *outfile << "digraph btree{" << std::endl;
+    *outfile << "node[shape=record, style=bold];" << std::endl;
+    *outfile << "edge[style=bold];" << std::endl;
 
     auto root_node = b_plus_tree->GetRoot();
     assert(root_node->IsRootPage());
-
-    *outfile << "}";
+    printNode(root_node);
+    *outfile << "}" << std::endl;
+    *outfile << "@enduml";
 
     delete root_node;
   }
@@ -236,19 +288,18 @@ TEST(EasyDBTest, SimpleTest) {
   // std::cout << "../../tmp/benchmark_data/" + TEST_FILE_NAME_SUPPLIER << std::endl;
   TB_Reader tb_reader(TEST_FILE_NAME_SUPPLIER, "../../tmp/benchmark_data/" + TEST_FILE_NAME_SUPPLIER);
   // 构造表元数据
-  tb_reader.set_col("S_SUPPKEY", TYPE_INT, 4, 0)
-      .set_col("S_NAME", TYPE_CHAR, 25, 4)
-      .set_col("S_ADDRESS", TYPE_VARCHAR, 40, 29)
-      .set_col("S_NATIONKEY", TYPE_INT, 4, 69)
-      .set_col("S_PHONE", TYPE_CHAR, 15, 73)
-      .set_col("S_ACCTBAL", TYPE_FLOAT, 4, 88)
-      .set_col("S_COMMENT", TYPE_VARCHAR, 101, 92);
+  tb_reader.set_col("S_SUPPKEY", TYPE_INT, 4, 0).set_col("S_NAME", TYPE_CHAR, 25, 4);
+  // .set_col("S_ADDRESS", TYPE_VARCHAR, 40, 29)
+  // .set_col("S_NATIONKEY", TYPE_INT, 4, 69)
+  // .set_col("S_PHONE", TYPE_CHAR, 15, 73)
+  // .set_col("S_ACCTBAL", TYPE_FLOAT, 4, 88)
+  // .set_col("S_COMMENT", TYPE_VARCHAR, 101, 92);
 
   // 创建DiskManager
   std::cerr << "[TEST] 创建DiskManager" << std::endl;
   DiskManager *dm = new DiskManager(TEST_DB_NAME);
   std::string path = TEST_DB_NAME + "/" + TEST_TB_NAME;
-  create_file(dm, path, 193);
+  create_file(dm, path, 29);
 
   int fd = dm->OpenFile(path);
 
@@ -270,7 +321,7 @@ TEST(EasyDBTest, SimpleTest) {
   // 增加索引
   // 准备元数据
   std::vector<ColMeta> index_cols;
-
+  std::cout << "Sizeof(header) : " << sizeof(IxFileHdr) << " " << sizeof(IxPageHdr) << std::endl;
   index_cols.push_back(tb_reader.get_cols()[0]);
   std::string index_col_name = "S_SUPPKEY";
   IndexMeta index_meta = {.tab_name = TEST_TB_NAME,

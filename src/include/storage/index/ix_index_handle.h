@@ -85,6 +85,8 @@ class IxNodeHandle {
 
   int GetMinSize() { return GetMaxSize() / 2; }
 
+  int GetColNum() { return file_hdr->col_num_; }
+
   int KeyAt(int i) { return *(int *)GetKey(i); }
 
   /* 得到第i个孩子结点的page_no */
@@ -229,14 +231,14 @@ class IxIndexHandle {
 
   IxNodeHandle *GetRoot() const;
 
+  // for get/create node
+  IxNodeHandle *FetchNode(int page_no) const;
+
  private:
   // 辅助函数
   void UpdateRootPageNo(page_id_t root) { file_hdr_->root_page_ = root; }
 
   bool IsEmpty() const { return file_hdr_->root_page_ == IX_NO_PAGE; }
-
-  // for get/create node
-  IxNodeHandle *FetchNode(int page_no) const;
 
   IxNodeHandle *CreateNode();
 
