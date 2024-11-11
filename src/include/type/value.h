@@ -57,7 +57,6 @@ class Value {
   Value(TypeId type, int8_t i);
   // DECIMAL
   Value(TypeId type, double d);
-  Value(TypeId type, float f);
   // SMALLINT
   Value(TypeId type, int16_t i);
   // INTEGER

@@ -199,24 +199,13 @@ Value::Value(TypeId type, uint64_t i) : Value(type) {
 // DECIMAL
 Value::Value(TypeId type, double d) : Value(type) {
   switch (type) {
+    case TypeId::TYPE_FLOAT:
     case TypeId::TYPE_DOUBLE:
       value_.decimal_ = d;
       size_.len_ = (value_.decimal_ == EASYDB_DECIMAL_NULL ? EASYDB_VALUE_NULL : 0);
       break;
     default:
       throw Exception(ExceptionType::INCOMPATIBLE_TYPE, "Invalid Type for double Value constructor");
-  }
-}
-
-// DECIMAL
-Value::Value(TypeId type, float f) : Value(type) {
-  switch (type) {
-    case TypeId::TYPE_FLOAT:
-      value_.decimal_ = f;
-      size_.len_ = (value_.decimal_ == EASYDB_DECIMAL_NULL ? EASYDB_VALUE_NULL : 0);
-      break;
-    default:
-      throw Exception(ExceptionType::INCOMPATIBLE_TYPE, "Invalid Type for float value constructor");
   }
 }
 
