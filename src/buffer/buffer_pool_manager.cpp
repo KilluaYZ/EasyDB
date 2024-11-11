@@ -77,8 +77,8 @@ auto BufferPoolManager::Size() const -> size_t { return num_frames_; }
  * @return The page ID of the newly allocated page.
  */
 auto BufferPoolManager::NewPage(PageId *page_id) -> Page * {
-  std::cerr << "[BufferPoolManager] NewPage" << std::endl;
-  // std::scoped_lock latch(*bpm_latch_);
+  // std::cerr << "[BufferPoolManager] NewPage" << std::endl;
+  //  std::scoped_lock latch(*bpm_latch_);
   std::scoped_lock lock{latch_};
 
   // 1. Find a victim frame
@@ -169,8 +169,8 @@ auto BufferPoolManager::DeletePage(PageId page_id) -> bool {
  * @return `false` if the page could not be found in the page table, otherwise `true`.
  */
 auto BufferPoolManager::FlushPage(PageId page_id) -> bool {
-  std::cerr << "[BufferPoolManager] FlushPage" << std::endl;
-  // std::scoped_lock latch(*bpm_latch_);
+  // std::cerr << "[BufferPoolManager] FlushPage" << std::endl;
+  //  std::scoped_lock latch(*bpm_latch_);
   std::scoped_lock lock{latch_};
 
   // 1. Search for the page in the page_table_
@@ -198,8 +198,8 @@ auto BufferPoolManager::FlushPage(PageId page_id) -> bool {
  * @param {int} fd file descriptor
  */
 void BufferPoolManager::FlushAllPages(int fd) {
-  std::cerr << "[BufferPoolManager] FlushAllPages" << std::endl;
-  // std::scoped_lock latch(*bpm_latch_);
+  // std::cerr << "[BufferPoolManager] FlushAllPages" << std::endl;
+  //  std::scoped_lock latch(*bpm_latch_);
   std::scoped_lock lock{latch_};
 
   // Iterate through the page_table_
@@ -226,8 +226,8 @@ void BufferPoolManager::FlushAllPages(int fd) {
  * @note This function uses a scoped lock to ensure thread safety during the operation.
  */
 void BufferPoolManager::FlushAllDirtyPages() {
-  std::cerr << "[BufferPoolManager] FlushAllDirtyPages" << std::endl;
-  // std::scoped_lock latch(*bpm_latch_);
+  // std::cerr << "[BufferPoolManager] FlushAllDirtyPages" << std::endl;
+  //  std::scoped_lock latch(*bpm_latch_);
   std::scoped_lock lock{latch_};
 
   // Iterate through the page_table_
@@ -335,9 +335,9 @@ auto BufferPoolManager::RecoverPage(PageId page_id) -> Page * {
  *
  */
 auto BufferPoolManager::FindVictimPage(frame_id_t *frame_id) -> bool {
-  std::cerr << "[BufferPoolManager] FindVictimPage" << std::endl;
-  // std::scoped_lock latch(*bpm_latch_);
-  // std::scoped_lock lock{latch_};
+  // std::cerr << "[BufferPoolManager] FindVictimPage" << std::endl;
+  //  std::scoped_lock latch(*bpm_latch_);
+  //  std::scoped_lock lock{latch_};
 
   // 1. Check if there are any free frames available
   if (!free_frames_.empty()) {
@@ -366,9 +366,9 @@ auto BufferPoolManager::FindVictimPage(frame_id_t *frame_id) -> bool {
  *
  */
 void BufferPoolManager::UpdatePage(Page *frame, PageId new_page_id, frame_id_t new_frame_id) {
-  std::cerr << "[BufferPoolManager] UpdatePage" << std::endl;
-  // std::scoped_lock latch(*bpm_latch_);
-  // std::scoped_lock lock{latch_};
+  // std::cerr << "[BufferPoolManager] UpdatePage" << std::endl;
+  //  std::scoped_lock latch(*bpm_latch_);
+  //  std::scoped_lock lock{latch_};
 
   if (frame->is_dirty_) {
     disk_manager_->WritePage(frame->page_id_.fd, frame->page_id_.page_no, frame->GetData(), PAGE_SIZE);
@@ -398,8 +398,8 @@ void BufferPoolManager::UpdatePage(Page *frame, PageId new_page_id, frame_id_t n
  * @note: pin the page, need to unpin the page outside
  */
 auto BufferPoolManager::FetchPage(PageId page_id) -> Page * {
-  std::cerr << "[BufferPoolManager] FetchPage" << std::endl;
-  // std::scoped_lock latch(*bpm_latch_);
+  // std::cerr << "[BufferPoolManager] FetchPage" << std::endl;
+  //  std::scoped_lock latch(*bpm_latch_);
   std::scoped_lock lock{latch_};
 
   // 1. Search for the target page in page_table_
@@ -444,8 +444,8 @@ auto BufferPoolManager::FetchPage(PageId page_id) -> Page * {
  * @param {bool} is_dirty: mark if the target frame need to be marked dirty
  */
 auto BufferPoolManager::UnpinPage(PageId page_id, bool is_dirty) -> bool {
-  std::cerr << "[BufferPoolManager] UnpinPage" << std::endl;
-  // std::scoped_lock latch(*bpm_latch_);
+  // std::cerr << "[BufferPoolManager] UnpinPage" << std::endl;
+  //  std::scoped_lock latch(*bpm_latch_);
   std::scoped_lock lock{latch_};
 
   // 1. Search for the page in the page_table_

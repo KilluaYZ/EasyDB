@@ -12,6 +12,7 @@
 #pragma once
 
 #include "storage/index/ix_defs.h"
+#include "storage/index/ix_extendible_hash_index_handle.h"
 #include "storage/index/ix_index_handle.h"
 #include "system/sm_meta.h"
 
@@ -131,7 +132,78 @@ class IxManager {
   }
 
   void create_extendible_hash_index(const std::string &filename, const std::vector<ColMeta> &index_cols) {
-    // todo
+    std::string ix_name = get_index_name(filename, index_cols);
+    // Create index file
+    disk_manager_->CreateFile(ix_name);
+    // Open index file
+    int fd = disk_manager_->OpenFile(ix_name);
+
+    // Create file header and write to file
+    // Theoretically we have: |page_hdr| + (|attr| + |rid|) * n <= PAGE_SIZE
+    // but we reserve one slot for convenient inserting and deleting, i.e.
+    // |page_hdr| + (|attr| + |rid|) * (n + 1) <= PAGE_SIZE
+    int col_tot_len = 0;
+    int col_num = index_cols.size();
+    for (auto &col : index_cols) {
+      col_tot_len += col.len;
+    }
+    if (col_tot_len > IX_MAX_COL_LEN) {
+      throw InvalidColLengthError(col_tot_len);
+    }
+
+    // Create file header and write to file
+    ExtendibleHashIxFileHdr *fhdr =
+        new ExtendibleHashIxFileHdr(IX_NO_PAGE, IX_INIT_HASH_NUM_PAGES, IX_INIT_DIRECTORY_PAGE, col_num, col_tot_len,
+                                    (BUCKET_SIZE + 1) * col_tot_len);
+    for (int i = 0; i < col_num; ++i) {
+      fhdr->col_types_.push_back(index_cols[i].type);
+      fhdr->col_lens_.push_back(index_cols[i].len);
+    }
+    fhdr->update_tot_len();
+
+    char *data = new char[fhdr->tot_len_];
+    fhdr->serialize(data);
+
+    disk_manager_->WritePage(fd, IX_FILE_HDR_PAGE, data, fhdr->tot_len_);
+    delete[] data;
+
+    char page_buf[PAGE_SIZE];  // 在内存中初始化page_buf中的内容，然后将其写入磁盘
+    memset(page_buf, 0, PAGE_SIZE);
+
+    // Create initial bucket page 0 and write to file
+    {
+      memset(page_buf, 0, PAGE_SIZE);
+      auto phdr = reinterpret_cast<IxExtendibleHashPageHdr *>(page_buf);
+      *phdr = {.next_free_page_no = IX_NO_PAGE, .is_valid = true, .local_depth = 1, .key_nums = 0, .size = BUCKET_SIZE};
+      // Must write PAGE_SIZE here in case of future fetch_node()
+      disk_manager_->WritePage(fd, IX_INIT_BUCKET_0_PAGE, page_buf, PAGE_SIZE);
+    }
+
+    // Create initial bucket page 1 and write to file
+    {
+      memset(page_buf, 0, PAGE_SIZE);
+      auto phdr = reinterpret_cast<IxExtendibleHashPageHdr *>(page_buf);
+      *phdr = {.next_free_page_no = IX_NO_PAGE, .is_valid = true, .local_depth = 1, .key_nums = 0, .size = BUCKET_SIZE};
+      // Must write PAGE_SIZE here in case of future fetch_node()
+      disk_manager_->WritePage(fd, IX_INIT_BUCKET_1_PAGE, page_buf, PAGE_SIZE);
+    }
+
+    // Create directory bucket page and write to file
+    {
+      memset(page_buf, 0, PAGE_SIZE);
+      auto phdr = reinterpret_cast<IxExtendibleHashPageHdr *>(page_buf);
+      *phdr = {.next_free_page_no = IX_NO_PAGE, .is_valid = true, .local_depth = 1, .key_nums = 2, .size = BUCKET_SIZE};
+      char *tp_keys = page_buf + sizeof(IxExtendibleHashPageHdr);
+      Rid *tp_rids = reinterpret_cast<Rid *>(tp_keys + fhdr->keys_size_);
+      tp_rids[0] = {.page_no = IX_INIT_BUCKET_0_PAGE, .slot_no = IX_NO_PAGE};  // only page_no is valid
+      tp_rids[1] = {.page_no = IX_INIT_BUCKET_1_PAGE, .slot_no = IX_NO_PAGE};  // only page_no is valid
+      // Must write PAGE_SIZE here in case of future fetch_node()
+      disk_manager_->WritePage(fd, IX_INIT_DIRECTORY_PAGE, page_buf, PAGE_SIZE);
+    }
+    disk_manager_->SetFd2Pageno(fd, IX_INIT_HASH_NUM_PAGES - 1);  // DEBUG
+    delete fhdr;
+    // Close index file
+    disk_manager_->CloseFile(fd);
   }
 
   void destroy_index(const std::string &filename, const std::vector<ColMeta> &index_cols) {
@@ -157,6 +229,13 @@ class IxManager {
     return std::make_unique<IxIndexHandle>(disk_manager_, buffer_pool_manager_, fd);
   }
 
+  IxExtendibleHashIndexHandle *open_hash_index(const std::string &filename, const std::vector<ColMeta> &index_cols) {
+    std::string ix_name = get_index_name(filename, index_cols);
+    int fd = disk_manager_->OpenFile(ix_name);
+    IxExtendibleHashIndexHandle *tp = new IxExtendibleHashIndexHandle(disk_manager_, buffer_pool_manager_, fd);
+    return tp;
+  }
+
   void close_index(const IxIndexHandle *ih) {
     char *data = new char[ih->file_hdr_->tot_len_];
     ih->file_hdr_->serialize(data);
@@ -164,6 +243,17 @@ class IxManager {
     // 缓冲区的所有页刷到磁盘，注意这句话必须写在close_file前面
     buffer_pool_manager_->FlushAllPages(ih->fd_);
     disk_manager_->CloseFile(ih->fd_);
+    delete[] data;
+  }
+
+  void close_index(const IxExtendibleHashIndexHandle *ih) {
+    char *data = new char[ih->file_hdr_->tot_len_];
+    ih->file_hdr_->serialize(data);
+    disk_manager_->WritePage(ih->fd_, IX_FILE_HDR_PAGE, data, ih->file_hdr_->tot_len_);
+    // 缓冲区的所有页刷到磁盘，注意这句话必须写在close_file前面
+    buffer_pool_manager_->FlushAllPages(ih->fd_);
+    disk_manager_->CloseFile(ih->fd_);
+    delete[] data;
   }
 };
 

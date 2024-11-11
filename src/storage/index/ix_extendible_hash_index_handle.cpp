@@ -112,10 +112,10 @@ void IxBucketHandle::Reorganize(int pos) {
  */
 bool IxBucketHandle::Find(const char *key) {
   // Find the the key-value pair
-  for(int cur_idx = 0; cur_idx <  page_hdr->key_nums ; cur_idx ++){
-     if (ix_compare(get_key(cur_idx), key, file_hdr->col_types_, file_hdr->col_lens_) == 0) {
+  for (int cur_idx = 0; cur_idx < page_hdr->key_nums; cur_idx++) {
+    if (ix_compare(get_key(cur_idx), key, file_hdr->col_types_, file_hdr->col_lens_) == 0) {
       return true;
-    }   
+    }
   }
   return false;
 }
@@ -132,14 +132,14 @@ int IxBucketHandle::Find(const char *key, std::vector<Rid> *result) {
   std::cerr << "[INDEX ----- Find] " << std::endl;
   // Find the the key-value pair
   bool find = false;
-  for(int cur_idx = 0; cur_idx <  page_hdr->key_nums ; cur_idx ++){
-     if (ix_compare(get_key(cur_idx), key, file_hdr->col_types_, file_hdr->col_lens_) == 0) {
+  for (int cur_idx = 0; cur_idx < page_hdr->key_nums; cur_idx++) {
+    if (ix_compare(get_key(cur_idx), key, file_hdr->col_types_, file_hdr->col_lens_) == 0) {
       find = true;
       Rid *rid = get_rid(cur_idx);
       result->push_back(*rid);
-    }   
+    }
   }
-  return find ? 1: 0;
+  return find ? 1 : 0;
 }
 
 void IxBucketHandle::DoubleDirectory(int old_size, int new_size) {
@@ -170,9 +170,9 @@ IxExtendibleHashIndexHandle::IxExtendibleHashIndexHandle(DiskManager *disk_manag
   char *buf = new char[PAGE_SIZE];
   memset(buf, 0, PAGE_SIZE);
   disk_manager_->ReadPage(fd, IX_FILE_HDR_PAGE, buf, PAGE_SIZE);
-  file_hdr_ = new IxFileHdr();
+  file_hdr_ = new ExtendibleHashIxFileHdr();
   file_hdr_->deserialize(buf);
-  delete []buf;
+  delete[] buf;
   // disk_manager管理的fd对应的文件中，设置从file_hdr_->num_pages开始分配page_no
   int now_page_no = disk_manager_->GetFd2Pageno(fd);
   disk_manager_->SetFd2Pageno(fd, now_page_no + 1);
@@ -180,9 +180,7 @@ IxExtendibleHashIndexHandle::IxExtendibleHashIndexHandle(DiskManager *disk_manag
   size_per_bucket = 4;
 }
 
-IxExtendibleHashIndexHandle::~IxExtendibleHashIndexHandle(){
-  delete file_hdr_;
-}
+IxExtendibleHashIndexHandle::~IxExtendibleHashIndexHandle() { delete file_hdr_; }
 
 /**
  * @brief 用于查找指定键在桶中的对应的值result
@@ -211,10 +209,11 @@ bool IxExtendibleHashIndexHandle::GetValue(const char *key, std::vector<Rid> *re
  * @note 若插入成功，则返回插入到的桶的page_no；若插入失败(重复的key)，则返回-1
  */
 page_id_t IxExtendibleHashIndexHandle::InsertEntry(const char *key, const Rid &value) {
-  std::cerr << "[INDEX ----- InsertEntry] " << std::endl;
   std::scoped_lock lock{root_latch_};
   int index = HashFunction(key, global_depth);
-  IxBucketHandle *target_bucket = FindBucketPage(key);
+  std::cerr << "[INDEX ----- InsertEntry] index = " << index << " rid = {" << value.page_no << "," << value.slot_no
+            << "}" << std::endl;
+  IxBucketHandle *target_bucket = FindBucketPage(index);
   if (!target_bucket->IsFull()) {
     // bucket is not full, just insert.
     target_bucket->Insert(key, value);
@@ -272,23 +271,23 @@ bool IxExtendibleHashIndexHandle::DeleteEntry(const char *key) {
   return true;
 }
 
-/**
- * @brief 这里把iid转换成了rid，即iid的slot_no作为bucket的rid_idx(key_idx)
- * bucket其实就是把slot_no作为键值对数组的下标
- * 换而言之，每个iid对应的索引槽存了一对(key,rid)，指向了(要建立索引的属性首地址,插入/删除记录的位置)
- *
- * @param iid
- * @return Rid
- * @note iid和rid存的不是一个东西，rid是上层传过来的记录位置，iid是索引内部生成的索引槽位置
- */
-Rid IxExtendibleHashIndexHandle::GetRid(const Iid &iid) const {
-  IxBucketHandle *bucket = FetchBucket(iid.page_no);
-  if (iid.slot_no >= bucket->get_size()) {
-    throw IndexEntryNotFoundError();
-  }
-  buffer_pool_manager_->UnpinPage(bucket->get_page_id(), false);  // unpin it!
-  return *bucket->get_rid(iid.slot_no);
-}
+// /**
+//  * @brief 这里把iid转换成了rid，即iid的slot_no作为bucket的rid_idx(key_idx)
+//  * bucket其实就是把slot_no作为键值对数组的下标
+//  * 换而言之，每个iid对应的索引槽存了一对(key,rid)，指向了(要建立索引的属性首地址,插入/删除记录的位置)
+//  *
+//  * @param iid
+//  * @return Rid
+//  * @note iid和rid存的不是一个东西，rid是上层传过来的记录位置，iid是索引内部生成的索引槽位置
+//  */
+// Rid IxExtendibleHashIndexHandle::GetRid(const Iid &iid) const {
+//   IxBucketHandle *bucket = FetchBucket(iid.page_no);
+//   if (iid.slot_no >= bucket->get_size()) {
+//     throw IndexEntryNotFoundError();
+//   }
+//   buffer_pool_manager_->UnpinPage(bucket->get_page_id(), false);  // unpin it!
+//   return *bucket->get_rid(iid.slot_no);
+// }
 
 /**
  * @brief 删除bucket时，更新file_hdr_.num_pages
@@ -320,6 +319,10 @@ bool IxExtendibleHashIndexHandle::Erase() {
 IxBucketHandle *IxExtendibleHashIndexHandle::FetchBucket(int page_no) const {
   std::cerr << "[INDEX ----- FetchBucket] " << std::endl;
   Page *page = buffer_pool_manager_->FetchPage(PageId{fd_, page_no});
+  if (page == nullptr) {
+    // fail to fetch page.
+    return nullptr;
+  }
   IxBucketHandle *bucket = new IxBucketHandle(file_hdr_, page);
 
   return bucket;
@@ -334,8 +337,12 @@ IxBucketHandle *IxExtendibleHashIndexHandle::FetchBucket(int page_no) const {
  */
 IxBucketHandle *IxExtendibleHashIndexHandle::FindBucketPage(const char *key) {
   std::cerr << "[INDEX ----- FindBucketPage] " << std::endl;
-  IxBucketHandle *directory_bucket = FetchBucket(file_hdr_->root_page_);
+  IxBucketHandle *directory_bucket = FetchBucket(file_hdr_->directory_page_);
   int index = HashFunction(key, global_depth);
+  if (index >= directory_bucket->GetNumOfKeys()) {
+    // invalid index
+    return nullptr;
+  }
   page_id_t target_page_no = directory_bucket->value_at(index);
   IxBucketHandle *current_bucket = FetchBucket(target_page_no);
   buffer_pool_manager_->UnpinPage(directory_bucket->get_page_id(), false);
@@ -352,7 +359,11 @@ IxBucketHandle *IxExtendibleHashIndexHandle::FindBucketPage(const char *key) {
  */
 IxBucketHandle *IxExtendibleHashIndexHandle::FindBucketPage(int index) {
   std::cerr << "[INDEX ----- FindBucketPage] index = " << index << std::endl;
-  IxBucketHandle *directory_bucket = FetchBucket(file_hdr_->root_page_);
+  IxBucketHandle *directory_bucket = FetchBucket(file_hdr_->directory_page_);
+  if (index >= directory_bucket->GetNumOfKeys()) {
+    // invalid index
+    return nullptr;
+  }
   page_id_t target_page_no = directory_bucket->value_at(index);
   IxBucketHandle *current_bucket = FetchBucket(target_page_no);
   buffer_pool_manager_->UnpinPage(directory_bucket->get_page_id(), false);
@@ -372,7 +383,7 @@ IxBucketHandle *IxExtendibleHashIndexHandle::FindBucketPage(int index) {
  */
 IxBucketHandle *IxExtendibleHashIndexHandle::CreateBucket(int index, const char *key, int new_local_depth) {
   std::cerr << "[INDEX ----- CreateBucket] index = " << index << " new_local_depth = " << new_local_depth << std::endl;
-  IxBucketHandle *directory_bucket = FetchBucket(file_hdr_->root_page_);
+  IxBucketHandle *directory_bucket = FetchBucket(file_hdr_->directory_page_);
 
   IxBucketHandle *bucket;
   file_hdr_->num_pages_++;
@@ -380,7 +391,7 @@ IxBucketHandle *IxExtendibleHashIndexHandle::CreateBucket(int index, const char 
   PageId new_page_id = {.fd = fd_, .page_no = INVALID_PAGE_ID};
   // 从3开始分配page_no，第一次分配之后，new_page_id.page_no=3，file_hdr_.num_pages=4
   Page *page = buffer_pool_manager_->NewPage(&new_page_id);
-  bucket = new IxBucketHandle(file_hdr_, page, new_local_depth);
+  bucket = new IxBucketHandle(file_hdr_, page, new_local_depth, BUCKET_SIZE, false);
   Rid tmp;
   tmp.page_no = bucket->get_page_no();
   directory_bucket->Insert(index, key, tmp);  // slot_number is not important?
@@ -391,9 +402,10 @@ IxBucketHandle *IxExtendibleHashIndexHandle::CreateBucket(int index, const char 
 
 // Update pointers in the directory
 void IxExtendibleHashIndexHandle::UpdatePointers(int index, int new_local_depth) {
-  std::cerr << "[INDEX ----- DoubleDirectory] index = " << index << " new_local_depth = " << new_local_depth << std::endl;
+  std::cerr << "[INDEX ----- DoubleDirectory] index = " << index << " new_local_depth = " << new_local_depth
+            << std::endl;
   // Get the number of entries in the directory
-  IxBucketHandle *directory_bucket = FetchBucket(file_hdr_->root_page_);
+  IxBucketHandle *directory_bucket = FetchBucket(file_hdr_->directory_page_);
   int numOfEntries = pow(2, global_depth);
   // Find the indices in the directory that have the same value with the index
   // based on the rightmost n bitsq
@@ -413,7 +425,7 @@ void IxExtendibleHashIndexHandle::DoubleDirectory() {
   // The directory size should the 2 to the power of global depth
   int directory_size = pow(2, global_depth);
   int old_size = directory_size / 2;
-  IxBucketHandle *directory_bucket = FetchBucket(file_hdr_->root_page_);
+  IxBucketHandle *directory_bucket = FetchBucket(file_hdr_->directory_page_);
   directory_bucket->DoubleDirectory(old_size, directory_size);
   buffer_pool_manager_->UnpinPage(directory_bucket->get_page_id(), false);
   delete directory_bucket;
@@ -434,9 +446,22 @@ void IxExtendibleHashIndexHandle::SplitBucket(int original_index) {
 int IxExtendibleHashIndexHandle::HashFunction(const char *key, int n) {
   int key_size = file_hdr_->col_tot_len_;
   uint64_t hash[2];
-  murmur3::MurmurHash3_x64_128(reinterpret_cast<const void *>(&key), key_size, 0, reinterpret_cast<void *>(&hash));
-  std::cerr << " hash["<<key<<"]=" << hash[0] << std::endl;
-  return hash[0] % ((1 << n) - 1);
+  int a = 0;
+  for (int i = 0; i < key_size; i++) {        // Correct: iterate over actual key size
+    a += static_cast<unsigned char>(key[i]);  // Ensure proper casting
+  }
+  hash[0] = a;
+  // Alternatively, use a proper hash function like MurmurHash3
+  // MurmurHash3_x64_128(reinterpret_cast<const void *>(key), key_size, 0, reinterpret_cast<void *>(&hash));
+  std::cerr << " hash[" << (*key - char(0)) << "]=" << hash[0] << " hash res = " << (hash[0] % (1 << n)) << std::endl;
+  return hash[0] % (1 << n);
+
+  // int key_size = file_hdr_->col_tot_len_;
+  // uint64_t hash[2];
+  // murmur3::MurmurHash3_x64_128(reinterpret_cast<const void *>(&key), key_size, 0, reinterpret_cast<void *>(&hash));
+  // int hash_res = hash[0] % (1 << n);
+  // std::cerr << " hash["<<(*key-char(0))<<"]=" << hash[0] << " hash res = " << hash_res << std::endl;
+  // return hash[0] % (1 << n);
 }
 
 }  // namespace easydb

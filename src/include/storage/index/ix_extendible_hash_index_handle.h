@@ -12,43 +12,11 @@
 #pragma once
 
 #include "buffer/buffer_pool_manager.h"
-#include "common/errors.h"
 #include "storage/disk/disk_manager.h"
 #include "storage/index/ix_defs.h"
 #include "storage/page/page.h"
 
 namespace easydb {
-
-inline int ix_compare(const char *a, const char *b, ColType type, int col_len) {
-  switch (type) {
-    case TYPE_INT: {
-      int ia = *(int *)a;
-      int ib = *(int *)b;
-      return (ia < ib) ? -1 : ((ia > ib) ? 1 : 0);
-    }
-    case TYPE_FLOAT: {
-      float fa = *(float *)a;
-      float fb = *(float *)b;
-      return (fa < fb) ? -1 : ((fa > fb) ? 1 : 0);
-    }
-    case TYPE_CHAR:
-    case TYPE_VARCHAR:
-      return memcmp(a, b, col_len);
-    default:
-      throw InternalError("Unexpected data type");
-  }
-}
-
-inline int ix_compare(const char *a, const char *b, const std::vector<ColType> &col_types,
-                      const std::vector<int> &col_lens) {
-  int offset = 0;
-  for (size_t i = 0; i < col_types.size(); ++i) {
-    int res = ix_compare(a + offset, b + offset, col_types[i], col_lens[i]);
-    if (res != 0) return res;
-    offset += col_lens[i];
-  }
-  return 0;
-}
 
 /* 管理中的每个节点 */
 class IxBucketHandle {
@@ -56,8 +24,8 @@ class IxBucketHandle {
   friend class IxScan;
 
  private:
-  const IxFileHdr *file_hdr;  // 节点所在文件的头部信息
-  Page *page;                 // 存储桶的页面
+  const ExtendibleHashIxFileHdr *file_hdr;  // 节点所在文件的头部信息
+  Page *page;                               // 存储桶的页面
   IxExtendibleHashPageHdr *page_hdr;  // page->data的第一部分，指针指向首地址，长度为sizeof(IxExtendibleHashPageHdr)
   char *keys;  // page->data的第二部分，指针指向首地址，长度为file_hdr->keys_size，每个key的长度为file_hdr->col_len
   Rid *rids;   // page->data的第三部分，指针指向首地址
@@ -65,15 +33,18 @@ class IxBucketHandle {
  public:
   IxBucketHandle() = default;
 
-  IxBucketHandle(const IxFileHdr *file_hdr_, Page *page_) : file_hdr(file_hdr_), page(page_) {
+  IxBucketHandle(const ExtendibleHashIxFileHdr *file_hdr_, Page *page_) : file_hdr(file_hdr_), page(page_) {
     page_hdr = reinterpret_cast<IxExtendibleHashPageHdr *>(page->GetData());
     keys = page->GetData() + sizeof(IxExtendibleHashPageHdr);
     rids = reinterpret_cast<Rid *>(keys + file_hdr->keys_size_);
   }
 
-  IxBucketHandle(const IxFileHdr *file_hdr_, Page *page_, int local_depth) : file_hdr(file_hdr_), page(page_) {
+  IxBucketHandle(const ExtendibleHashIxFileHdr *file_hdr_, Page *page_, int local_depth, int size, bool is_valid)
+      : file_hdr(file_hdr_), page(page_) {
     page_hdr = reinterpret_cast<IxExtendibleHashPageHdr *>(page->GetData());
     page_hdr->local_depth = local_depth;
+    page_hdr->size = size;
+    page_hdr->is_valid = is_valid;
     keys = page->GetData() + sizeof(IxExtendibleHashPageHdr);
     rids = reinterpret_cast<Rid *>(keys + file_hdr->keys_size_);
   }
@@ -140,15 +111,15 @@ class IxExtendibleHashIndexHandle {
  private:
   DiskManager *disk_manager_;
   BufferPoolManager *buffer_pool_manager_;
-  int fd_;               // 存储可扩展hash的文件
-  IxFileHdr *file_hdr_;  // 存了root_page，但其初始化为2（第0页存FILE_HDR_PAGE，第1页存LEAF_HEADER_PAGE）
+  int fd_;                             // 存储可扩展hash的文件
+  ExtendibleHashIxFileHdr *file_hdr_;  // 存了root_page，但其初始化为2（第0页存FILE_HDR_PAGE，第1页存LEAF_HEADER_PAGE）
   std::mutex root_latch_;
   int global_depth;     // Record the global depth of the hash table
   int size_per_bucket;  // Size of each bucket
 
  public:
   IxExtendibleHashIndexHandle(DiskManager *disk_manager, BufferPoolManager *buffer_pool_manager, int fd);
-  
+
   ~IxExtendibleHashIndexHandle();
 
   // for search
@@ -162,16 +133,16 @@ class IxExtendibleHashIndexHandle {
 
   bool Erase();
 
-  int get_global_depth() { return global_depth; }
+  int getGlobalDepth() { return global_depth; }
+
+  // hash function
+  int HashFunction(const char *key, int n);
 
  private:
   void ReleaseBucketHandle(IxBucketHandle &bucket);
 
   // for index test
   Rid GetRid(const Iid &iid) const;
-
-  // hash function
-  int HashFunction(const char *key, int n);
 
   // split the bucket
   void SplitBucket(int originalBucket);

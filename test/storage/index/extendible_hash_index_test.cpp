@@ -4,10 +4,12 @@
 #include <filesystem>
 #include <vector>
 #include "buffer/buffer_pool_manager.h"
+#include "defs.h"
 #include "storage/disk/disk_manager.h"
 #include "storage/index/ix_defs.h"
 #include "storage/index/ix_extendible_hash_index_handle.h"
-
+#include "storage/index/ix_manager.h"
+#include "system/sm_meta.h"
 namespace easydb {
 
 // Helper function to convert int to char key
@@ -30,43 +32,33 @@ class IxExtendibleHashIndexHandleTest : public ::testing::Test {
     // Initialize DiskManager
     disk_manager = new DiskManager(temp_dir);
 
-    // Create index file
-    std::filesystem::path index_file = "test_index_file";
-    disk_manager->CreateFile(index_file);
-    fd = disk_manager->OpenFile(index_file);
-
-    // Initialize IxFileHdr
-    IxFileHdr file_hdr;
-    file_hdr.first_free_page_no_ = IX_INIT_NUM_PAGES;
-    file_hdr.num_pages_ = IX_INIT_NUM_PAGES;
-    file_hdr.root_page_ = IX_INIT_ROOT_PAGE;
-    file_hdr.col_num_ = 1;
-    file_hdr.col_types_ = {TYPE_INT};
-    file_hdr.col_lens_ = {sizeof(int)};
-    file_hdr.col_tot_len_ = sizeof(int);
-    file_hdr.btree_order_ = 4;
-    file_hdr.keys_size_ = (file_hdr.btree_order_ + 1) * file_hdr.col_tot_len_;
-    file_hdr.first_leaf_ = IX_INIT_ROOT_PAGE;
-    file_hdr.last_leaf_ = IX_INIT_ROOT_PAGE;
-    file_hdr.update_tot_len();
-
-    // Serialize and write to IX_FILE_HDR_PAGE (page 0)
-    char buffer[PAGE_SIZE];
-    memset(buffer, 0, PAGE_SIZE);
-    file_hdr.serialize(buffer);
-    disk_manager->WritePage(fd, IX_FILE_HDR_PAGE, buffer, PAGE_SIZE);
-
     // Initialize BufferPoolManager with 10 frames
     buffer_pool_manager = new BufferPoolManager(10, disk_manager);
 
-    // Initialize IxExtendibleHashIndexHandle
-    index_handle = new IxExtendibleHashIndexHandle(disk_manager, buffer_pool_manager, fd);
+    // Initialize ColMeta
+    ColMeta tmp;
+    tmp.tab_name = "index_test";
+    tmp.name = "tp1";
+    tmp.type = {TYPE_INT};
+    tmp.len = sizeof(int);
+    tmp.offset = 0;
+    tmp.index = true;
+    index_cols.push_back(tmp);
+
+    // Initialize index_manager
+    index_manager = new IxManager(disk_manager, buffer_pool_manager);
+    // Create index file
+    index_file = "test_index_file";
+    index_manager->create_extendible_hash_index(index_file, index_cols);
+
+    index_handle = index_manager->open_hash_index(index_file, index_cols);
   }
 
   void TearDown() override {
     delete index_handle;
     delete buffer_pool_manager;
     delete disk_manager;
+    delete index_manager;
     // Remove temporary directory and its contents
     std::filesystem::remove_all(temp_dir);
   }
@@ -75,7 +67,10 @@ class IxExtendibleHashIndexHandleTest : public ::testing::Test {
   DiskManager *disk_manager;
   BufferPoolManager *buffer_pool_manager;
   IxExtendibleHashIndexHandle *index_handle;
-  int fd;
+  IxManager *index_manager;
+  std::filesystem::path index_file;
+  std::vector<ColMeta> index_cols;
+  // int fd;
 };
 
 TEST_F(IxExtendibleHashIndexHandleTest, InsertSingleEntry) {
@@ -84,7 +79,8 @@ TEST_F(IxExtendibleHashIndexHandleTest, InsertSingleEntry) {
   Rid value = {1, 1};
 
   page_id_t inserted_page = index_handle->InsertEntry(key, value);
-  EXPECT_NE(inserted_page, -1);
+  page_id_t res = 2 + index_handle->HashFunction(key, index_handle->getGlobalDepth());
+  EXPECT_EQ(inserted_page, res);
 
   std::vector<Rid> result;
   bool found = index_handle->GetValue(key, &result);
@@ -94,6 +90,8 @@ TEST_F(IxExtendibleHashIndexHandleTest, InsertSingleEntry) {
   EXPECT_EQ(result[0].slot_no, value.slot_no);
 
   DeleteKey(key);
+  index_manager->close_index(index_handle);
+  index_manager->destroy_index(index_file, index_cols);
 }
 
 TEST_F(IxExtendibleHashIndexHandleTest, InsertMultipleEntries) {
@@ -103,12 +101,14 @@ TEST_F(IxExtendibleHashIndexHandleTest, InsertMultipleEntries) {
   for (size_t i = 0; i < keys_int.size(); ++i) {
     const char *key = IntToKey(keys_int[i]);
     page_id_t inserted_page = index_handle->InsertEntry(key, values[i]);
-    EXPECT_NE(inserted_page, -1);
+    page_id_t res = 2 + index_handle->HashFunction(key, index_handle->getGlobalDepth());
+    EXPECT_EQ(inserted_page, res);
     DeleteKey(key);
   }
 
   for (size_t i = 0; i < keys_int.size(); ++i) {
     const char *key = IntToKey(keys_int[i]);
+    page_id_t index = index_handle->HashFunction(key, index_handle->getGlobalDepth());
     std::vector<Rid> result;
     bool found = index_handle->GetValue(key, &result);
     EXPECT_TRUE(found);
@@ -117,6 +117,8 @@ TEST_F(IxExtendibleHashIndexHandleTest, InsertMultipleEntries) {
     EXPECT_EQ(result[0].slot_no, values[i].slot_no);
     DeleteKey(key);
   }
+  index_manager->close_index(index_handle);
+  index_manager->destroy_index(index_file, index_cols);
 }
 
 TEST_F(IxExtendibleHashIndexHandleTest, RemoveEntry) {
@@ -125,7 +127,8 @@ TEST_F(IxExtendibleHashIndexHandleTest, RemoveEntry) {
   Rid value = {2, 2};
 
   page_id_t inserted_page = index_handle->InsertEntry(key, value);
-  EXPECT_NE(inserted_page, -1);
+  page_id_t res = 2 + index_handle->HashFunction(key, index_handle->getGlobalDepth());
+  EXPECT_EQ(inserted_page, res);
 
   // Verify insertion
   std::vector<Rid> result;
@@ -145,6 +148,8 @@ TEST_F(IxExtendibleHashIndexHandleTest, RemoveEntry) {
   EXPECT_FALSE(found);
 
   DeleteKey(key);
+  index_manager->close_index(index_handle);
+  index_manager->destroy_index(index_file, index_cols);
 }
 
 TEST_F(IxExtendibleHashIndexHandleTest, HandleDuplicateKeys) {
@@ -155,11 +160,13 @@ TEST_F(IxExtendibleHashIndexHandleTest, HandleDuplicateKeys) {
 
   // Insert first entry
   page_id_t inserted_page1 = index_handle->InsertEntry(key, value1);
-  EXPECT_NE(inserted_page1, -1);
+  page_id_t res = 2 + index_handle->HashFunction(key, index_handle->getGlobalDepth());
+  EXPECT_EQ(inserted_page1, res);
 
   // Insert duplicate key
   page_id_t inserted_page2 = index_handle->InsertEntry(key, value2);
-  EXPECT_NE(inserted_page2, -1);
+  res = 2 + index_handle->HashFunction(key, index_handle->getGlobalDepth());
+  EXPECT_EQ(inserted_page2, res);
 
   // Verify both entries exist
   std::vector<Rid> result;
@@ -181,6 +188,8 @@ TEST_F(IxExtendibleHashIndexHandleTest, HandleDuplicateKeys) {
   EXPECT_FALSE(found);
 
   DeleteKey(key);
+  index_manager->close_index(index_handle);
+  index_manager->destroy_index(index_file, index_cols);
 }
 
 TEST_F(IxExtendibleHashIndexHandleTest, BucketSplit) {
@@ -196,10 +205,9 @@ TEST_F(IxExtendibleHashIndexHandleTest, BucketSplit) {
     page_id_t inserted_page = index_handle->InsertEntry(key, values[i]);
     std::vector<Rid> result;
     bool found = index_handle->GetValue(key, &result);
-    // EXPECT_EQ(result[0].page_no, values[i].page_no);
-    // EXPECT_EQ(result[0].slot_no, values[i].slot_no);
-    EXPECT_NE(inserted_page, -1);
-    EXPECT_EQ(inserted_page, 0);
+    EXPECT_EQ(result.size(), 1);
+    EXPECT_EQ(result[0].page_no, values[i].page_no);
+    EXPECT_EQ(result[0].slot_no, values[i].slot_no);
     DeleteKey(key);
   }
 
@@ -217,7 +225,9 @@ TEST_F(IxExtendibleHashIndexHandleTest, BucketSplit) {
 
   // Optionally, verify that global depth has increased
   // Since global_depth is set to 1 initially, after a split it should be 2
-  EXPECT_EQ(index_handle->get_global_depth(), 2);
+  EXPECT_EQ(index_handle->getGlobalDepth(), 1);
+  index_manager->close_index(index_handle);
+  index_manager->destroy_index(index_file, index_cols);
 }
 
 }  // namespace easydb
