@@ -1,0 +1,7 @@
+
+        graph G
+{       
+        rankdir = TB;
+        node [shape=record];
+        node1 [label = "{<e> #1|[9, 10, 17, 33]}" ];
+}

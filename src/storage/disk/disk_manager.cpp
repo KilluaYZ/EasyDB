@@ -77,7 +77,7 @@ DiskManager::DiskManager(const std::filesystem::path &db_dir) : dir_name_(db_dir
  * Write the contents of the specified page into disk file
  */
 void DiskManager::WritePage(int fd, page_id_t page_id, const char *page_data, size_t num_bytes) {
-  std::cerr << "[DiskManager] WritePage" << std::endl;
+  // std::cerr << "[DiskManager] WritePage" << std::endl;
   // Calculate the offset in the file
   size_t offset = static_cast<size_t>(page_id) * PAGE_SIZE;
 
@@ -101,7 +101,7 @@ void DiskManager::WritePage(int fd, page_id_t page_id, const char *page_data, si
  * Read the contents of the specified page into the given memory area
  */
 void DiskManager::ReadPage(int fd, page_id_t page_id, char *page_data, size_t num_bytes) {
-  std::cerr << "[DiskManager] ReadPage" << std::endl;
+  // std::cerr << "[DiskManager] ReadPage" << std::endl;
   // Calculate the offset in the file
   int offset = page_id * PAGE_SIZE;
 
@@ -192,7 +192,7 @@ void DiskManager::DestroyFile(const std::string &path) {
  * Open a file with the given path and return its file descriptor
  */
 int DiskManager::OpenFile(const std::string &path) {
-  std::cerr << "[DiskManager] OpenFile" << std::endl;
+  // std::cerr << "[DiskManager] OpenFile" << std::endl;
   if (!IsFile(path)) {
     LOG_ERROR("file %s does not exist", path.c_str());
     return -1;
@@ -223,7 +223,7 @@ int DiskManager::OpenFile(const std::string &path) {
  * Close a file with the given file descriptor
  */
 void DiskManager::CloseFile(int fd) {
-  std::cerr << "[DiskManager] CloseFile" << std::endl;
+  // std::cerr << "[DiskManager] CloseFile" << std::endl;
   if (fd < 0 || fd >= MAX_FD) {
     LOG_ERROR("invalid file descriptor %d", fd);
     return;

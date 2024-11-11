@@ -104,7 +104,7 @@ RID RmFileHandle::InsertRecord(char *buf) {
   // Unpin the page that was pinned in create_page_handle
   buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), true);
 
-  return RID{page_no, static_cast<uint32_t>(slot_no)};
+  return RID{page_no, static_cast<slot_id_t>(slot_no)};
 }
 
 /**

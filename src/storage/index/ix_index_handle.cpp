@@ -9,7 +9,6 @@
  *-------------------------------------------------------------------------
  */
 
-#pragma once
 #include "storage/index/ix_index_handle.h"
 #include "storage/index/ix_defs.h"
 
@@ -81,7 +80,7 @@ int IxNodeHandle::UpperBound(const char *target) const {
  * @param[out] value 传出参数，目标key对应的Rid
  * @return 目标key是否存在
  */
-bool IxNodeHandle::LeafLookup(const char *key, Rid **value) {
+bool IxNodeHandle::LeafLookup(const char *key, RID **value) {
   // Todo:
   // 1. 在叶子节点中获取目标key所在位置
   // 2. 判断目标key是否存在
@@ -140,7 +139,7 @@ page_id_t IxNodeHandle::InternalLookup(const char *key) {
  *       [0,pos)     [pos,pos+n)   [pos+n,num_key+n)
  *                      key           key_slot
  */
-void IxNodeHandle::InsertPairs(int pos, const char *key, const Rid *rid, int n) {
+void IxNodeHandle::InsertPairs(int pos, const char *key, const RID *rid, int n) {
   // Todo:
   // 1. 判断pos的合法性
   // 2. 通过key获取n个连续键值对的key值，并把n个key值插入到pos位置
@@ -157,7 +156,7 @@ void IxNodeHandle::InsertPairs(int pos, const char *key, const Rid *rid, int n) 
   int num_keys_to_move = page_hdr->num_key - pos;
   if (num_keys_to_move > 0) {
     memmove(keys + (pos + n) * key_size, keys + pos * key_size, num_keys_to_move * key_size);
-    memmove(rids + pos + n, rids + pos, num_keys_to_move * sizeof(Rid));
+    memmove(rids + pos + n, rids + pos, num_keys_to_move * sizeof(RID));
   }
 
   // 3. Insert new keys and RIDs
@@ -178,7 +177,7 @@ void IxNodeHandle::InsertPairs(int pos, const char *key, const Rid *rid, int n) 
  * @return int 键值对数量
  * @note 注意：如果key重复，则不会插入，返回键值对数量不变
  */
-int IxNodeHandle::Insert(const char *key, const Rid &value) {
+int IxNodeHandle::Insert(const char *key, const RID &value) {
   // Todo:
   // 1. 查找要插入的键值对应该插入到当前节点的哪个位置
   // 2. 如果key重复则不插入
@@ -225,7 +224,7 @@ void IxNodeHandle::ErasePair(int pos) {
   // Shift keys and rids to Remove the key-value pair at position pos
   if (num_keys_to_move > 0) {
     memmove(keys + pos * key_size, keys + (pos + 1) * key_size, num_keys_to_move * key_size);
-    memmove(rids + pos, rids + pos + 1, num_keys_to_move * sizeof(Rid));
+    memmove(rids + pos, rids + pos + 1, num_keys_to_move * sizeof(RID));
   }
 
   // Update the number of keys in the node
@@ -304,6 +303,9 @@ std::pair<IxNodeHandle *, bool> IxIndexHandle::FindLeafPage(const char *key, Ope
     // Unpin the current node before moving to the child
     buffer_pool_manager_->UnpinPage(current_node->GetPageId(), false);
 
+    // free the last node
+    if (current_node != nullptr) delete current_node;
+
     // Fetch the child node
     current_node = FetchNode(child_page_no);
   }
@@ -321,7 +323,7 @@ std::pair<IxNodeHandle *, bool> IxIndexHandle::FindLeafPage(const char *key, Ope
  * @param transaction 事务指针
  * @return bool 返回目标键值对是否存在
  */
-bool IxIndexHandle::GetValue(const char *key, std::vector<Rid> *result) {
+bool IxIndexHandle::GetValue(const char *key, std::vector<RID> *result) {
   // Todo:
   // 1. 获取目标key值所在的叶子结点
   // 2. 在叶子节点中查找目标key值的位置，并读取key对应的rid
@@ -340,7 +342,7 @@ bool IxIndexHandle::GetValue(const char *key, std::vector<Rid> *result) {
   }
 
   // 2. Look up the key in the leaf node
-  Rid *Rid = nullptr;
+  RID *Rid = nullptr;
   bool found = leaf_node->LeafLookup(key, &Rid);
 
   if (found) {
@@ -468,7 +470,7 @@ void IxIndexHandle::InsertIntoParent(IxNodeHandle *old_node, const char *key, Ix
   IxNodeHandle *parent_node = FetchNode(parent_page_no);
 
   // 3. Insert (key, new_node) into parent node
-  Rid new_node_rid = {new_node->GetPageNo(), 0};
+  RID new_node_rid = {new_node->GetPageNo(), 0};
   int insert_pos = parent_node->FindChild(old_node) + 1;
   parent_node->InsertPair(insert_pos, key, new_node_rid);
 
@@ -494,7 +496,7 @@ void IxIndexHandle::InsertIntoParent(IxNodeHandle *old_node, const char *key, Ix
  * @return page_id_t 插入到的叶结点的page_no
  * @note 若插入成功，则返回插入到的叶结点的page_no；若插入失败(重复的key)，则返回-1
  */
-page_id_t IxIndexHandle::InsertEntry(const char *key, const Rid &value) {
+page_id_t IxIndexHandle::InsertEntry(const char *key, const RID &value) {
   // Todo:
   // 1. 查找key值应该插入到哪个叶子节点
   // 2. 在该叶子节点中插入键值对
@@ -756,7 +758,7 @@ void IxIndexHandle::Redistribute(IxNodeHandle *neighbor_node, IxNodeHandle *node
     // neighbor_node is the successor(node -> neighbor_node)
     // Move the first key-value pair from neighbor_node to the end of node
     char *neighbor_first_key = neighbor_node->GetKey(0);
-    Rid neighbor_first_rid = *neighbor_node->GetRid(0);
+    RID neighbor_first_rid = *neighbor_node->GetRid(0);
 
     // Insert the first key-value pair from neighbor_node to the end of node
     node->InsertPairs(node->GetSize(), neighbor_first_key, &neighbor_first_rid, 1);
@@ -844,7 +846,7 @@ bool IxIndexHandle::Coalesce(IxNodeHandle **neighbor_node, IxNodeHandle **node, 
  * @return Rid
  * @note iid和rid存的不是一个东西，rid是上层传过来的记录位置，iid是索引内部生成的索引槽位置
  */
-Rid IxIndexHandle::GetRid(const Iid &iid) const {
+RID IxIndexHandle::GetRid(const Iid &iid) const {
   IxNodeHandle *node = FetchNode(iid.page_no);
   if (iid.slot_no >= node->GetSize()) {
     throw IndexEntryNotFoundError();
@@ -964,6 +966,13 @@ Iid IxIndexHandle::LeafBegin() const {
   Iid iid = {.page_no = file_hdr_->first_leaf_, .slot_no = 0};
   return iid;
 }
+
+/**
+ * @brief 获取根节点
+ *
+ * @return IxNodeHandle*
+ */
+IxNodeHandle *IxIndexHandle::GetRoot() const { return FetchNode(file_hdr_->root_page_); }
 
 /**
  * @brief 获取一个指定结点

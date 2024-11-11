@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.16)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON) # Require C++17 support.
-
 # set(CLANG_SEARCH_PATH "/usr/local/bin" "/usr/bin" "/usr/local/opt/llvm/bin" "/usr/local/opt/llvm@14/bin")
 
 set(CMAKE_C_COMPILER "/usr/bin/clang")
@@ -23,7 +22,8 @@ enable_testing()
 # COMPILER SETUP
 # #####################################################################################################################
 
-set(ASAN_OPTIONS detect_leaks=0)
+set(ENV{ASAN_OPTIONS} "detect_leaks=0")
+
 # Compiler flags.
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra")
 # set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Werror")

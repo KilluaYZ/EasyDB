@@ -34,17 +34,17 @@ class RID {
    * @param page_id page identifier
    * @param slot_num slot number
    */
-  RID(page_id_t page_id, uint32_t slot_num) : page_id_(page_id), slot_num_(slot_num) {}
+  RID(page_id_t page_id, slot_id_t slot_num) : page_id_(page_id), slot_num_(slot_num) {}
 
-  explicit RID(int64_t rid) : page_id_(static_cast<page_id_t>(rid >> 32)), slot_num_(static_cast<uint32_t>(rid)) {}
+  explicit RID(int64_t rid) : page_id_(static_cast<page_id_t>(rid >> 32)), slot_num_(static_cast<slot_id_t>(rid)) {}
 
   inline auto Get() const -> int64_t { return (static_cast<int64_t>(page_id_)) << 32 | slot_num_; }
 
   inline auto GetPageId() const -> page_id_t { return page_id_; }
 
-  inline auto GetSlotNum() const -> uint32_t { return slot_num_; }
+  inline auto GetSlotNum() const -> slot_id_t { return slot_num_; }
 
-  inline void Set(page_id_t page_id, uint32_t slot_num) {
+  inline void Set(page_id_t page_id, slot_id_t slot_num) {
     page_id_ = page_id;
     slot_num_ = slot_num;
   }

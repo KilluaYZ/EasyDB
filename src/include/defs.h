@@ -28,15 +28,6 @@ std::istream &operator>>(std::istream &is, T &enum_val) {
   return is;
 }
 
-struct Rid {
-  int page_no;
-  int slot_no;
-
-  friend bool operator==(const Rid &x, const Rid &y) { return x.page_no == y.page_no && x.slot_no == y.slot_no; }
-
-  friend bool operator!=(const Rid &x, const Rid &y) { return !(x == y); }
-};
-
 enum ColType { TYPE_INT, TYPE_LONG, TYPE_FLOAT, TYPE_DOUBLE, TYPE_VARCHAR, TYPE_CHAR, TYPE_DATE, TYPE_EMPTY };
 
 inline std::string coltype2str(ColType type) {
@@ -47,13 +38,4 @@ inline std::string coltype2str(ColType type) {
   return m.at(type);
 }
 
-class RecScan {
- public:
-  virtual ~RecScan() = default;
 
-  virtual void Next() = 0;
-
-  virtual bool IsEnd() const = 0;
-
-  virtual Rid GetRid() const = 0;
-};

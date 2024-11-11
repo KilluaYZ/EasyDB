@@ -1,7 +1,9 @@
+#include <cassert>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 #include "buffer/buffer_pool_manager.h"
@@ -11,7 +13,10 @@
 #include "gtest/gtest.h"
 #include "record/rm_defs.h"
 #include "record/rm_file_handle.h"
+#include "record/rm_scan.h"
 #include "storage/disk/disk_manager.h"
+#include "storage/index/ix_index_handle.h"
+#include "storage/index/ix_manager.h"
 #include "system/sm_meta.h"
 
 namespace easydb {
@@ -106,7 +111,7 @@ void fh_insert(RmFileHandle *fh_, std::vector<Value> &values_, std::vector<ColMe
   }
   // fh_->InsertRecord(rec.data);
   auto rid = fh_->InsertRecord(rec.data);
-  std::cerr << "[TEST] insert rid: " << rid.GetPageId() << " slot num: " << rid.GetSlotNum() << std::endl;
+  // std::cerr << "[TEST] insert rid: " << rid.GetPageId() << " slot num: " << rid.GetSlotNum() << std::endl;
 }
 
 class TB_Reader {
@@ -130,6 +135,8 @@ class TB_Reader {
     columns.push_back(col);
     return *this;
   }
+
+  std::vector<ColMeta> get_cols() { return this->columns; }
 
   ~TB_Reader() { delete file_reader; }
 
@@ -165,6 +172,52 @@ class TB_Reader {
       }
       fh_insert(fh_, values_, columns);
     }
+  }
+};
+
+// 绘制Dot的类
+class DotDrawer {
+ public:
+  std::ofstream *outfile = nullptr;
+  DotDrawer(std::string _file_path) {
+    outfile = new std::ofstream(_file_path, std::ios::out);
+    if (!outfile->is_open()) {
+      throw std::runtime_error("DotDrawer::cannot open file");
+    }
+  }
+  ~DotDrawer() {
+    if (outfile) {
+      outfile->close();
+      delete outfile;
+      outfile = nullptr;
+    }
+  }
+  virtual void print() = 0;
+};
+
+class BPlusTreeDrawer : public DotDrawer {
+ private:
+  IxIndexHandle *b_plus_tree = nullptr;
+  void printNode(IxNodeHandle *_node) {
+    if (_node->IsRootPage()) {
+      // 如果是根节点
+    } else if (_node->IsLeafPage()) {
+      // 如果是叶节点
+    } else {
+      // 如果是中间节点
+    }
+  }
+
+ public:
+  BPlusTreeDrawer(std::string file_name, IxIndexHandle *_b_plus_tree)
+      : DotDrawer(file_name), b_plus_tree(_b_plus_tree) {}
+  void print() override {
+    *outfile << "digraph{" << std::endl << "node[shape=record];" << std::endl;
+
+    auto root_node = b_plus_tree->GetRoot();
+    assert(root_node->IsRootPage());
+
+    *outfile << "}";
   }
 };
 
@@ -208,6 +261,60 @@ TEST(EasyDBTest, SimpleTest) {
 
   bpm->FlushAllDirtyPages();
 
+  /*------------------------------------------
+                  b+树索引
+  ------------------------------------------*/
+  // 增加索引
+  // 准备元数据
+  std::vector<ColMeta> index_cols;
+
+  index_cols.push_back(tb_reader.get_cols()[0]);
+  std::string index_col_name = "S_SUPPKEY";
+  IndexMeta index_meta = {.tab_name = TEST_TB_NAME,
+                          .col_tot_len = static_cast<int>(index_col_name.size()),
+                          .col_num = 1,
+                          .cols = index_cols};
+
+  // 创建index
+  IxManager *ix_manager_ = new IxManager(dm, bpm);
+  ix_manager_->CreateIndex(TEST_TB_NAME, index_cols);
+
+  // 将表中已经存在的记录插入到新创建的index中
+  auto Ixh = ix_manager_->OpenIndex(TEST_TB_NAME, index_cols);
+  RmScan scan(fh_);
+  while (!scan.IsEnd()) {
+    auto rid = scan.GetRid();
+    auto rec = fh_->GetRecord(rid);
+    char *key = new char[index_meta.col_tot_len];
+    int offset = 0;
+    for (int i = 0; i < index_meta.col_num; ++i) {
+      memcpy(key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
+      offset += index_meta.cols[i].len;
+    }
+    Ixh->InsertEntry(key, rid);
+    delete[] key;
+    scan.Next();
+  }
+
+  // 生成dot图
+  BPlusTreeDrawer bpt_drawer("b_plus_index.dot", &(*Ixh));
+  bpt_drawer.print();
+  // 修改索引
+
+  // 删除索引
+
+  /*------------------------------------------
+                 线性hash索引
+ ------------------------------------------*/
+  // 增加索引
+
+  // 输出到dot图
+
+  // 修改索引
+
+  // 删除索引
+
+  delete ix_manager_;
   delete fh_;
   delete bpm;
   delete dm;

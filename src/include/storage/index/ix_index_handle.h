@@ -17,6 +17,7 @@
 
 #include "buffer/buffer_pool_manager.h"
 #include "common/errors.h"
+#include "common/rid.h"
 
 namespace easydb {
 
@@ -65,7 +66,7 @@ class IxNodeHandle {
   Page *page;                 // 存储节点的页面
   IxPageHdr *page_hdr;        // page->data的第一部分，指针指向首地址，长度为sizeof(IxPageHdr)
   char *keys;  // page->data的第二部分，指针指向首地址，长度为file_hdr->keys_size，每个key的长度为file_hdr->col_len
-  Rid *rids;   // page->data的第三部分，指针指向首地址
+  RID *rids;   // page->data的第三部分，指针指向首地址
 
  public:
   IxNodeHandle() = default;
@@ -73,7 +74,7 @@ class IxNodeHandle {
   IxNodeHandle(const IxFileHdr *file_hdr_, Page *page_) : file_hdr(file_hdr_), page(page_) {
     page_hdr = reinterpret_cast<IxPageHdr *>(page->GetData());
     keys = page->GetData() + sizeof(IxPageHdr);
-    rids = reinterpret_cast<Rid *>(keys + file_hdr->keys_size_);
+    rids = reinterpret_cast<RID *>(keys + file_hdr->keys_size_);
   }
 
   int GetSize() { return page_hdr->num_key; }
@@ -87,7 +88,7 @@ class IxNodeHandle {
   int KeyAt(int i) { return *(int *)GetKey(i); }
 
   /* 得到第i个孩子结点的page_no */
-  page_id_t ValueAt(int i) { return GetRid(i)->page_no; }
+  page_id_t ValueAt(int i) { return GetRid(i)->GetPageId(); }
 
   page_id_t GetPageNo() { return page->GetPageId().page_no; }
 
@@ -111,28 +112,28 @@ class IxNodeHandle {
 
   char *GetKey(int key_idx) const { return keys + key_idx * file_hdr->col_tot_len_; }
 
-  Rid *GetRid(int rid_idx) const { return &rids[rid_idx]; }
+  RID *GetRid(int rid_idx) const { return &rids[rid_idx]; }
 
   void SetKey(int key_idx, const char *key) {
     memcpy(keys + key_idx * file_hdr->col_tot_len_, key, file_hdr->col_tot_len_);
   }
 
-  void SetRid(int rid_idx, const Rid &Rid) { rids[rid_idx] = Rid; }
+  void SetRid(int rid_idx, const RID &Rid) { rids[rid_idx] = Rid; }
 
   int LowerBound(const char *target) const;
 
   int UpperBound(const char *target) const;
 
-  void InsertPairs(int pos, const char *key, const Rid *rid, int n);
+  void InsertPairs(int pos, const char *key, const RID *rid, int n);
 
   page_id_t InternalLookup(const char *key);
 
-  bool LeafLookup(const char *key, Rid **value);
+  bool LeafLookup(const char *key, RID **value);
 
-  int Insert(const char *key, const Rid &value);
+  int Insert(const char *key, const RID &value);
 
   // 用于在结点中的指定位置插入单个键值对
-  void InsertPair(int pos, const char *key, const Rid &Rid) { InsertPairs(pos, key, &Rid, 1); }
+  void InsertPair(int pos, const char *key, const RID &Rid) { InsertPairs(pos, key, &Rid, 1); }
 
   void ErasePair(int pos);
 
@@ -159,7 +160,7 @@ class IxNodeHandle {
   int FindChild(IxNodeHandle *child) {
     int rid_idx;
     for (rid_idx = 0; rid_idx < page_hdr->num_key; rid_idx++) {
-      if (GetRid(rid_idx)->page_no == child->GetPageNo()) {
+      if (GetRid(rid_idx)->GetPageId() == child->GetPageNo()) {
         break;
       }
     }
@@ -184,16 +185,16 @@ class IxIndexHandle {
   IxIndexHandle(DiskManager *disk_manager, BufferPoolManager *buffer_pool_manager, int fd);
 
   // for search
-  // bool get_value(const char *key, std::vector<Rid> *result, Transaction *transaction);
-  bool GetValue(const char *key, std::vector<Rid> *result);
+  // bool get_value(const char *key, std::vector<RID> *result, Transaction *transaction);
+  bool GetValue(const char *key, std::vector<RID> *result);
 
   //   std::pair<IxNodeHandle *, bool> find_leaf_page(const char *key, Operation operation, Transaction *transaction,
   //                                                  bool find_first = false);
   std::pair<IxNodeHandle *, bool> FindLeafPage(const char *key, Operation operation, bool find_first = false);
 
   // for insert
-  //   page_id_t insert_entry(const char *key, const Rid &value, Transaction *transaction);
-  page_id_t InsertEntry(const char *key, const Rid &value);
+  //   page_id_t insert_entry(const char *key, const RID &value, Transaction *transaction);
+  page_id_t InsertEntry(const char *key, const RID &value);
 
   IxNodeHandle *Split(IxNodeHandle *node);
 
@@ -225,6 +226,8 @@ class IxIndexHandle {
 
   Iid LeafBegin() const;
 
+  IxNodeHandle *GetRoot() const;
+
  private:
   // 辅助函数
   void UpdateRootPageNo(page_id_t root) { file_hdr_->root_page_ = root; }
@@ -246,7 +249,7 @@ class IxIndexHandle {
   void MaintainChild(IxNodeHandle *node, int child_idx);
 
   // for index test
-  Rid GetRid(const Iid &iid) const;
+  RID GetRid(const Iid &iid) const;
 };
 
 }  // namespace easydb

@@ -9,7 +9,6 @@
  *-------------------------------------------------------------------------
  */
 
-#pragma once
 #include "storage/index/ix_scan.h"
 
 namespace easydb {
@@ -34,6 +33,6 @@ void IxScan::Next() {
   bpm_->UnpinPage(node->GetPageId(), false);
 }
 
-Rid IxScan::GetRid() const { return ih_->GetRid(iid_); }
+RID IxScan::GetRid() const { return ih_->GetRid(iid_); }
 
 }  // namespace easydb

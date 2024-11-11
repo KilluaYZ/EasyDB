@@ -15,6 +15,17 @@
 
 namespace easydb {
 
+class RecScan {
+ public:
+  virtual ~RecScan() = default;
+
+  virtual void Next() = 0;
+
+  virtual bool IsEnd() const = 0;
+
+  virtual RID GetRid() const = 0;
+};
+
 // 用于遍历叶子结点
 // 用于直接遍历叶子结点，而不用findleafpage来得到叶子结点
 // TODO：对page遍历时，要加上读锁
@@ -32,7 +43,7 @@ class IxScan : public RecScan {
 
   bool IsEnd() const override { return iid_ == end_; }
 
-  Rid GetRid() const override;
+  RID GetRid() const override;
 
   const Iid &GetIid() const { return iid_; }
 

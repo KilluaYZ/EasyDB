@@ -26,7 +26,7 @@ RmScan::RmScan(const RmFileHandle *file_handle) : file_handle_(file_handle) {
   // Initialize file_handle and set rid_ to the first valid record
   // Start from the first data page (page 0 is the file header)
   // Initialize slot_no to -1 to start scanning from the beginning
-  rid_.Set(RM_FIRST_RECORD_PAGE, -1);
+  rid_.Set(RM_FIRST_RECORD_PAGE, 0);
   // Move to the first valid record
   Next();
 }
@@ -54,11 +54,11 @@ void RmScan::Next() {
 
     if (slot_no < num_records_per_page) {
       // Found a valid record in the current page
-      return;
+      break;
     } else {
       // Move to the next page
       page_no++;
-      slot_no = -1;
+      slot_no = 0;
     }
   }
   rid_.Set(page_no, slot_no);
