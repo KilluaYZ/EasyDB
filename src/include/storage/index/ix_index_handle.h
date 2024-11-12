@@ -11,6 +11,9 @@
 
 #pragma once
 
+#include <string>
+#include "common/common.h"
+#include "defs.h"
 #include "storage/disk/disk_manager.h"
 #include "storage/index/ix_defs.h"
 #include "storage/page/page.h"
@@ -76,6 +79,9 @@ class IxNodeHandle {
     keys = page->GetData() + sizeof(IxPageHdr);
     rids = reinterpret_cast<RID *>(keys + file_hdr->keys_size_);
   }
+
+  const IxPageHdr *GetPageHdr() { return page_hdr; }
+  const IxFileHdr *GetFileHdr() { return file_hdr; }
 
   int GetSize() { return page_hdr->num_key; }
 
@@ -169,6 +175,37 @@ class IxNodeHandle {
     assert(rid_idx < page_hdr->num_key);
     return rid_idx;
   }
+
+  std::vector<std::vector<std::string>> GetDeserializeKeys() {
+    if (file_hdr == nullptr || page_hdr == nullptr) return std::vector<std::vector<std::string>>();
+    std::vector<std::vector<std::string>> result;
+    int offset = 0;
+    for (int i = 0; i < file_hdr->col_types_.size(); i++) {
+      std::vector<std::string> tmp_res;
+      for (int j = 0; j < page_hdr->num_key; j++) {
+        auto cur_type = file_hdr->col_types_[i];
+        auto cur_lens = file_hdr->col_lens_[i];
+        std::string tmp_str;
+        if (cur_type == TYPE_INT) {
+          tmp_str = std::to_string(*(int *)(keys + offset));
+        } else if (cur_type == TYPE_LONG) {
+          tmp_str = std::to_string(*(long long *)(keys + offset));
+        } else if (cur_type == TYPE_FLOAT) {
+          tmp_str = std::to_string(*(float *)(keys + offset));
+        } else if (cur_type == TYPE_DOUBLE) {
+          tmp_str = std::to_string(*(double *)(keys + offset));
+        } else if (cur_type == TYPE_CHAR) {
+          tmp_str = std::string(keys + offset);
+        } else if (cur_type == TYPE_VARCHAR) {
+          tmp_str = std::string(keys + offset);
+        }
+        tmp_res.push_back(tmp_str);
+        offset += cur_lens;
+      }
+      result.push_back(tmp_res);
+    }
+    return result;
+  }
 };
 
 /* B+树 */
@@ -179,7 +216,7 @@ class IxIndexHandle {
  private:
   DiskManager *disk_manager_;
   BufferPoolManager *buffer_pool_manager_;
-  int fd_;               // 存储B+树的文件
+  int fd_;  // 存储B+树的文件
   // IxFileHdr *file_hdr_;  // 存了root_page，但其初始化为2（第0页存FILE_HDR_PAGE，第1页存LEAF_HEADER_PAGE）
   std::unique_ptr<IxFileHdr> file_hdr_;
   std::mutex root_latch_;

@@ -1,8 +1,10 @@
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <numeric>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -37,6 +39,8 @@ const std::string TEST_FILE_NAME_SUPPLIER = "supplier.tbl";  // 测试文件的�
 const int MAX_FILES = 32;
 const int MAX_PAGES = 128;
 const size_t TEST_BUFFER_POOL_SIZE = MAX_FILES * MAX_PAGES;
+
+BufferPoolManager *bpm;
 
 std::vector<ColMeta> columns;
 
@@ -143,9 +147,8 @@ class TB_Reader {
   ~TB_Reader() { delete file_reader; }
 
   void parse_and_insert(RmFileHandle *fh_) {
-    for (int i = 0; i < 24 && file_reader->read_line(); i++)
-    // while (file_reader->read_line())
-    {
+    // for (int i = 0; i < 24 && file_reader->read_line(); i++)
+    while (file_reader->read_line()) {
       auto splited_str_list = file_reader->get_splited_buf();
       std::vector<Value> values_;
       for (int i = 0; i < (int)columns.size(); i++) {
@@ -203,15 +206,18 @@ class BPlusTreeDrawer : public DotDrawer {
  private:
   IxIndexHandle *b_plus_tree = nullptr;
   void printNode(IxNodeHandle *_node) {
-    if (_node == nullptr) return;
+    if (_node == nullptr || _node->GetFileHdr() == nullptr || _node->GetPageHdr() == nullptr) return;
 
     // 先声明这个节点
     *outfile << getNodeDesc(_node) << std::endl;
+    if (_node->IsLeafPage()) return;
     // 然后声明与子节点的关系
     for (int i = 0; i < _node->GetSize(); i++) {
       auto child = GetChild(_node, i);
+      // if (child == nullptr || child->GetFileHdr() == nullptr || child->GetPageHdr() == nullptr) continue;
       *outfile << getNodeName(_node) << " : " << "f" << i << " : s -> " << getNodeName(child) << " : n" << std::endl;
-      if (!child->IsLeafPage()) printNode(child);
+      printNode(child);
+      bpm->UnpinPage(child->GetPageId(), false);
     }
   }
 
@@ -243,16 +249,32 @@ class BPlusTreeDrawer : public DotDrawer {
     return ss.str();
   }
 
+  std::string getNodeKeyStr(IxNodeHandle *_node, int _col_id) {
+    auto keys_str = _node->GetDeserializeKeys();
+    std::stringstream ss;
+    if (keys_str.size() == 0) return "";
+    if (keys_str[0].size() == 0) return "";
+    ss << keys_str[0][0];
+    for (int i = 1; i < keys_str[0].size(); i++) {
+      ss << " | " << keys_str[0][i];
+    }
+    return ss.str();
+  }
+
   std::string getNodeName(IxNodeHandle *_node) {
     std::stringstream ss;
     // ss << "Node" << *(int *)_node->GetKey(0);
-    ss << "Node" << _node->GetRid(0);
+    auto keys = _node->GetDeserializeKeys();
+    ss << "Node";
+    for (auto it = keys[0].begin(); it != keys[0].end(); it++) {
+      ss << "_" << *it;
+    }
     return ss.str();
   }
 
   std::string getNodeDesc(IxNodeHandle *_node) {
     std::stringstream ss;
-    ss << getNodeName(_node) << "[label=\"{{" << getNodeRidStr(_node) << "} | {" << getAnonymousNodeStr(_node)
+    ss << getNodeName(_node) << "[label=\"{{" << getNodeKeyStr(_node, 0) << "} | {" << getAnonymousNodeStr(_node)
        << "}}\"]";
     return ss.str();
   }
@@ -261,7 +283,6 @@ class BPlusTreeDrawer : public DotDrawer {
   BPlusTreeDrawer(std::string file_name, IxIndexHandle *_b_plus_tree)
       : DotDrawer(file_name), b_plus_tree(_b_plus_tree) {}
   void print() override {
-    *outfile << "@startuml" << std::endl;
     *outfile << "digraph btree{" << std::endl;
     *outfile << "node[shape=record, style=bold];" << std::endl;
     *outfile << "edge[style=bold];" << std::endl;
@@ -270,7 +291,6 @@ class BPlusTreeDrawer : public DotDrawer {
     assert(root_node->IsRootPage());
     printNode(root_node);
     *outfile << "}" << std::endl;
-    *outfile << "@enduml";
 
     delete root_node;
   }
@@ -305,7 +325,7 @@ TEST(EasyDBTest, SimpleTest) {
 
   std::cerr << "[TEST] 创建BufferPoolManager" << std::endl;
   // 创建BufferPoolManager
-  BufferPoolManager *bpm = new BufferPoolManager(100, dm);
+  bpm = new BufferPoolManager(BUFFER_POOL_SIZE, dm);
 
   RmFileHandle *fh_ = new RmFileHandle(dm, bpm, fd);
 
@@ -322,10 +342,11 @@ TEST(EasyDBTest, SimpleTest) {
   // 准备元数据
   std::vector<ColMeta> index_cols;
   std::cout << "Sizeof(header) : " << sizeof(IxFileHdr) << " " << sizeof(IxPageHdr) << std::endl;
-  index_cols.push_back(tb_reader.get_cols()[0]);
-  std::string index_col_name = "S_SUPPKEY";
+  index_cols.push_back(tb_reader.get_cols()[1]);
+  // std::string index_col_name = "S_SUPPKEY";
+  std::string index_col_name = "S_NAME";
   IndexMeta index_meta = {.tab_name = TEST_TB_NAME,
-                          .col_tot_len = static_cast<int>(index_col_name.size()),
+                          .col_tot_len = 25,
                           .col_num = 1,
                           .cols = index_cols};
 
