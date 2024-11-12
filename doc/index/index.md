@@ -283,7 +283,37 @@ while (!scan.IsEnd()) {
 }
 ```
 
-### 5.1.4 B+树索引可视化
+### 5.1.4 B+树索引删除
+
+索引删除的操作比较简单，只需要调用IxIndexHandler的DeleteEntry方法便可
+
+```cpp
+// Ixh是IxIndexHandler的实例，delete_key是要删除的key
+Ixh->DeleteEntry(delete_key);
+```
+
+### 5.1.5 B+树索引修改
+
+我们实现的B+树并没有直接提供一个修改Entry的API，但是我们可以通过先删除再插入的方式完成修改
+
+```cpp
+// 修改索引
+Ixh->DeleteEntry(delete_key);
+Ixh->InsertEntry(delete_key, new_rid);
+```
+
+### 5.1.6 B+树索引查找
+
+B+树索引的查找需要通过类IxIndexHandler的GetValue方法实现查找功能
+
+```cpp
+// 索引查找
+std::vector<RID> target_rid;
+Ixh->GetValue(target_key, &target_rid);
+```
+
+
+### 5.1.7 B+树索引可视化
 
 该步骤中，我们要遍历B+树索引，使用dot进行可视化。我们将整个可视化的过程包装成了一个类BPlusTreeDrawer
 
@@ -319,16 +349,7 @@ dot -T svg -o b_plus_tree.svg b_plus_tree.dot
 
 到此为止，我们完成了B+树的可视化
 
-### 5.1.5 B+树索引删除
-
-索引删除的操作比较简单，只需要调用IxIndexHandler的DeleteEntry方法便可
-
-```cpp
-// Ixh是IxIndexHandler的实例，delete_key是要删除的key
-Ixh->DeleteEntry(delete_key);
-```
-
-### 5.1.6 新建扩展哈希索引
+### 5.1.8 新建可扩展哈希索引
 
 首先要准备一下新建索引所需的元数据，这里我们对Supplier表格的S_SUPPKEY字段建立索引
 
@@ -354,7 +375,7 @@ IxExtendibleHashIndexHandle *eh_manager = new IxExtendibleHashIndexHandle(dm, bp
 
 到此为止，我们已经成功地建立了扩展哈希。但是我们还没有将表中原有的数据添加到索引中
 
-### 5.1.7 添加表中数据到扩展哈希索引
+### 5.1.9 添加表中数据到可扩展哈希索引
 
 我们可以直接使用IxExtendibleHashIndexHandle提供的API操作扩展哈希索引
 
@@ -388,7 +409,7 @@ while (!scan.IsEnd()) {
 }
 ```
 
-### 5.1.8 删除扩展哈希索引
+### 5.1.10 可扩展哈希索引删除
 
 想要删除扩展哈希索引中的某一个Entry，我们可以直接调用IxExtendibleHashIndexHandle提供的API来完成
 
@@ -396,6 +417,27 @@ while (!scan.IsEnd()) {
 // 调用DeleteEntry删除delete_key对应的entry
 eh_manager->DeleteEntry(delete_key)
 ```
+
+### 5.1.11 可扩展哈希索引修改
+
+我们实现的可扩展哈希本身不提供修改Entry的API，但是我们可以通过先删除后插入的方法实现Entry的修改
+
+```cpp
+// 索引修改
+eh_manager->DeleteEntry(delete_key);
+eh_manager->InsertEntry(delete_key, new_rid);
+```
+
+### 5.1.12 可扩展哈希索引查找
+
+我们可以使用IxExtendibleHashIndexHandle提供的GetValue这个API来实现查找功能
+
+```cpp
+// 索引查找
+std::vector<RID> target_rid;
+eh_manager->GetValue(target_key, &target_rid);
+```
+
 
 ## 5.2 结果展示
 

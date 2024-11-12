@@ -368,6 +368,7 @@ TEST(EasyDBTest, SimpleTest) {
     RmScan scan(fh_);
     bool flag = false;
     char *delete_key = nullptr;
+    RID delete_rid;
     while (!scan.IsEnd()) {
       auto rid = scan.GetRid();
       auto rec = fh_->GetRecord(rid);
@@ -378,6 +379,7 @@ TEST(EasyDBTest, SimpleTest) {
         if (!flag) {
           flag = true;
           delete_key = new char[index_meta.col_tot_len];
+          delete_rid = rid;
           memcpy(delete_key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
         }
         offset += index_meta.cols[i].len;
@@ -391,10 +393,19 @@ TEST(EasyDBTest, SimpleTest) {
     BPlusTreeDrawer bpt_drawer("b_plus_index.dot", &(*Ixh));
     bpt_drawer.print();
 
+    char *target_key = delete_key;
+    // 索引查找
+    std::vector<RID> target_rid;
+    Ixh->GetValue(target_key, &target_rid);
+
+    // 修改索引
+    Ixh->DeleteEntry(delete_key);
+    Ixh->InsertEntry(delete_key, delete_rid);
+
     // 删除索引
     std::cerr << "[TEST] ===> 删除索引" << std::endl;
     EXPECT_TRUE(Ixh->DeleteEntry(delete_key));
-    
+
     delete[] delete_key;
     delete ix_manager_;
   }
@@ -430,6 +441,7 @@ TEST(EasyDBTest, SimpleTest) {
     RmScan scan(fh_);
     bool flag = false;
     char *delete_key = nullptr;
+    RID delete_rid;
     while (!scan.IsEnd()) {
       auto rid = scan.GetRid();
       auto rec = fh_->GetRecord(rid);
@@ -440,6 +452,7 @@ TEST(EasyDBTest, SimpleTest) {
         if (!flag) {
           flag = true;
           memcpy(delete_key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
+          delete_rid = rid;
         }
         offset += index_meta.cols[i].len;
       }
@@ -452,6 +465,16 @@ TEST(EasyDBTest, SimpleTest) {
     std::cerr << "[TEST] ===> 生成可扩展哈希dot图" << std::endl;
     // BPlusTreeDrawer bpt_drawer("b_plus_index.dot", &(*Ixh));
     // bpt_drawer.print();
+
+    RID new_rid = delete_rid;
+    // 索引修改
+    eh_manager->DeleteEntry(delete_key);
+    eh_manager->InsertEntry(delete_key, new_rid);
+
+    char *target_key = delete_key;
+    // 索引查找
+    std::vector<RID> target_rid;
+    eh_manager->GetValue(target_key, &target_rid);
 
     // 删除索引
     std::cerr << "[TEST] ===> 删除索引" << std::endl;
