@@ -305,6 +305,7 @@ class EasyDBTest : public ::testing::Test {
 };
 
 TEST(EasyDBTest, SimpleTest) {
+  std::cerr << "[TEST] => 测试开始" << std::endl;
   // system("pwd");
   // std::cout << "../../tmp/benchmark_data/" + TEST_FILE_NAME_SUPPLIER << std::endl;
   TB_Reader tb_reader(TEST_FILE_NAME_SUPPLIER, "../../tmp/benchmark_data/" + TEST_FILE_NAME_SUPPLIER);
@@ -317,79 +318,144 @@ TEST(EasyDBTest, SimpleTest) {
   // .set_col("S_COMMENT", TYPE_VARCHAR, 101, 92);
 
   // 创建DiskManager
-  std::cerr << "[TEST] 创建DiskManager" << std::endl;
+  std::cerr << "[TEST] => 创建DiskManager" << std::endl;
   DiskManager *dm = new DiskManager(TEST_DB_NAME);
   std::string path = TEST_DB_NAME + "/" + TEST_TB_NAME;
   create_file(dm, path, 29);
 
   int fd = dm->OpenFile(path);
 
-  std::cerr << "[TEST] 创建BufferPoolManager" << std::endl;
+  std::cerr << "[TEST] => 创建BufferPoolManager" << std::endl;
   // 创建BufferPoolManager
   bpm = new BufferPoolManager(BUFFER_POOL_SIZE, dm);
 
   RmFileHandle *fh_ = new RmFileHandle(dm, bpm, fd);
 
-  std::cerr << "[TEST] 开始解析和插入数据" << std::endl;
+  std::cerr << "[TEST] => 开始解析和插入数据" << std::endl;
   // 解析table文件，并且将其插入到表中
   tb_reader.parse_and_insert(fh_);
 
   bpm->FlushAllDirtyPages();
 
+  std::cerr << "[TEST] 测试索引" << std::endl;
   /*------------------------------------------
                   b+树索引
   ------------------------------------------*/
-  // 增加索引
-  // 准备元数据
-  std::vector<ColMeta> index_cols;
-  std::cout << "Sizeof(header) : " << sizeof(IxFileHdr) << " " << sizeof(IxPageHdr) << std::endl;
-  index_cols.push_back(tb_reader.get_cols()[1]);
-  // std::string index_col_name = "S_SUPPKEY";
-  std::string index_col_name = "S_NAME";
-  IndexMeta index_meta = {.tab_name = TEST_TB_NAME, .col_tot_len = 25, .col_num = 1, .cols = index_cols};
+  {
+    std::cerr << "[TEST] => 测试B+树索引" << std::endl;
+    // 增加索引
+    // 准备元数据
+    std::cerr << "[TEST] ===> 准备B+树索引元数据" << std::endl;
+    std::vector<ColMeta> index_cols;
+    index_cols.push_back(tb_reader.get_cols()[1]);
+    // std::string index_col_name = "S_SUPPKEY";
+    std::string index_col_name = "S_NAME";
+    IndexMeta index_meta = {.tab_name = TEST_TB_NAME, .col_tot_len = 25, .col_num = 1, .cols = index_cols};
 
-  // 创建index
-  IxManager *ix_manager_ = new IxManager(dm, bpm);
-  ix_manager_->CreateIndex(path, index_cols);
+    // 创建index
+    std::cerr << "[TEST] ===> 创建B+树索引" << std::endl;
+    IxManager *ix_manager_ = new IxManager(dm, bpm);
+    ix_manager_->CreateIndex(path, index_cols);
 
-  // 将表中已经存在的记录插入到新创建的index中
-  auto Ixh = ix_manager_->OpenIndex(path, index_cols);
-  RmScan scan(fh_);
-  while (!scan.IsEnd()) {
-    auto rid = scan.GetRid();
-    auto rec = fh_->GetRecord(rid);
-    char *key = new char[index_meta.col_tot_len];
-    int offset = 0;
-    for (int i = 0; i < index_meta.col_num; ++i) {
-      memcpy(key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
-      offset += index_meta.cols[i].len;
+    // 将表中已经存在的记录插入到新创建的index中
+    std::cerr << "[TEST] ===> 将表格数据加入到新建的索引中" << std::endl;
+    auto Ixh = ix_manager_->OpenIndex(path, index_cols);
+    RmScan scan(fh_);
+    bool flag = false;
+    char *delete_key = nullptr;
+    while (!scan.IsEnd()) {
+      auto rid = scan.GetRid();
+      auto rec = fh_->GetRecord(rid);
+      char *key = new char[index_meta.col_tot_len];
+      int offset = 0;
+      for (int i = 0; i < index_meta.col_num; ++i) {
+        memcpy(key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
+        if (!flag) {
+          flag = true;
+          memcpy(delete_key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
+        }
+        offset += index_meta.cols[i].len;
+      }
+      Ixh->InsertEntry(key, rid);
+      delete[] key;
+      scan.Next();
     }
-    Ixh->InsertEntry(key, rid);
-    delete[] key;
-    scan.Next();
+    // 生成dot图
+    std::cerr << "[TEST] ===> 生成b+树dot图" << std::endl;
+    BPlusTreeDrawer bpt_drawer("b_plus_index.dot", &(*Ixh));
+    bpt_drawer.print();
+
+    // 删除索引
+    std::cerr << "[TEST] ===> 删除索引" << std::endl;
+    EXPECT_TRUE(Ixh->DeleteEntry(delete_key));
+
+    delete[] delete_key;
+    delete ix_manager_;
   }
 
-  // 生成dot图
-  BPlusTreeDrawer bpt_drawer("b_plus_index.dot", &(*Ixh));
-  bpt_drawer.print();
-  // 修改索引
-
-  // 删除索引
-
   /*------------------------------------------
-                 线性hash索引
+                 可扩展哈希索引
  ------------------------------------------*/
-  // 增加索引
+  {
+    // 增加索引
+    std::cerr << "[TEST] => 测试可扩展哈希索引" << std::endl;
+    // 增加索引
+    // 准备元数据
+    std::cerr << "[TEST] ===> 准备可扩展哈希索引元数据" << std::endl;
+    std::vector<ColMeta> index_cols;
+    index_cols.push_back(tb_reader.get_cols()[0]);
+    std::string index_col_name = "S_SUPPKEY";
+    IndexMeta index_meta = {.tab_name = TEST_TB_NAME, .col_tot_len = 4, .col_num = 1, .cols = index_cols};
+
+    // 创建index
+    std::cerr << "[TEST] ===> 创建可扩展哈希索引" << std::endl;
+    // IxManager *ix_manager_ = new IxManager(dm, bpm);
+    // ix_manager_->CreateIndex(path, index_cols);
+
+    
+
+    // 将表中已经存在的记录插入到新创建的index中
+    std::cerr << "[TEST] ===> 将表格数据加入到新建的索引中" << std::endl;
+    auto Ixh = ix_manager_->OpenIndex(path, index_cols);
+    RmScan scan(fh_);
+    bool flag = false;
+    char *delete_key = nullptr;
+    while (!scan.IsEnd()) {
+      auto rid = scan.GetRid();
+      auto rec = fh_->GetRecord(rid);
+      char *key = new char[index_meta.col_tot_len];
+      int offset = 0;
+      for (int i = 0; i < index_meta.col_num; ++i) {
+        memcpy(key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
+        if (!flag) {
+          flag = true;
+          memcpy(delete_key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
+        }
+        offset += index_meta.cols[i].len;
+      }
+      Ixh->InsertEntry(key, rid);
+      delete[] key;
+      scan.Next();
+    }
+    // 生成dot图
+    std::cerr << "[TEST] ===> 生成可扩展哈希dot图" << std::endl;
+    BPlusTreeDrawer bpt_drawer("b_plus_index.dot", &(*Ixh));
+    bpt_drawer.print();
+
+    // 删除索引
+    std::cerr << "[TEST] ===> 删除索引" << std::endl;
+    EXPECT_TRUE(Ixh->DeleteEntry(delete_key));
+
+    delete[] delete_key;
+  }
 
   // 输出到dot图
 
-  // 修改索引
-
   // 删除索引
-
-  delete ix_manager_;
+  std::cerr << "[TEST] => 释放资源" << std::endl;
   delete fh_;
   delete bpm;
   delete dm;
+  std::cerr << "[TEST] => 测试结束" << std::endl;
 }
 };  // namespace easydb

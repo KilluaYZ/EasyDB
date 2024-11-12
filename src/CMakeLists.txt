@@ -32,7 +32,7 @@ set(EASYDB_LIBS
 find_package(Threads REQUIRED)
 
 set(EASYDB_THIRDPARTY_LIBS
-        # easydb_murmur3
+        easydb_murmur3
         # duckdb_pg_query
         # fmt
         # libfort::fort

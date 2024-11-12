@@ -12,6 +12,7 @@
 #pragma once
 
 #include "storage/index/ix_defs.h"
+#include "storage/index/ix_extendible_hash_index_handle.h"
 #include "storage/index/ix_index_handle.h"
 #include "system/sm_meta.h"
 

@@ -78,7 +78,7 @@ auto BufferPoolManager::Size() const -> size_t { return num_frames_; }
  */
 auto BufferPoolManager::NewPage(PageId *page_id) -> Page * {
   // std::cerr << "[BufferPoolManager] NewPage" << std::endl;
-  // std::scoped_lock latch(*bpm_latch_);
+  //  std::scoped_lock latch(*bpm_latch_);
   std::scoped_lock lock{latch_};
 
   // 1. Find a victim frame
@@ -170,7 +170,7 @@ auto BufferPoolManager::DeletePage(PageId page_id) -> bool {
  */
 auto BufferPoolManager::FlushPage(PageId page_id) -> bool {
   // std::cerr << "[BufferPoolManager] FlushPage" << std::endl;
-  // std::scoped_lock latch(*bpm_latch_);
+  //  std::scoped_lock latch(*bpm_latch_);
   std::scoped_lock lock{latch_};
 
   // 1. Search for the page in the page_table_

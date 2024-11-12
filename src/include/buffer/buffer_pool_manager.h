@@ -91,7 +91,7 @@ class BufferPoolManager {
    * removes the page from both disk and memory (if it is still in the buffer pool), returning `true`.
    *
    * @param page_id The page ID of the page we want to delete.
-   * @return `false` if the page Exists but could not be deleted, `true` if the page didn't exist or deletion succeeded.
+   * @return `false` if the page exists but could not be deleted, `true` if the page didn't exist or deletion succeeded.
    */
   auto DeletePage(PageId page_id) -> bool;
 
