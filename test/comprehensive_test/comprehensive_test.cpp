@@ -1,3 +1,7 @@
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
@@ -19,6 +23,7 @@
 #include "record/rm_scan.h"
 #include "storage/disk/disk_manager.h"
 #include "storage/index/ix_defs.h"
+#include "storage/index/ix_extendible_hash_index_handle.h"
 #include "storage/index/ix_index_handle.h"
 #include "storage/index/ix_manager.h"
 #include "system/sm_meta.h"
@@ -372,6 +377,7 @@ TEST(EasyDBTest, SimpleTest) {
         memcpy(key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
         if (!flag) {
           flag = true;
+          delete_key = new char[index_meta.col_tot_len];
           memcpy(delete_key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
         }
         offset += index_meta.cols[i].len;
@@ -388,7 +394,7 @@ TEST(EasyDBTest, SimpleTest) {
     // 删除索引
     std::cerr << "[TEST] ===> 删除索引" << std::endl;
     EXPECT_TRUE(Ixh->DeleteEntry(delete_key));
-
+    
     delete[] delete_key;
     delete ix_manager_;
   }
@@ -412,11 +418,15 @@ TEST(EasyDBTest, SimpleTest) {
     // IxManager *ix_manager_ = new IxManager(dm, bpm);
     // ix_manager_->CreateIndex(path, index_cols);
 
-    
+    // 拼接字符串
+    std::string hash_index_path = path + "_HASH_" + index_col_name + ".idx";
+    // 打开文件
+    int ix_fd = open(hash_index_path.c_str(), O_RDWR);
+
+    IxExtendibleHashIndexHandle *eh_manager = new IxExtendibleHashIndexHandle(dm, bpm, ix_fd);
 
     // 将表中已经存在的记录插入到新创建的index中
     std::cerr << "[TEST] ===> 将表格数据加入到新建的索引中" << std::endl;
-    auto Ixh = ix_manager_->OpenIndex(path, index_cols);
     RmScan scan(fh_);
     bool flag = false;
     char *delete_key = nullptr;
@@ -433,25 +443,22 @@ TEST(EasyDBTest, SimpleTest) {
         }
         offset += index_meta.cols[i].len;
       }
-      Ixh->InsertEntry(key, rid);
+      // Ixh->InsertEntry(key, rid);
+      eh_manager->InsertEntry(key, rid);
       delete[] key;
       scan.Next();
     }
     // 生成dot图
     std::cerr << "[TEST] ===> 生成可扩展哈希dot图" << std::endl;
-    BPlusTreeDrawer bpt_drawer("b_plus_index.dot", &(*Ixh));
-    bpt_drawer.print();
+    // BPlusTreeDrawer bpt_drawer("b_plus_index.dot", &(*Ixh));
+    // bpt_drawer.print();
 
     // 删除索引
     std::cerr << "[TEST] ===> 删除索引" << std::endl;
-    EXPECT_TRUE(Ixh->DeleteEntry(delete_key));
-
+    EXPECT_TRUE(eh_manager->DeleteEntry(delete_key));
     delete[] delete_key;
   }
 
-  // 输出到dot图
-
-  // 删除索引
   std::cerr << "[TEST] => 释放资源" << std::endl;
   delete fh_;
   delete bpm;

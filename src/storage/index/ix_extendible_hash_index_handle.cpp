@@ -24,7 +24,7 @@ namespace easydb {
  * @param (key, value) 要插入的键值对
  * @return int 键值对数量
  */
-int IxBucketHandle::Insert(const char *key, const Rid &value) {
+int IxBucketHandle::Insert(const char *key, const RID &value) {
   std::cerr << "[INDEX ----- Insert] " << std::endl;
   int key_size = file_hdr->col_tot_len_;
   int pos = page_hdr->key_nums;
@@ -48,7 +48,7 @@ int IxBucketHandle::Insert(const char *key, const Rid &value) {
  * @param (key, value) 要插入的键值对
  * @return int 键值对数量
  */
-int IxBucketHandle::Insert(int pos, const char *key, const Rid &value) {
+int IxBucketHandle::Insert(int pos, const char *key, const RID &value) {
   std::cerr << "[INDEX ----- Insert] pos = " << pos << std::endl;
   int key_size = file_hdr->col_tot_len_;
 
@@ -66,7 +66,7 @@ int IxBucketHandle::Insert(int pos, const char *key, const Rid &value) {
 void IxBucketHandle::Update(int old_idx, int new_idx) {
   int key_size = file_hdr->col_tot_len_;
   memcpy(keys + old_idx * key_size, keys + new_idx * key_size, key_size);
-  memcpy(rids + old_idx, rids + new_idx, sizeof(Rid));
+  memcpy(rids + old_idx, rids + new_idx, sizeof(RID));
 }
 
 /**
@@ -101,7 +101,7 @@ void IxBucketHandle::Reorganize(int pos) {
   int key_size = file_hdr->col_tot_len_;
   int key_nums_to_move = page_hdr->key_nums - pos - 1;
   memmove(keys + pos * key_size, keys + (pos + 1) * key_size, key_nums_to_move * key_size);
-  memmove(rids + pos, rids + pos + 1, key_nums_to_move * sizeof(Rid));
+  memmove(rids + pos, rids + pos + 1, key_nums_to_move * sizeof(RID));
 }
 
 /**
@@ -128,14 +128,14 @@ bool IxBucketHandle::Find(const char *key) {
  *
  * @return 查找成功返回true，否则false
  */
-int IxBucketHandle::Find(const char *key, std::vector<Rid> *result) {
+int IxBucketHandle::Find(const char *key, std::vector<RID> *result) {
   std::cerr << "[INDEX ----- Find] " << std::endl;
   // Find the the key-value pair
   bool find = false;
   for (int cur_idx = 0; cur_idx < page_hdr->key_nums; cur_idx++) {
     if (ix_compare(get_key(cur_idx), key, file_hdr->col_types_, file_hdr->col_lens_) == 0) {
       find = true;
-      Rid *rid = get_rid(cur_idx);
+      RID *rid = get_rid(cur_idx);
       result->push_back(*rid);
     }
   }
@@ -155,9 +155,9 @@ void IxBucketHandle::DoubleDirectory(int new_size) {
     rids[i] = rids[i - old_size];
   }
 
-  // Rid *old_rids = rids;
+  // RID *old_rids = rids;
   // // Double the size of the old rids
-  // rids = new Rid[new_size];
+  // rids = new RID[new_size];
   // for (int i = 0; i < old_size; i++) {
   //   rids[i] = old_rids[i];
   // }
@@ -197,7 +197,7 @@ IxExtendibleHashIndexHandle::~IxExtendibleHashIndexHandle() { delete file_hdr_; 
  * @param result 用于存放结果的容器
  * @return bool 返回目标键值对是否存在
  */
-bool IxExtendibleHashIndexHandle::GetValue(const char *key, std::vector<Rid> *result) {
+bool IxExtendibleHashIndexHandle::GetValue(const char *key, std::vector<RID> *result) {
   std::cerr << "[INDEX ----- GetValue] " << std::endl;
   // Lock the root to prevent concurrent modifications
   std::scoped_lock lock{root_latch_};
@@ -216,11 +216,11 @@ bool IxExtendibleHashIndexHandle::GetValue(const char *key, std::vector<Rid> *re
  * @return page_id_t 插入到的桶的page_no
  * @note 若插入成功，则返回插入到的桶的page_no；若插入失败(重复的key)，则返回-1
  */
-page_id_t IxExtendibleHashIndexHandle::InsertEntry(const char *key, const Rid &value) {
+page_id_t IxExtendibleHashIndexHandle::InsertEntry(const char *key, const RID &value) {
   // std::scoped_lock lock{root_latch_};
   int index = HashFunction(key, global_depth);
-  std::cerr << "[INDEX ----- InsertEntry] index = " << index << " rid = {" << value.page_no << "," << value.slot_no
-            << "}" << std::endl;
+  std::cerr << "[INDEX ----- InsertEntry] index = " << index << " rid = {" << value.GetPageId() << ","
+            << value.GetSlotNum() << "}" << std::endl;
   IxBucketHandle *target_bucket = FindBucketPage(index);
   if (!target_bucket->IsFull()) {
     // bucket is not full, just insert.
@@ -288,10 +288,10 @@ bool IxExtendibleHashIndexHandle::DeleteEntry(const char *key) {
 //  * 换而言之，每个iid对应的索引槽存了一对(key,rid)，指向了(要建立索引的属性首地址,插入/删除记录的位置)
 //  *
 //  * @param iid
-//  * @return Rid
+//  * @return RID
 //  * @note iid和rid存的不是一个东西，rid是上层传过来的记录位置，iid是索引内部生成的索引槽位置
 //  */
-// Rid IxExtendibleHashIndexHandle::GetRid(const Iid &iid) const {
+// RID IxExtendibleHashIndexHandle::GetRid(const Iid &iid) const {
 //   IxBucketHandle *bucket = FetchBucket(iid.page_no);
 //   if (iid.slot_no >= bucket->get_size()) {
 //     throw IndexEntryNotFoundError();
@@ -402,8 +402,8 @@ IxBucketHandle *IxExtendibleHashIndexHandle::CreateBucket(int index, const char 
   PageId new_page_id = {.fd = fd_, .page_no = INVALID_PAGE_ID};
   Page *page = buffer_pool_manager_->NewPage(&new_page_id);
   bucket = new IxBucketHandle(file_hdr_, page, new_local_depth, BUCKET_SIZE, false);
-  Rid tmp;
-  tmp.page_no = bucket->get_page_no();  // slot_number is not used
+  RID tmp;
+  tmp.SetPageId(bucket->get_page_no());  // slot_number is not used
   directory_bucket->Insert(index, key, tmp);
   buffer_pool_manager_->UnpinPage(directory_bucket->get_page_id(), false);
   delete directory_bucket;
