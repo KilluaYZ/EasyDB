@@ -992,6 +992,7 @@ IxNodeHandle *IxIndexHandle::GetRoot() const { return FetchNode(file_hdr_->root_
  * @param page_no
  * @return IxNodeHandle*
  * @note pin the page, remember to unpin it outside!
+ * @note remember to delete the node outside!
  */
 IxNodeHandle *IxIndexHandle::FetchNode(int page_no) const {
   Page *page = buffer_pool_manager_->FetchPage(PageId{fd_, page_no});
@@ -1080,6 +1081,7 @@ void IxIndexHandle::MaintainChild(IxNodeHandle *node, int child_idx) {
     IxNodeHandle *child = FetchNode(child_page_no);
     child->SetParentPageNo(node->GetPageNo());
     buffer_pool_manager_->UnpinPage(child->GetPageId(), true);
+    delete child;
   }
 }
 

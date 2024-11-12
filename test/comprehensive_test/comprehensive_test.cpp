@@ -218,6 +218,7 @@ class BPlusTreeDrawer : public DotDrawer {
       *outfile << getNodeName(_node) << " : " << "f" << i << " : s -> " << getNodeName(child) << " : n" << std::endl;
       printNode(child);
       bpm->UnpinPage(child->GetPageId(), false);
+      delete child;
     }
   }
 
@@ -345,10 +346,7 @@ TEST(EasyDBTest, SimpleTest) {
   index_cols.push_back(tb_reader.get_cols()[1]);
   // std::string index_col_name = "S_SUPPKEY";
   std::string index_col_name = "S_NAME";
-  IndexMeta index_meta = {.tab_name = TEST_TB_NAME,
-                          .col_tot_len = 25,
-                          .col_num = 1,
-                          .cols = index_cols};
+  IndexMeta index_meta = {.tab_name = TEST_TB_NAME, .col_tot_len = 25, .col_num = 1, .cols = index_cols};
 
   // 创建index
   IxManager *ix_manager_ = new IxManager(dm, bpm);
