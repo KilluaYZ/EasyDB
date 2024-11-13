@@ -285,6 +285,7 @@ IxIndexHandle::IxIndexHandle(DiskManager *disk_manager, BufferPoolManager *buffe
  * @param transaction 事务参数，如果不需要则默认传入nullptr
  * @return [leaf node] and [root_is_latched] 返回目标叶子结点以及根结点是否加锁
  * @note need to Unlatch and unpin the leaf node outside!
+ *       remember to delete the leaf node outside!
  * 注意：用了FindLeafPage之后一定要unlatch叶结点，否则下次latch该结点会堵塞！
  * @note TOCHECK: find_first, then root_is_latched
  */
@@ -582,6 +583,7 @@ bool IxIndexHandle::DeleteEntry(const char *key) {
 
   // 1. Find the leaf node where the key should be deleted
   auto [leaf_node, root_is_latched] = FindLeafPage(key, Operation::DELETE);
+  auto leaf_pageId = leaf_node->GetPageId();
 
   if (leaf_node == nullptr) {
     // return false;
@@ -593,19 +595,21 @@ bool IxIndexHandle::DeleteEntry(const char *key) {
   int new_size = leaf_node->Remove(key);
   if (new_size == old_size) {
     // Key does not exist, return false
-    buffer_pool_manager_->UnpinPage(leaf_node->GetPageId(), false);
+    buffer_pool_manager_->UnpinPage(leaf_pageId, false);
+    delete leaf_node;
     return false;
   }
 
-  // Unpin the leaf node handle(tocheck: leaf_node will be deleted below)
-  buffer_pool_manager_->UnpinPage(leaf_node->GetPageId(), true);
-
   // 3. Coalesce or Redistribute the nodes if necessary
+  // Memory leak prevention: We rely on CoalesceOrRedistribute to unpin and delete the node if return false
   bool should_delete_node = CoalesceOrRedistribute(leaf_node, &root_is_latched);
 
   // TODO: 4. Handle concurrent deletion and node removal if necessary
   if (should_delete_node) {
     ReleaseNodeHandle(*leaf_node);
+    // Unpin the leaf node handle
+    buffer_pool_manager_->UnpinPage(leaf_pageId, true);
+    delete leaf_node;
   }
 
   return true;
@@ -621,6 +625,7 @@ bool IxIndexHandle::DeleteEntry(const char *key) {
  * @note User needs to first find the sibling of input page.
  * If sibling's size + input page's size >= 2 * page's minsize, then Redistribute.
  * Otherwise, merge(Coalesce).
+ * @note Memory leak prevention: This function will unpin and delete the node if return false
  * @note TOOPT: 1.2 如果传入del的位置(0 or size-1)，可以避免不必要的matain_parent操作
  */
 bool IxIndexHandle::CoalesceOrRedistribute(IxNodeHandle *node, bool *root_is_latched) {
@@ -643,26 +648,44 @@ bool IxIndexHandle::CoalesceOrRedistribute(IxNodeHandle *node, bool *root_is_lat
   // 1.2 If the node is not the root and does not need coalescing or redistribution, return false
   if (node->GetSize() >= node->GetMinSize()) {
     MaintainParent(node);
+    // Memory leak prevention: unpin and delete the node
+    buffer_pool_manager_->UnpinPage(node->GetPageId(), true);
+    delete node;
     return false;
   }
 
   // 2. Get the parent node
   page_id_t parent_page_no = node->GetParentPageNo();
   IxNodeHandle *parent_node = FetchNode(parent_page_no);
+  auto parent_pageId = parent_node->GetPageId();
 
   // 3. Find the sibling node (prefer the predecessor node)
   int node_index = parent_node->FindChild(node);
   int sibling_index = (node_index == 0) ? 1 : node_index - 1;
   IxNodeHandle *sibling_node = FetchNode(parent_node->ValueAt(sibling_index));
+  auto sibling_pageId = sibling_node->GetPageId();
 
   bool delete_node;
   // 4. Check if redistribution is possible
   if (node->GetSize() + sibling_node->GetSize() >= 2 * node->GetMinSize()) {
-    Redistribute(sibling_node, node, parent_node, node_index);
     delete_node = false;
+    Redistribute(sibling_node, node, parent_node, node_index);
+
+    // Unpin the parent and sibling nodes that were pinned in 'FetchNode'
+    buffer_pool_manager_->UnpinPage(parent_pageId, true);
+    delete parent_node;
+    buffer_pool_manager_->UnpinPage(sibling_pageId, true);
+    delete sibling_node;
+
+    // Memory leak prevention: unpin and delete the node
+    buffer_pool_manager_->UnpinPage(node->GetPageId(), true);
+    delete node;
   } else {
+    delete_node = true;
+
     // 5. Otherwise, Coalesce the nodes
     bool del_parent = Coalesce(&sibling_node, &node, &parent_node, node_index, root_is_latched);
+
     // If Coalesce() returns true, it means the parent node also needs to be deleted
     // This can be reached by deleting a key in the parent node,
     // which also causes the parent to Coalesce.
@@ -670,15 +693,15 @@ bool IxIndexHandle::CoalesceOrRedistribute(IxNodeHandle *node, bool *root_is_lat
     // in which case a new root and the old root need to be deleted
     if (del_parent) {
       ReleaseNodeHandle(*parent_node);
+      // Unpin the parent node
+      buffer_pool_manager_->UnpinPage(parent_pageId, true);
+      delete parent_node;
     }
-    delete_node = true;
-  }
 
-  // Unpin the parent and sibling nodes that were pinned in 'FetchNode'
-  buffer_pool_manager_->UnpinPage(parent_node->GetPageId(), true);
-  buffer_pool_manager_->UnpinPage(sibling_node->GetPageId(), true);
-  delete parent_node;
-  delete sibling_node;
+    // Memory leak prevention:
+    // Note that Coalesce() will unpin and delete the sibling node no matter what return value is.
+    // If it return false, it will also unpin and delete the parent_node
+  }
 
   return delete_node;
 }
@@ -722,6 +745,7 @@ bool IxIndexHandle::AdjustRoot(IxNodeHandle *old_root_node) {
   }
 
   // 3. For other cases, no adjustments are needed
+  delete old_root_node;
   return false;
 }
 
@@ -804,6 +828,7 @@ void IxIndexHandle::Redistribute(IxNodeHandle *neighbor_node, IxNodeHandle *node
  * @param index node在parent中的rid_idx
  * @return true means parent node should be deleted, false means no deletion happend
  * @note Assume that *neighbor_node is the left sibling of *node (neighbor -> node)
+ * @note Delete the parent node if return false. Delete the neighbor_node no matter what. Cannot delete node here.
  */
 bool IxIndexHandle::Coalesce(IxNodeHandle **neighbor_node, IxNodeHandle **node, IxNodeHandle **parent, int index,
                              bool *root_is_latched) {
@@ -815,9 +840,11 @@ bool IxIndexHandle::Coalesce(IxNodeHandle **neighbor_node, IxNodeHandle **node, 
   // return false;
 
   // 1. Ensure neighbor_node is the left sibling
+  bool swap = false;
   if (index == 0) {
     std::swap(*neighbor_node, *node);
     index = 1;
+    swap = true;
   }
 
   // 2. Move key-value pairs from node to neighbor_node
@@ -841,11 +868,19 @@ bool IxIndexHandle::Coalesce(IxNodeHandle **neighbor_node, IxNodeHandle **node, 
   }
 
   // 3. Remove node and update parent
-  ReleaseNodeHandle(**node);
+  // ReleaseNodeHandle(**node); // No need because this function let caller to update the file header!
   (*parent)->ErasePair(index);
-  delete *node;
+  // Memory leak prevention: delete neigbor_node
+  if (!swap) {
+    buffer_pool_manager_->UnpinPage((*neighbor_node)->GetPageId(), true);
+    delete *neighbor_node;
+  } else {
+    buffer_pool_manager_->UnpinPage((*node)->GetPageId(), true);
+    delete *node;
+  }
 
   // Check if the parent node needs to be deleted
+  // Memory leak prevention: belowing function will unpin and delete the parent if return false
   return CoalesceOrRedistribute(*parent, root_is_latched);
 }
 
@@ -1041,9 +1076,18 @@ void IxIndexHandle::MaintainParent(IxNodeHandle *node) {
       break;
     }
     memcpy(parent_key, child_first_key, file_hdr_->col_tot_len_);  // 修改了parent node
-    curr = parent;
 
-    assert(buffer_pool_manager_->UnpinPage(parent->GetPageId(), true));
+    // Memory leak prevention: We cannot delete input node
+    if (curr != node) {
+      assert(buffer_pool_manager_->UnpinPage(curr->GetPageId(), true));
+      delete curr;
+    }
+    curr = parent;
+  }
+  // Memory leak prevention: We cannot delete input node
+  if (curr != node) {
+    assert(buffer_pool_manager_->UnpinPage(curr->GetPageId(), true));
+    delete curr;
   }
 }
 
@@ -1062,6 +1106,9 @@ void IxIndexHandle::EraseLeaf(IxNodeHandle *leaf) {
   IxNodeHandle *Next = FetchNode(leaf->GetNextLeaf());
   Next->SetPrevLeaf(leaf->GetPrevLeaf());  // 注意此处是SetPrevLeaf()
   buffer_pool_manager_->UnpinPage(Next->GetPageId(), true);
+
+  delete prev;
+  delete Next;
 }
 
 /**

@@ -22,7 +22,7 @@ enable_testing()
 # COMPILER SETUP
 # #####################################################################################################################
 
-set(ENV{ASAN_OPTIONS} "detect_leaks=0")
+# set(ENV{ASAN_OPTIONS} "detect_leaks=0")
 
 # Compiler flags.
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra")
