@@ -260,17 +260,30 @@ class BPlusTreeDrawer : public DotDrawer {
     std::stringstream ss;
     if (keys_str.size() == 0) return "";
     if (keys_str[0].size() == 0) return "";
-    ss << keys_str[0][0];
-    for (int i = 1; i < keys_str[0].size(); i++) {
-      ss << " | " << keys_str[0][i];
+    ss << keys_str[_col_id][0];
+    for (int i = 1; i < keys_str[_col_id].size(); i++) {
+      ss << " | " << keys_str[_col_id][i];
     }
     return ss.str();
   }
 
+  std::string replaceAll(std::string str, const std::string &oldChar, const std::string &newChar) {
+    size_t pos = 0;
+    while ((pos = str.find(oldChar, pos)) != std::string::npos) {
+      str.replace(pos, oldChar.length(), newChar);
+      pos += newChar.length();  // 移动到下一个位置
+    }
+    return str;
+  }
+
   std::string getNodeName(IxNodeHandle *_node) {
     std::stringstream ss;
-    // ss << "Node" << *(int *)_node->GetKey(0);
     auto keys = _node->GetDeserializeKeys();
+
+    for (auto it = keys[0].begin(); it != keys[0].end(); it++) {
+      *it = replaceAll(*it, "#", "_");
+    }
+
     ss << "Node";
     for (auto it = keys[0].begin(); it != keys[0].end(); it++) {
       ss << "_" << *it;
@@ -350,7 +363,7 @@ TEST(EasyDBTest, SimpleTest) {
     std::cerr << "[TEST] => 测试B+树索引" << std::endl;
     // 增加索引
     // 准备元数据
-    std::cerr << "[TEST] ===> 准备B+树索引元数据" << std::endl;
+    std::cerr << "[TEST] ==> 准备B+树索引元数据" << std::endl;
     std::vector<ColMeta> index_cols;
     index_cols.push_back(tb_reader.get_cols()[1]);
     // std::string index_col_name = "S_SUPPKEY";
@@ -358,12 +371,12 @@ TEST(EasyDBTest, SimpleTest) {
     IndexMeta index_meta = {.tab_name = TEST_TB_NAME, .col_tot_len = 25, .col_num = 1, .cols = index_cols};
 
     // 创建index
-    std::cerr << "[TEST] ===> 创建B+树索引" << std::endl;
+    std::cerr << "[TEST] ==> 创建B+树索引" << std::endl;
     IxManager *ix_manager_ = new IxManager(dm, bpm);
     ix_manager_->CreateIndex(path, index_cols);
 
     // 将表中已经存在的记录插入到新创建的index中
-    std::cerr << "[TEST] ===> 将表格数据加入到新建的索引中" << std::endl;
+    std::cerr << "[TEST] ==> 将表格数据加入到新建的索引中" << std::endl;
     auto Ixh = ix_manager_->OpenIndex(path, index_cols);
     RmScan scan(fh_);
     bool flag = false;
@@ -389,14 +402,16 @@ TEST(EasyDBTest, SimpleTest) {
       scan.Next();
     }
     // 生成dot图
-    std::cerr << "[TEST] ===> 生成b+树dot图" << std::endl;
+    std::cerr << "[TEST] ==> 生成b+树dot图" << std::endl;
     BPlusTreeDrawer bpt_drawer("b_plus_index.dot", &(*Ixh));
     bpt_drawer.print();
 
     char *target_key = delete_key;
     // 索引查找
+    std::cerr << "[TEST] ==> 查找b+树索引" << std::endl;
     std::vector<RID> target_rid;
     Ixh->GetValue(target_key, &target_rid);
+    EXPECT_EQ(target_rid[0], delete_rid);
 
     // 修改索引
     Ixh->DeleteEntry(delete_key);
@@ -406,6 +421,7 @@ TEST(EasyDBTest, SimpleTest) {
     std::cerr << "[TEST] ===> 删除索引" << std::endl;
     EXPECT_TRUE(Ixh->DeleteEntry(delete_key));
 
+    std::cerr << "[TEST] => B+树索引测试完毕" << std::endl;
     delete[] delete_key;
     delete ix_manager_;
   }
@@ -426,15 +442,10 @@ TEST(EasyDBTest, SimpleTest) {
 
     // 创建index
     std::cerr << "[TEST] ===> 创建可扩展哈希索引" << std::endl;
-    // IxManager *ix_manager_ = new IxManager(dm, bpm);
-    // ix_manager_->CreateIndex(path, index_cols);
 
-    // 拼接字符串
-    std::string hash_index_path = path + "_HASH_" + index_col_name + ".idx";
-    // 打开文件
-    int ix_fd = open(hash_index_path.c_str(), O_RDWR);
-
-    IxExtendibleHashIndexHandle *eh_manager = new IxExtendibleHashIndexHandle(dm, bpm, ix_fd);
+    auto ix_manager = new IxManager(dm, bpm);
+    ix_manager->CreateExtendibleHashIndex(path, index_cols);
+    IxExtendibleHashIndexHandle *ix_handler = &(*ix_manager->OpenExtendibleHashIndex(path, index_cols));
 
     // 将表中已经存在的记录插入到新创建的index中
     std::cerr << "[TEST] ===> 将表格数据加入到新建的索引中" << std::endl;
@@ -451,13 +462,14 @@ TEST(EasyDBTest, SimpleTest) {
         memcpy(key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
         if (!flag) {
           flag = true;
+          delete_key = new char[index_meta.col_tot_len];
           memcpy(delete_key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
           delete_rid = rid;
         }
         offset += index_meta.cols[i].len;
       }
       // Ixh->InsertEntry(key, rid);
-      eh_manager->InsertEntry(key, rid);
+      ix_handler->InsertEntry(key, rid);
       delete[] key;
       scan.Next();
     }
@@ -468,17 +480,17 @@ TEST(EasyDBTest, SimpleTest) {
 
     RID new_rid = delete_rid;
     // 索引修改
-    eh_manager->DeleteEntry(delete_key);
-    eh_manager->InsertEntry(delete_key, new_rid);
+    ix_handler->DeleteEntry(delete_key);
+    ix_handler->InsertEntry(delete_key, new_rid);
 
     char *target_key = delete_key;
     // 索引查找
     std::vector<RID> target_rid;
-    eh_manager->GetValue(target_key, &target_rid);
+    ix_handler->GetValue(target_key, &target_rid);
 
     // 删除索引
     std::cerr << "[TEST] ===> 删除索引" << std::endl;
-    EXPECT_TRUE(eh_manager->DeleteEntry(delete_key));
+    EXPECT_TRUE(ix_handler->DeleteEntry(delete_key));
     delete[] delete_key;
   }
 
