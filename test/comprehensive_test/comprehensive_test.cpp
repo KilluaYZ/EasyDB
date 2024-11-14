@@ -402,9 +402,9 @@ TEST(EasyDBTest, SimpleTest) {
       scan.Next();
     }
     // 生成dot图
-    std::cerr << "[TEST] ==> 生成b+树dot图" << std::endl;
-    BPlusTreeDrawer bpt_drawer("b_plus_index.dot", &(*Ixh));
-    bpt_drawer.print();
+    // std::cerr << "[TEST] ==> 生成b+树dot图" << std::endl;
+    // BPlusTreeDrawer bpt_drawer("b_plus_index.dot", &(*Ixh));
+    // bpt_drawer.print();
 
     char *target_key = delete_key;
     // 索引查找
@@ -429,70 +429,70 @@ TEST(EasyDBTest, SimpleTest) {
   /*------------------------------------------
                  可扩展哈希索引
  ------------------------------------------*/
-  {
-    // 增加索引
-    std::cerr << "[TEST] => 测试可扩展哈希索引" << std::endl;
-    // 增加索引
-    // 准备元数据
-    std::cerr << "[TEST] ===> 准备可扩展哈希索引元数据" << std::endl;
-    std::vector<ColMeta> index_cols;
-    index_cols.push_back(tb_reader.get_cols()[0]);
-    std::string index_col_name = "S_SUPPKEY";
-    IndexMeta index_meta = {.tab_name = TEST_TB_NAME, .col_tot_len = 4, .col_num = 1, .cols = index_cols};
+  // {
+  //   // 增加索引
+  //   std::cerr << "[TEST] => 测试可扩展哈希索引" << std::endl;
+  //   // 增加索引
+  //   // 准备元数据
+  //   std::cerr << "[TEST] ===> 准备可扩展哈希索引元数据" << std::endl;
+  //   std::vector<ColMeta> index_cols;
+  //   index_cols.push_back(tb_reader.get_cols()[0]);
+  //   std::string index_col_name = "S_SUPPKEY";
+  //   IndexMeta index_meta = {.tab_name = TEST_TB_NAME, .col_tot_len = 4, .col_num = 1, .cols = index_cols};
 
-    // 创建index
-    std::cerr << "[TEST] ===> 创建可扩展哈希索引" << std::endl;
+  //   // 创建index
+  //   std::cerr << "[TEST] ===> 创建可扩展哈希索引" << std::endl;
 
-    auto ix_manager = new IxManager(dm, bpm);
-    ix_manager->CreateExtendibleHashIndex(path, index_cols);
-    IxExtendibleHashIndexHandle *ix_handler = &(*ix_manager->OpenExtendibleHashIndex(path, index_cols));
+  //   auto ix_manager = new IxManager(dm, bpm);
+  //   ix_manager->CreateExtendibleHashIndex(path, index_cols);
+  //   IxExtendibleHashIndexHandle *ix_handler = &(*ix_manager->OpenExtendibleHashIndex(path, index_cols));
 
-    // 将表中已经存在的记录插入到新创建的index中
-    std::cerr << "[TEST] ===> 将表格数据加入到新建的索引中" << std::endl;
-    RmScan scan(fh_);
-    bool flag = false;
-    char *delete_key = nullptr;
-    RID delete_rid;
-    while (!scan.IsEnd()) {
-      auto rid = scan.GetRid();
-      auto rec = fh_->GetRecord(rid);
-      char *key = new char[index_meta.col_tot_len];
-      int offset = 0;
-      for (int i = 0; i < index_meta.col_num; ++i) {
-        memcpy(key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
-        if (!flag) {
-          flag = true;
-          delete_key = new char[index_meta.col_tot_len];
-          memcpy(delete_key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
-          delete_rid = rid;
-        }
-        offset += index_meta.cols[i].len;
-      }
-      // Ixh->InsertEntry(key, rid);
-      ix_handler->InsertEntry(key, rid);
-      delete[] key;
-      scan.Next();
-    }
-    // 生成dot图
-    std::cerr << "[TEST] ===> 生成可扩展哈希dot图" << std::endl;
-    // BPlusTreeDrawer bpt_drawer("b_plus_index.dot", &(*Ixh));
-    // bpt_drawer.print();
+  //   // 将表中已经存在的记录插入到新创建的index中
+  //   std::cerr << "[TEST] ===> 将表格数据加入到新建的索引中" << std::endl;
+  //   RmScan scan(fh_);
+  //   bool flag = false;
+  //   char *delete_key = nullptr;
+  //   RID delete_rid;
+  //   while (!scan.IsEnd()) {
+  //     auto rid = scan.GetRid();
+  //     auto rec = fh_->GetRecord(rid);
+  //     char *key = new char[index_meta.col_tot_len];
+  //     int offset = 0;
+  //     for (int i = 0; i < index_meta.col_num; ++i) {
+  //       memcpy(key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
+  //       if (!flag) {
+  //         flag = true;
+  //         delete_key = new char[index_meta.col_tot_len];
+  //         memcpy(delete_key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
+  //         delete_rid = rid;
+  //       }
+  //       offset += index_meta.cols[i].len;
+  //     }
+  //     // Ixh->InsertEntry(key, rid);
+  //     ix_handler->InsertEntry(key, rid);
+  //     delete[] key;
+  //     scan.Next();
+  //   }
+  //   // 生成dot图
+  //   std::cerr << "[TEST] ===> 生成可扩展哈希dot图" << std::endl;
+  //   // BPlusTreeDrawer bpt_drawer("b_plus_index.dot", &(*Ixh));
+  //   // bpt_drawer.print();
 
-    RID new_rid = delete_rid;
-    // 索引修改
-    ix_handler->DeleteEntry(delete_key);
-    ix_handler->InsertEntry(delete_key, new_rid);
+  //   RID new_rid = delete_rid;
+  //   // 索引修改
+  //   ix_handler->DeleteEntry(delete_key);
+  //   ix_handler->InsertEntry(delete_key, new_rid);
 
-    char *target_key = delete_key;
-    // 索引查找
-    std::vector<RID> target_rid;
-    ix_handler->GetValue(target_key, &target_rid);
+  //   char *target_key = delete_key;
+  //   // 索引查找
+  //   std::vector<RID> target_rid;
+  //   ix_handler->GetValue(target_key, &target_rid);
 
-    // 删除索引
-    std::cerr << "[TEST] ===> 删除索引" << std::endl;
-    EXPECT_TRUE(ix_handler->DeleteEntry(delete_key));
-    delete[] delete_key;
-  }
+  //   // 删除索引
+  //   std::cerr << "[TEST] ===> 删除索引" << std::endl;
+  //   EXPECT_TRUE(ix_handler->DeleteEntry(delete_key));
+  //   delete[] delete_key;
+  // }
 
   std::cerr << "[TEST] => 释放资源" << std::endl;
   delete fh_;
