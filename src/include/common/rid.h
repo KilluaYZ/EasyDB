@@ -31,8 +31,8 @@ class RID {
 
   /**
    * Creates a new Record Identifier for the given page identifier and slot number.
-   * @param page_id page identifier
-   * @param slot_num slot number
+   * @param page_no page identifier
+   * @param slot_no slot number
    */
   RID(page_id_t page_id, slot_id_t slot_num) : page_id_(page_id), slot_num_(slot_num) {}
 

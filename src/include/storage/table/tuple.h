@@ -53,6 +53,8 @@ static_assert(sizeof(TupleMeta) == TUPLE_META_SIZE);
  * ---------------------------------------------------------------------
  */
 class Tuple {
+  friend class RmPageHandle;
+  friend class RmFileHandle;
   friend class TablePage;
   friend class TableHeap;
   friend class TableIterator;

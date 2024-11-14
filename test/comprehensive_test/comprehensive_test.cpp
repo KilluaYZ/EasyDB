@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -14,8 +15,11 @@
 #include <string>
 #include <vector>
 #include "buffer/buffer_pool_manager.h"
+#include "catalog/column.h"
+#include "catalog/schema.h"
 #include "common/common.h"
 #include "common/errors.h"
+#include "common/exception.h"
 #include "defs.h"
 #include "gtest/gtest.h"
 #include "record/rm_defs.h"
@@ -27,6 +31,7 @@
 #include "storage/index/ix_index_handle.h"
 #include "storage/index/ix_manager.h"
 #include "system/sm_meta.h"
+#include "type/type_id.h"
 
 namespace easydb {
 
@@ -40,14 +45,12 @@ const std::string TEST_FILE_NAME_PART = "part.tbl";          // 测试文件的�
 const std::string TEST_FILE_NAME_PARTSUPP = "partsupp.tbl";  // 测试文件的名字
 const std::string TEST_FILE_NAME_REGION = "region.tbl";      // 测试文件的名字
 const std::string TEST_FILE_NAME_SUPPLIER = "supplier.tbl";  // 测试文件的名字
+const std::string TEST_OUTPUT = "output.txt";                // 测试输出文件名
 
 const int MAX_FILES = 32;
 const int MAX_PAGES = 128;
 const size_t TEST_BUFFER_POOL_SIZE = MAX_FILES * MAX_PAGES;
-
-BufferPoolManager *bpm;
-
-std::vector<ColMeta> columns;
+BufferPoolManager *bpm = nullptr;
 
 class FileReader {
  protected:
@@ -97,14 +100,7 @@ void create_file(DiskManager *disk_manager, const std::string &filename, int rec
 
   // 初始化file header
   RmFileHdr file_hdr{};
-  file_hdr.record_size = record_size;
-  file_hdr.num_pages = 1;
-  file_hdr.first_free_page_no = RM_NO_PAGE;
-
-  // We have: sizeof(hdr) + (n + 7) / 8 + n * record_size <= PAGE_SIZE
-  file_hdr.num_records_per_page =
-      (BITMAP_WIDTH * (PAGE_SIZE - 1 - (int)sizeof(RmFileHdr)) + 1) / (1 + record_size * BITMAP_WIDTH);
-  file_hdr.bitmap_size = (file_hdr.num_records_per_page + BITMAP_WIDTH - 1) / BITMAP_WIDTH;
+  file_hdr.Init();
 
   // 将file header写入磁盘文件（名为file name，文件描述符为fd）中的第0页
   // head page直接写入磁盘，没有经过缓冲区的NewPage，那么也就不需要FlushPage
@@ -112,78 +108,91 @@ void create_file(DiskManager *disk_manager, const std::string &filename, int rec
   disk_manager->CloseFile(fd);
 }
 
-void fh_insert(RmFileHandle *fh_, std::vector<Value> &values_, std::vector<ColMeta> &cols_) {
-  RmRecord rec(fh_->GetFileHdr().record_size);
-  for (int i = 0; i < cols_.size(); i++) {
-    auto &val = values_[i];
-    auto &col = cols_[i];
-    val.init_raw(col.len);
-    std::memcpy(rec.data + col.offset, val.raw->data, col.len);
-  }
-  // fh_->InsertRecord(rec.data);
-  auto rid = fh_->InsertRecord(rec.data);
-  // std::cerr << "[TEST] insert rid: " << rid.GetPageId() << " slot num: " << rid.GetSlotNum() << std::endl;
+RID fh_insert(RmFileHandle *fh, std::vector<Value> &values, Schema *schema) {
+  Tuple tuple{values, schema};
+  auto rid = fh->InsertTuple(TupleMeta{0, false}, tuple);
+  auto page_id = rid->GetPageId();
+  auto slot_num = rid->GetSlotNum();
+  std::cout << "[TEST] insert rid: page id: " << page_id << " slot num: " << slot_num << std::endl;
+  return {page_id, slot_num};
+}
+
+void fh_get(RmFileHandle *fh, RID rid, Schema *schema) {
+  auto [meta, tuple] = fh->GetTuple(rid);
+  std::cout << "[TEST] get rid: page id: " << rid.GetPageId() << " slot num: " << rid.GetSlotNum() << std::endl;
+  // std::cout << "[TEST] get tuple: " << tuple.ToString(schema) << std::endl;
+  std::ofstream outfile(TEST_DB_NAME + "/" + TEST_OUTPUT, std::ios::app);
+  outfile << tuple.ToString(schema) << std::endl;
+  outfile.close();
 }
 
 class TB_Reader {
  protected:
   FileReader *file_reader = nullptr;
-  std::vector<ColMeta> columns;
+  Schema schema;
   std::string tab_name;
+  std::vector<RID> rids;
 
  public:
-  TB_Reader(std::string tab_name, std::string file_path) {
+  TB_Reader(std::string tab_name, std::string file_path, std::vector<Column> &cols) : schema(cols) {
     this->file_reader = new FileReader(file_path);
     this->tab_name = tab_name;
   }
 
-  TB_Reader &set_col(std::string name, ColType type, int len, int offset) {
-    ColMeta col;
-    col.name = name;
-    col.type = type;
-    col.len = len;
-    col.offset = offset;
-    columns.push_back(col);
-    return *this;
-  }
-
-  std::vector<ColMeta> get_cols() { return this->columns; }
-
   ~TB_Reader() { delete file_reader; }
 
   void parse_and_insert(RmFileHandle *fh_) {
-    // for (int i = 0; i < 24 && file_reader->read_line(); i++)
-    while (file_reader->read_line()) {
+    // DEBUG: 仅解析第一行数据
+    // file_reader->read_line();
+    // while (file_reader->read_line()) {
+    for (int i = 0; i < 3 && file_reader->read_line(); i++) {
       auto splited_str_list = file_reader->get_splited_buf();
-      std::vector<Value> values_;
-      for (int i = 0; i < (int)columns.size(); i++) {
-        Value _tmp_val;
-        switch (columns[i].type) {
-          case TYPE_CHAR:
-            _tmp_val.set_char(splited_str_list[i]);
+      std::vector<Value> values;
+      Value _tmp_val(TypeId::TYPE_EMPTY);
+
+      for (uint32_t i = 0; i < schema.GetColumnCount(); i++) {
+        // get type
+        const auto &col = schema.GetColumn(i);
+        TypeId type = col.GetType();
+        switch (type) {
+          case TypeId::TYPE_INT:
+            _tmp_val = Value(type, std::stoi(splited_str_list[i]));
             break;
-          case TYPE_VARCHAR:
-            _tmp_val.set_varchar(splited_str_list[i]);
+          case TypeId::TYPE_LONG:
+            _tmp_val = Value(type, std::stoll(splited_str_list[i]));
             break;
-          case TYPE_INT:
-            _tmp_val.set_int(std::stoi(splited_str_list[i]));
+          case TypeId::TYPE_FLOAT:
+          case TypeId::TYPE_DOUBLE:
+            _tmp_val = Value(type, std::stod(splited_str_list[i]));
             break;
-          case TYPE_LONG:
-            _tmp_val.set_long(std::stoll(splited_str_list[i]));
-            break;
-          case TYPE_FLOAT:
-            _tmp_val.set_float(std::stof(splited_str_list[i]));
-            break;
-          case TYPE_DOUBLE:
-            _tmp_val.set_double(std::stod(splited_str_list[i]));
+          case TypeId::TYPE_CHAR:
+          case TypeId::TYPE_VARCHAR:
+            _tmp_val = Value(type, splited_str_list[i]);
             break;
           default:
+            throw Exception("unsupported type\n");
             break;
         }
-        values_.push_back(_tmp_val);
+        values.emplace_back(_tmp_val);
       }
-      fh_insert(fh_, values_, columns);
+      auto rid = fh_insert(fh_, values, &schema);
+      rids.emplace_back(rid);
     }
+  }
+
+  void get_records(RmFileHandle *fh_) {
+    for (auto rid : rids) {
+      fh_get(fh_, rid, &schema);
+    }
+  }
+
+  std::vector<ColMeta> get_cols() {
+    auto columns = schema.GetColumns();
+    std::vector<ColMeta> res;
+    for (auto it = columns.begin(); it != columns.end(); it++) {
+      res.push_back(it->ToColMeta());
+    }
+    return res;
   }
 };
 
@@ -326,34 +335,45 @@ TEST(EasyDBTest, SimpleTest) {
   std::cerr << "[TEST] => 测试开始" << std::endl;
   // system("pwd");
   // std::cout << "../../tmp/benchmark_data/" + TEST_FILE_NAME_SUPPLIER << std::endl;
-  TB_Reader tb_reader(TEST_FILE_NAME_SUPPLIER, "../../tmp/benchmark_data/" + TEST_FILE_NAME_SUPPLIER);
-  // 构造表元数据
-  tb_reader.set_col("S_SUPPKEY", TYPE_INT, 4, 0).set_col("S_NAME", TYPE_CHAR, 25, 4);
-  // .set_col("S_ADDRESS", TYPE_VARCHAR, 40, 29)
-  // .set_col("S_NATIONKEY", TYPE_INT, 4, 69)
-  // .set_col("S_PHONE", TYPE_CHAR, 15, 73)
-  // .set_col("S_ACCTBAL", TYPE_FLOAT, 4, 88)
-  // .set_col("S_COMMENT", TYPE_VARCHAR, 101, 92);
+  // parse create sql statement:
+  // CREATE TABLE SUPPLIER ( S_SUPPKEY INTEGER NOT NULL,
+  // S_NAME CHAR(25) NOT NULL,
+  // S_ADDRESS VARCHAR(40) NOT NULL,
+  // S_NATIONKEY INTEGER NOT NULL,
+  // S_PHONE CHAR(15) NOT NULL,
+  // S_ACCTBAL FLOAT NOT NULL,
+  // S_COMMENT VARCHAR(101) NOT NULL);
+  Column col1{"S_SUPPKEY", TypeId::TYPE_INT};
+  Column col2{"S_NAME", TypeId::TYPE_CHAR, 25};
+  Column col3{"S_ADDRESS", TypeId::TYPE_VARCHAR, 40};
+  Column col4{"S_NATIONKEY", TypeId::TYPE_INT};
+  Column col5{"S_PHONE", TypeId::TYPE_CHAR, 15};
+  Column col6{"S_ACCTBAL", TypeId::TYPE_FLOAT};
+  Column col7{"S_COMMENT", TypeId::TYPE_VARCHAR, 101};
+  std::vector<Column> cols{col1, col2, col3, col4, col5, col6, col7};
+  TB_Reader tb_reader(TEST_FILE_NAME_SUPPLIER, "../../tmp/benchmark_data/" + TEST_FILE_NAME_SUPPLIER, cols);
 
   // 创建DiskManager
-  std::cerr << "[TEST] => 创建DiskManager" << std::endl;
+  std::cout << "[TEST] 创建DiskManager" << std::endl;
   DiskManager *dm = new DiskManager(TEST_DB_NAME);
   std::string path = TEST_DB_NAME + "/" + TEST_TB_NAME;
   create_file(dm, path, 29);
 
   int fd = dm->OpenFile(path);
 
-  std::cerr << "[TEST] => 创建BufferPoolManager" << std::endl;
+  std::cout << "[TEST] 创建BufferPoolManager" << std::endl;
   // 创建BufferPoolManager
   bpm = new BufferPoolManager(BUFFER_POOL_SIZE, dm);
 
   RmFileHandle *fh_ = new RmFileHandle(dm, bpm, fd);
 
-  std::cerr << "[TEST] => 开始解析和插入数据" << std::endl;
+  std::cout << "[TEST] 开始解析和插入数据" << std::endl;
   // 解析table文件，并且将其插入到表中
   tb_reader.parse_and_insert(fh_);
 
   bpm->FlushAllDirtyPages();
+
+  // tb_reader.get_records(fh_);
 
   std::cerr << "[TEST] 测试索引" << std::endl;
   /*------------------------------------------
@@ -378,6 +398,7 @@ TEST(EasyDBTest, SimpleTest) {
     // 将表中已经存在的记录插入到新创建的index中
     std::cerr << "[TEST] ==> 将表格数据加入到新建的索引中" << std::endl;
     auto Ixh = ix_manager_->OpenIndex(path, index_cols);
+    // TODO: 修改scan类
     RmScan scan(fh_);
     bool flag = false;
     char *delete_key = nullptr;

@@ -25,6 +25,7 @@
 
 #include "common/exception.h"
 #include "common/macros.h"
+#include "system/sm_meta.h"
 #include "type/type.h"
 #include "type/type_id.h"
 
@@ -42,8 +43,9 @@ class Column {
    */
   Column(std::string column_name, TypeId type)
       : column_name_(std::move(column_name)), column_type_(type), length_(TypeSize(type)) {
-    EASYDB_ASSERT(type != TypeId::VARCHAR, "Wrong constructor for VARCHAR type.");
-    EASYDB_ASSERT(type != TypeId::VECTOR, "Wrong constructor for VECTOR type.");
+    EASYDB_ASSERT(type != TypeId::TYPE_CHAR, "Wrong constructor for CHAR type.");
+    EASYDB_ASSERT(type != TypeId::TYPE_VARCHAR, "Wrong constructor for VARCHAR type.");
+    // EASYDB_ASSERT(type != TypeId::VECTOR, "Wrong constructor for VECTOR type.");
   }
 
   /**
@@ -55,7 +57,8 @@ class Column {
    */
   Column(std::string column_name, TypeId type, uint32_t length)
       : column_name_(std::move(column_name)), column_type_(type), length_(TypeSize(type, length)) {
-    EASYDB_ASSERT(type == TypeId::VARCHAR || type == TypeId::VECTOR, "Wrong constructor for fixed-size type.");
+    EASYDB_ASSERT(type == TypeId::TYPE_CHAR || type == TypeId::TYPE_VARCHAR, "Wrong constructor for fixed-size type.");
+    // EASYDB_ASSERT(type == TypeId::TYPE_VARCHAR || type == TypeId::VECTOR, "Wrong constructor for fixed-size type.");
   }
 
   /**
@@ -88,10 +91,14 @@ class Column {
   auto GetType() const -> TypeId { return column_type_; }
 
   /** @return true if column is inlined, false otherwise */
-  auto IsInlined() const -> bool { return column_type_ != TypeId::VARCHAR && column_type_ != TypeId::VECTOR; }
+  auto IsInlined() const -> bool {
+    return (column_type_ != TypeId::TYPE_CHAR) && (column_type_ != TypeId::TYPE_VARCHAR);
+  }
 
   /** @return a string representation of this column */
   auto ToString(bool simplified = true) const -> std::string;
+
+  ColMeta ToColMeta();
 
  private:
   /**
@@ -101,21 +108,25 @@ class Column {
    */
   static auto TypeSize(TypeId type, uint32_t length = 0) -> uint8_t {
     switch (type) {
-      case TypeId::BOOLEAN:
-      case TypeId::TINYINT:
-        return 1;
-      case TypeId::SMALLINT:
-        return 2;
-      case TypeId::INTEGER:
+      // case TypeId::BOOLEAN:
+      // case TypeId::TINYINT:
+      // return 1;
+      // case TypeId::SMALLINT:
+      //   return 2;
+      case TypeId::TYPE_INT:
         return 4;
-      case TypeId::BIGINT:
-      case TypeId::DECIMAL:
-      case TypeId::TIMESTAMP:
+      // case TypeId::BIGINT:
+      // case TypeId::DECIMAL:
+      case TypeId::TYPE_LONG:
+      case TypeId::TYPE_FLOAT:
+      case TypeId::TYPE_DOUBLE:
+      case TypeId::TYPE_DATE:
         return 8;
-      case TypeId::VARCHAR:
+      case TypeId::TYPE_CHAR:
+      case TypeId::TYPE_VARCHAR:
         return length;
-      case TypeId::VECTOR:
-        return length * sizeof(double);
+      // case TypeId::VECTOR:
+      //   return length * sizeof(double);
       default: {
         UNREACHABLE("Cannot get size of invalid type");
       }

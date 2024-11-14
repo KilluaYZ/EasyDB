@@ -18,12 +18,14 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/errors.h"
 #include "sm_defs.h"
+#include "type/type_id.h"
 
+namespace easydb {
 /* 字段元数据 */
 struct ColMeta {
   std::string tab_name;  // 字段所属表名称
   std::string name;      // 字段名称
-  ColType type;          // 字段类型
+  TypeId type;           // 字段类型
   int len;               // 字段长度
   int offset;            // 字段位于记录中的偏移量
   bool index;            /** unused */
@@ -202,3 +204,5 @@ class DbMeta {
     return is;
   }
 };
+
+}  // namespace easydb
