@@ -205,6 +205,20 @@ auto RmFileHandle::GetRecord(const RID &rid) -> std::unique_ptr<RmRecord> {
   return record;
 }
 
+auto RmFileHandle::GetKeyTuple(const Schema &schema, const Schema &key_schema, const std::vector<uint32_t> &key_attrs,
+                               const RID &rid) -> Tuple {
+  // 1. Fetch the page handle for the page that contains the record
+  RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
+
+  // 2. Initialize a unique pointer to RmRecord
+  auto [meta, tuple] = page_handle.GetTuple(rid);
+  auto key_tuple = tuple.KeyFromTuple(schema, key_schema, key_attrs);
+
+  // Unpin the page
+  buffer_pool_manager_->UnpinPage({fd_, rid.GetPageId()}, false);
+  return key_tuple;
+}
+
 /**
  * @description: 在当前表中插入一条记录，不指定插入位置
  * @param {char*} buf 要插入的记录的数据

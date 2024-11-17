@@ -25,7 +25,7 @@
 
 #include "common/exception.h"
 #include "common/macros.h"
-#include "system/sm_meta.h"
+// #include "system/sm_meta.h"
 #include "type/type.h"
 #include "type/type_id.h"
 
@@ -97,8 +97,6 @@ class Column {
 
   /** @return a string representation of this column */
   auto ToString(bool simplified = true) const -> std::string;
-
-  ColMeta ToColMeta();
 
  private:
   /**

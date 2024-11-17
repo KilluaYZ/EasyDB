@@ -222,6 +222,16 @@ class RmFileHandle {
   //   std::unique_ptr<RmRecord> get_record(const RID &rid, Context *context) const;
   auto GetRecord(const RID &rid) -> std::unique_ptr<RmRecord>;
 
+  /**
+   * Read a tuple from the table and generates a key tuple given schemas and attributes.
+   * @param schema the schema of the table
+   * @param key_schema the schema of the key
+   * @param key_attrs the attributes of the key in the table schema
+   * @param rid the rid of the tuple to read
+   */
+  auto GetKeyTuple(const Schema &schema, const Schema &key_schema, const std::vector<uint32_t> &key_attrs,
+                   const RID &rid) -> Tuple;
+
   //   RID insert_record(char *buf, Context *context);
   RID InsertRecord(char *buf);
 
