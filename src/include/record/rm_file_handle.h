@@ -51,6 +51,7 @@ struct RmPageHdr {
   page_id_t next_page_id;  // 当前页面满了之后，下一个包含空闲空间的页面号（初始化为-1）
   uint16_t num_records;    // 当前页面中当前已经存储的记录个数（初始化为0）
   uint16_t num_deleted_records;  // 当前页面中已经删除的记录个数（初始化为0）
+  // num_records 只增不减，删除记录则增 num_deleted_records，标记相应的slot为已删除
 
   void Init() {
     next_page_id = RM_NO_PAGE;
@@ -117,6 +118,11 @@ class RmPageHandle {
    * Update a tuple in place.
    */
   void UpdateTupleInPlaceUnsafe(const TupleMeta &meta, const Tuple &tuple, RID rid);
+
+  /**
+   * Check if a tuple is deleted.
+   */
+  auto IsTupleDeleted(const RID &rid) -> bool;
 
  private:
   const RmFileHdr *file_hdr;  // 当前页面所在文件的文件头指针

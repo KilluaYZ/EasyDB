@@ -92,6 +92,11 @@ void RmPageHandle::UpdateTupleInPlaceUnsafe(const TupleMeta &meta, const Tuple &
   memcpy(page_start_ + offset, tuple.data_.data(), tuple.GetLength());
 }
 
+auto RmPageHandle::IsTupleDeleted(const RID &rid) -> bool {
+  auto meta = GetTupleMeta(rid);
+  return meta.is_deleted_;
+}
+
 auto RmFileHandle::InsertTuple(const TupleMeta &meta, const Tuple &tuple) -> std::optional<RID> {
   // 1. Fetch the current first free page handle
   RmPageHandle page_handle = CreatePageHandle();

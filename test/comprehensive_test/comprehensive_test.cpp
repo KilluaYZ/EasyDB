@@ -142,10 +142,9 @@ class TB_Reader {
   ~TB_Reader() { delete file_reader; }
 
   void parse_and_insert(RmFileHandle *fh_) {
-    // DEBUG: 仅解析第一行数据
-    // file_reader->read_line();
-    // while (file_reader->read_line()) {
-    for (int i = 0; i < 3 && file_reader->read_line(); i++) {
+    // DEBUG: 仅解析前n行数据
+    // for (int i = 0; i < 3 && file_reader->read_line(); i++) {
+    while (file_reader->read_line()) {
       auto splited_str_list = file_reader->get_splited_buf();
       std::vector<Value> values;
       Value _tmp_val(TypeId::TYPE_EMPTY);
@@ -398,7 +397,7 @@ TEST(EasyDBTest, SimpleTest) {
     // 将表中已经存在的记录插入到新创建的index中
     std::cerr << "[TEST] ==> 将表格数据加入到新建的索引中" << std::endl;
     auto Ixh = ix_manager_->OpenIndex(path, index_cols);
-    // TODO: 修改scan类
+
     RmScan scan(fh_);
     bool flag = false;
     char *delete_key = nullptr;
