@@ -117,7 +117,7 @@ page_id_t IxNodeHandle::InternalLookup(const char *key) {
   // 1. Find the position of the target key
   int pos = UpperBound(key);
   // Decrement position to get the correct child node
-  pos--;
+  pos = (pos > 0) ? pos - 1 : pos;
 
   // 2. Get the child node's page ID
   page_id_t child_page_id = ValueAt(pos);
