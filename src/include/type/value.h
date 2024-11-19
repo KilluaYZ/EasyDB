@@ -24,6 +24,8 @@
 
 // #include "fmt/format.h"
 
+#include "common/logger.h"
+#include "common/macros.h"
 #include "type/limits.h"
 #include "type/type.h"
 
@@ -135,6 +137,14 @@ class Value {
     return Type::GetInstance(type_id_)->CompareGreaterThanEquals(*this, o);
   }
 
+  // Comparison Operators
+  inline auto operator==(const Value &o) const -> bool { return CompareEquals(o) == CmpBool::CmpTrue; }
+  inline auto operator!=(const Value &o) const -> bool { return CompareNotEquals(o) == CmpBool::CmpTrue; }
+  inline auto operator<(const Value &o) const -> bool { return CompareLessThan(o) == CmpBool::CmpTrue; }
+  inline auto operator<=(const Value &o) const -> bool { return CompareLessThanEquals(o) == CmpBool::CmpTrue; }
+  inline auto operator>(const Value &o) const -> bool { return CompareGreaterThan(o) == CmpBool::CmpTrue; }
+  inline auto operator>=(const Value &o) const -> bool { return CompareGreaterThanEquals(o) == CmpBool::CmpTrue; }
+
   // Other mathematical functions
   inline auto Add(const Value &o) const -> Value { return Type::GetInstance(type_id_)->Add(*this, o); }
   inline auto Subtract(const Value &o) const -> Value { return Type::GetInstance(type_id_)->Subtract(*this, o); }
@@ -144,6 +154,13 @@ class Value {
   inline auto Min(const Value &o) const -> Value { return Type::GetInstance(type_id_)->Min(*this, o); }
   inline auto Max(const Value &o) const -> Value { return Type::GetInstance(type_id_)->Max(*this, o); }
   inline auto Sqrt() const -> Value { return Type::GetInstance(type_id_)->Sqrt(*this); }
+
+  // Mathematical Operators
+  inline auto operator+(const Value &o) const -> Value { return Add(o); }
+  inline auto operator-(const Value &o) const -> Value { return Subtract(o); }
+  inline auto operator*(const Value &o) const -> Value { return Multiply(o); }
+  inline auto operator/(const Value &o) const -> Value { return Divide(o); }
+  inline auto operator%(const Value &o) const -> Value { return Modulo(o); }
 
   inline auto OperateNull(const Value &o) const -> Value { return Type::GetInstance(type_id_)->OperateNull(*this, o); }
   inline auto IsZero() const -> bool { return Type::GetInstance(type_id_)->IsZero(*this); }

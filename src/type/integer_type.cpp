@@ -22,44 +22,44 @@
 #include "type/integer_type.h"
 
 namespace easydb {
-#define INT_COMPARE_FUNC(OP)                                              \
-  switch (right.GetTypeId()) {                                            \
-    case TypeId::TYPE_INT:                                                \
-      return GetCmpBool(left.value_.bigint_ OP right.GetAs<int32_t>());   \
-    case TypeId::TYPE_LONG:                                               \
-      return GetCmpBool(left.value_.bigint_ OP right.GetAs<int64_t>());   \
-    case TypeId::TYPE_FLOAT:                                              \
-    case TypeId::TYPE_DOUBLE:                                             \
-      return GetCmpBool(left.value_.bigint_ OP right.GetAs<double>());    \
-    case TypeId::TYPE_CHAR:                                               \
-    case TypeId::TYPE_VARCHAR: {                                          \
-      auto r_value = right.CastAs(TypeId::TYPE_LONG);                     \
-      return GetCmpBool(left.value_.bigint_ OP r_value.GetAs<int64_t>()); \
-    }                                                                     \
-    default:                                                              \
-      break;                                                              \
+#define INT_COMPARE_FUNC(OP)                                               \
+  switch (right.GetTypeId()) {                                             \
+    case TypeId::TYPE_INT:                                                 \
+      return GetCmpBool(left.value_.integer_ OP right.GetAs<int32_t>());   \
+    case TypeId::TYPE_LONG:                                                \
+      return GetCmpBool(left.value_.integer_ OP right.GetAs<int64_t>());   \
+    case TypeId::TYPE_FLOAT:                                               \
+    case TypeId::TYPE_DOUBLE:                                              \
+      return GetCmpBool(left.value_.integer_ OP right.GetAs<double>());    \
+    case TypeId::TYPE_CHAR:                                                \
+    case TypeId::TYPE_VARCHAR: {                                           \
+      auto r_value = right.CastAs(TypeId::TYPE_INT);                       \
+      return GetCmpBool(left.value_.integer_ OP r_value.GetAs<int32_t>()); \
+    }                                                                      \
+    default:                                                               \
+      break;                                                               \
   }  // SWITCH
 
-#define INT_MODIFY_FUNC(METHOD, OP)                                                    \
-  switch (right.GetTypeId()) {                                                         \
-    case TypeId::TYPE_INT:                                                             \
-      /* NOLINTNEXTLINE */                                                             \
-      return METHOD<int64_t, int32_t>(left, right);                                    \
-    case TypeId::TYPE_LONG:                                                            \
-      /* NOLINTNEXTLINE */                                                             \
-      return METHOD<int64_t, int64_t>(left, right);                                    \
-    case TypeId::TYPE_FLOAT:                                                           \
-    case TypeId::TYPE_DOUBLE:                                                          \
-      /* NOLINTNEXTLINE */                                                             \
-      return Value(TypeId::TYPE_DOUBLE, left.value_.bigint_ OP right.GetAs<double>()); \
-    case TypeId::TYPE_CHAR:                                                            \
-    case TypeId::TYPE_VARCHAR: {                                                       \
-      auto r_value = right.CastAs(TypeId::TYPE_LONG);                                  \
-      /* NOLINTNEXTLINE */                                                             \
-      return METHOD<int64_t, int64_t>(left, r_value);                                  \
-    }                                                                                  \
-    default:                                                                           \
-      break;                                                                           \
+#define INT_MODIFY_FUNC(METHOD, OP)                                                     \
+  switch (right.GetTypeId()) {                                                          \
+    case TypeId::TYPE_INT:                                                              \
+      /* NOLINTNEXTLINE */                                                              \
+      return METHOD<int32_t, int32_t>(left, right);                                     \
+    case TypeId::TYPE_LONG:                                                             \
+      /* NOLINTNEXTLINE */                                                              \
+      return METHOD<int32_t, int64_t>(left, right);                                     \
+    case TypeId::TYPE_FLOAT:                                                            \
+    case TypeId::TYPE_DOUBLE:                                                           \
+      /* NOLINTNEXTLINE */                                                              \
+      return Value(TypeId::TYPE_DOUBLE, left.value_.integer_ OP right.GetAs<double>()); \
+    case TypeId::TYPE_CHAR:                                                             \
+    case TypeId::TYPE_VARCHAR: {                                                        \
+      auto r_value = right.CastAs(TypeId::TYPE_INT);                                    \
+      /* NOLINTNEXTLINE */                                                              \
+      return METHOD<int32_t, int32_t>(left, r_value);                                   \
+    }                                                                                   \
+    default:                                                                            \
+      break;                                                                            \
   }  // SWITCH
 
 IntegerType::IntegerType(TypeId type) : IntegerParentType(type) {}
