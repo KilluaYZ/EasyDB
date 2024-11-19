@@ -4,11 +4,12 @@ add_subdirectory(type)
 add_subdirectory(storage)
 add_subdirectory(buffer)
 add_subdirectory(record)
-# add_subdirectory(planner)
-# add_subdirectory(optimizer)
+add_subdirectory(planner)
 add_subdirectory(execution)
-# add_subdirectory(concurrency)
-# add_subdirectory(recovery)
+add_subdirectory(concurrency)
+add_subdirectory(transaction)
+add_subdirectory(recovery)
+add_subdirectory(system)
 
 add_library(easydb STATIC ${ALL_OBJECT_FILES})
 
@@ -16,9 +17,9 @@ set(EASYDB_LIBS
         easydb_buffer
         easydb_catalog
         easydb_common
-        # easydb_concurrency
+        easydb_concurrency
         easydb_execution
-        # easydb_recovery
+        easydb_recovery
         easydb_record
         easydb_type
         # easydb_container_disk_hash
@@ -26,8 +27,9 @@ set(EASYDB_LIBS
         easydb_storage_index
         easydb_storage_page
         easydb_storage_table
-        # easydb_planner
-        # easydb_optimizer
+        easydb_system
+        easydb_planner
+        easydb_transaction
         )
 
 find_package(Threads REQUIRED)

@@ -24,8 +24,6 @@
 
 namespace easydb {
 
-class RmManager;
-
 /**
  * Slotted page format:
  *  ---------------------------------------------------------
@@ -258,6 +256,7 @@ class RmFileHandle {
   RmPageHandle FetchPageHandle(page_id_t page_no) const;
 
   //   void set_page_lsn(int page_no, lsn_t lsn);
+  void SetPageLSN(page_id_t page_id_, lsn_t lsn);
 
  private:
   // RmPageHandle create_page_handle();

@@ -15,23 +15,24 @@
 #include <string>
 #include <vector>
 
-#include "catalog/schema.h"
+#include "catalog/column.h"
 #include "common/errors.h"
+#include "common/exception.h"
 #include "sm_defs.h"
 #include "type/type_id.h"
 
 namespace easydb {
-class Schema;
 
 /* 字段元数据 */
 struct ColMeta {
   std::string tab_name;  // 字段所属表名称
   std::string name;      // 字段名称
-  TypeId type;           // 字段类型
+  ColType type;          // 字段类型
   int len;               // 字段长度
   int offset;            // 字段位于记录中的偏移量
   bool index;            /** unused */
   AggregationType agg_type = NO_AGG;
+
 
   ColMeta() {}
 
@@ -42,7 +43,7 @@ struct ColMeta {
     len = column.GetStorageSize();
     index = false;
   }
-
+  
   friend std::ostream &operator<<(std::ostream &os, const ColMeta &col) {
     // ColMeta中有各个基本类型的变量，然后调用重载的这些变量的操作符<<（具体实现逻辑在defs.h）
     return os << col.tab_name << ' ' << col.name << ' ' << col.type << ' ' << col.len << ' ' << col.offset << ' '
@@ -56,10 +57,10 @@ struct ColMeta {
 
 /* 索引元数据 */
 struct IndexMeta {
-  std::string tab_name;           // 索引所属表名称
-  int col_tot_len;                // 索引字段长度总和
-  int col_num;                    // 索引字段数量
-  std::vector<ColMeta> cols;      // 索引包含的字段
+  std::string tab_name;       // 索引所属表名称
+  int col_tot_len;            // 索引字段长度总和
+  int col_num;                // 索引字段数量
+  std::vector<ColMeta> cols;  // 索引包含的字段
   std::vector<uint32_t> col_ids;  // 索引字段在表schema中的位置
 
   friend std::ostream &operator<<(std::ostream &os, const IndexMeta &index) {

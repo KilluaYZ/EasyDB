@@ -19,7 +19,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
-
+#include <string>
 namespace easydb {
 
 /** Cycle detection is performed every CYCLE_DETECTION_INTERVAL milliseconds. */
@@ -36,7 +36,7 @@ static constexpr int INVALID_PAGE_ID = -1;   // invalid page id
 static constexpr int INVALID_TXN_ID = -1;    // invalid transaction id
 static constexpr int INVALID_LSN = -1;       // invalid log sequence number
 
-static constexpr int PAGE_SIZE = 4096;                                         // size of a data page in byte
+static constexpr int PAGE_SIZE = 4096;                                        // size of a data page in byte
 static constexpr int BUFFER_POOL_SIZE = 1024;                                 // size of buffer pool
 static constexpr int DEFAULT_DB_IO_SIZE = 16;                                 // starting size of file on disk
 static constexpr int LOG_BUFFER_SIZE = ((BUFFER_POOL_SIZE + 1) * PAGE_SIZE);  // size of a log buffer in byte
@@ -54,5 +54,15 @@ using oid_t = uint16_t;
 const txn_id_t TXN_START_ID = 1LL << 62;  // first txn id
 
 static constexpr int VARCHAR_DEFAULT_LENGTH = 128;  // default length for varchar when constructing the column
+
+// log file
+static const std::string LOG_FILE_NAME = "db.log";
+static const std::string RESTART_FILE_NAME = "db.restart";
+
+// replacer
+static const std::string REPLACER_TYPE = "LRU";
+static const std::string DB_META_NAME = "db.meta";
+
+static constexpr int BUFFER_LENGTH = 8192;
 
 }  // namespace easydb

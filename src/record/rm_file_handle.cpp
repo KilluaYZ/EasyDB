@@ -244,34 +244,34 @@ auto RmFileHandle::GetKeyTuple(const Schema &schema, const Schema &key_schema, c
   return key_tuple;
 }
 
-/**
- * @description: 在当前表中插入一条记录，不指定插入位置
- * @param {char*} buf 要插入的记录的数据
- * @param {Context*} context
- * @return {RID} 插入的记录的记录号（位置）
- */
-// RID RmFileHandle::insert_record(char *buf, Context *context) {
-RID RmFileHandle::InsertRecord(char *buf) {
-  // Todo:
-  // 1. 获取当前未满的page handle
-  // 2. 在page handle中找到空闲slot位置
-  // 3. 将buf复制到空闲slot位置
-  // 4. 更新page_handle.page_hdr中的数据结构
-  // 注意考虑插入一条记录后页面已满的情况，需要更新file_hdr_.first_free_page_no
-  // return RID{-1, -1};
-  throw InternalError("RmFileHandle::insert_record removed, use InsertTuple instead.");
-}
+// /**
+//  * @description: 在当前表中插入一条记录，不指定插入位置
+//  * @param {char*} buf 要插入的记录的数据
+//  * @param {Context*} context
+//  * @return {RID} 插入的记录的记录号（位置）
+//  */
+// // RID RmFileHandle::insert_record(char *buf, Context *context) {
+// RID RmFileHandle::InsertRecord(char *buf) {
+//   // Todo:
+//   // 1. 获取当前未满的page handle
+//   // 2. 在page handle中找到空闲slot位置
+//   // 3. 将buf复制到空闲slot位置
+//   // 4. 更新page_handle.page_hdr中的数据结构
+//   // 注意考虑插入一条记录后页面已满的情况，需要更新file_hdr_.first_free_page_no
+//   // return RID{-1, -1};
+//   throw InternalError("RmFileHandle::insert_record removed, use InsertTuple instead.");
+// }
 
-/**
- * @description: 在当前表中的指定位置插入一条记录
- * @param {RID&} rid 要插入记录的位置
- * @param {char*} buf 要插入记录的数据
- * @note 该函数主要用于事务的回滚和系统故障恢复
- */
+// /**
+//  * @description: 在当前表中的指定位置插入一条记录
+//  * @param {RID&} rid 要插入记录的位置
+//  * @param {char*} buf 要插入记录的数据
+//  * @note 该函数主要用于事务的回滚和系统故障恢复
+//  */
 // void RmFileHandle::insert_record(const RID &rid, char *buf) {
-void RmFileHandle::InsertRecord(const RID &rid, char *buf) {
-  throw InternalError("RmFileHandle::insert_record not implemented");
-}
+// void RmFileHandle::InsertRecord(const RID &rid, char *buf) {
+//   throw InternalError("RmFileHandle::insert_record not implemented");
+// }
 
 /**
  * @description: 删除记录文件中记录号为rid的记录
@@ -279,13 +279,13 @@ void RmFileHandle::InsertRecord(const RID &rid, char *buf) {
  * @param {Context*} context
  */
 // void RmFileHandle::delete_record(const RID &rid, Context *context) {
-void RmFileHandle::DeleteRecord(const RID &rid) {
-  // Todo:
-  // 1. 获取指定记录所在的page handle
-  // 2. 更新page_handle.page_hdr中的数据结构
-  // 注意考虑删除一条记录后页面未满的情况，需要调用release_page_handle()
-  throw InternalError("RmFileHandle::delete_record removed, use DeleteTuple instead.");
-}
+// void RmFileHandle::DeleteRecord(const RID &rid) {
+//   // Todo:
+//   // 1. 获取指定记录所在的page handle
+//   // 2. 更新page_handle.page_hdr中的数据结构
+//   // 注意考虑删除一条记录后页面未满的情况，需要调用release_page_handle()
+//   throw InternalError("RmFileHandle::delete_record removed, use DeleteTuple instead.");
+// }
 
 /**
  * @description: 更新记录文件中记录号为rid的记录
@@ -376,27 +376,27 @@ RmPageHandle RmFileHandle::CreateNewPageHandle() {
   return new_page_handle;
 }
 
-// /**
-//  * Sets the log sequence number (LSN) for a specific page in the file.
-//  *
-//  * @param page_no The page number of the page to set the LSN for.
-//  * @param lsn The log sequence number to set for the page.
-//  * @throws InternalError If the page cannot be fetched from the buffer pool.
-//  */
-// void RmFileHandle::set_page_lsn(int page_no, lsn_t lsn) {
-//   // Fetch the page from the buffer pool
-//   PageId page_id{fd_, page_no};
-//   Page *page = buffer_pool_manager_->fetch_page(page_id);
+/**
+ * Sets the log sequence number (LSN) for a specific page in the file.
+ *
+ * @param page_no The page number of the page to set the LSN for.
+ * @param lsn The log sequence number to set for the page.
+ * @throws InternalError If the page cannot be fetched from the buffer pool.
+ */
+void RmFileHandle::SetPageLSN(page_id_t page_id_, lsn_t lsn) {
+  // Fetch the page from the buffer pool
+  PageId page_id{fd_, page_id_};
+  Page *page = buffer_pool_manager_->FetchPage(page_id);
 
-//   // If the page is not found, throw an error
-//   if (page == nullptr) {
-//     throw InternalError("RmFileHandle::set_page_lsn: Failed to fetch page");
-//   }
-//   // Set the page's LSN
-//   page->set_page_lsn(lsn);
-//   // Unpin the page that was pinned in fetch_page
-//   buffer_pool_manager_->UnpinPage(page_id, true);
-// }
+  // If the page is not found, throw an error
+  if (page == nullptr) {
+    throw InternalError("RmFileHandle::set_page_lsn: Failed to fetch page");
+  }
+  // Set the page's LSN
+  page->SetLSN(lsn);
+  // Unpin the page that was pinned in fetch_page
+  buffer_pool_manager_->UnpinPage(page_id, true);
+}
 
 /**
  * @brief 创建或获取一个空闲的page handle
