@@ -41,7 +41,7 @@ class ProjectionExecutor : public AbstractExecutor {
 
   size_t tupleLen() const override { return len_; };
 
-  bool is_end() const override { return prev_->is_end(); };
+  bool IsEnd() const override { return prev_->IsEnd(); };
 
   ColMeta get_col_offset(const TabCol &target) override {
     for (auto &col : cols_) {

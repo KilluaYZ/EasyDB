@@ -78,7 +78,7 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
 
   const std::vector<ColMeta> &cols() const override { return cols_; };
 
-  bool is_end() const override { return isend; };
+  bool IsEnd() const override { return isend; };
 
   ColMeta get_col_offset(const TabCol &target) override {
     for (auto &col : cols_) {

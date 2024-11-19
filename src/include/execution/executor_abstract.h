@@ -15,6 +15,7 @@
 #include "storage/index/ix_scan.h"
 #include "system/sm_defs.h"
 #include "system/sm_meta.h"
+#include "type/type_id.h"
 
 namespace easydb {
 
@@ -48,7 +49,7 @@ class AbstractExecutor {
 
   virtual void nextTuple() {};
 
-  virtual bool is_end() const { return true; };
+  virtual bool IsEnd() const { return true; };
 
   virtual std::string getTabName() const {}
 

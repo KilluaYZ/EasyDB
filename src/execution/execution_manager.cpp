@@ -17,7 +17,8 @@
 // #include "execution/executor_nestedloop_join.h"
 // #include "execution/executor_projection.h"
 #include "execution/executor_seq_scan.h"
-#include "storage/index/ix.h"
+#include "storage/index/ix_manager.h"
+#include "storage/index/ix_scan.h"
 
 namespace easydb {
 
@@ -46,109 +47,109 @@ const char *help_info =
     "selector:\n"
     "  {* | column [, column ...]}\n";
 
-// 主要负责执行DDL语句
-void QlManager::run_mutli_query(std::shared_ptr<Plan> plan, Context *context) {
-  if (auto x = std::dynamic_pointer_cast<DDLPlan>(plan)) {
-    switch (x->tag) {
-      case T_CreateTable: {
-        sm_manager_->create_table(x->tab_name_, x->cols_, context);
-        break;
-      }
-      case T_DropTable: {
-        sm_manager_->drop_table(x->tab_name_, context);
-        break;
-      }
-      case T_CreateIndex: {
-        sm_manager_->create_index(x->tab_name_, x->tab_col_names_, context);
-        break;
-      }
-      case T_DropIndex: {
-        sm_manager_->drop_index(x->tab_name_, x->tab_col_names_, context);
-        break;
-      }
-      default:
-        throw InternalError("Unexpected field type");
-        break;
-    }
-  }
-}
+// // 主要负责执行DDL语句
+// void QlManager::run_mutli_query(std::shared_ptr<Plan> plan, Context *context) {
+//   if (auto x = std::dynamic_pointer_cast<DDLPlan>(plan)) {
+//     switch (x->tag) {
+//       case T_CreateTable: {
+//         sm_manager_->create_table(x->tab_name_, x->cols_, context);
+//         break;
+//       }
+//       case T_DropTable: {
+//         sm_manager_->drop_table(x->tab_name_, context);
+//         break;
+//       }
+//       case T_CreateIndex: {
+//         sm_manager_->create_index(x->tab_name_, x->tab_col_names_, context);
+//         break;
+//       }
+//       case T_DropIndex: {
+//         sm_manager_->drop_index(x->tab_name_, x->tab_col_names_, context);
+//         break;
+//       }
+//       default:
+//         throw InternalError("Unexpected field type");
+//         break;
+//     }
+//   }
+// }
 
-// 执行help; show tables; desc table; begin; commit; abort;语句
-void QlManager::run_cmd_utility(std::shared_ptr<Plan> plan, txn_id_t *txn_id, Context *context) {
-  if (auto x = std::dynamic_pointer_cast<OtherPlan>(plan)) {
-    switch (x->tag) {
-      case T_Help: {
-        memcpy(context->data_send_ + *(context->offset_), help_info, strlen(help_info));
-        *(context->offset_) = strlen(help_info);
-        break;
-      }
-      case T_ShowTable: {
-        sm_manager_->show_tables(context);
-        break;
-      }
-      case T_ShowIndex: {
-        sm_manager_->show_index(x->tab_name_, context);
-        break;
-      }
-      case T_DescTable: {
-        sm_manager_->desc_table(x->tab_name_, context);
-        break;
-      }
-      case T_Transaction_begin: {
-        // 显示开启一个事务
-        context->txn_->set_txn_mode(true);
-        break;
-      }
-      case T_Transaction_commit: {
-        context->txn_ = txn_mgr_->get_transaction(*txn_id);
-        txn_mgr_->commit(context->txn_, context->log_mgr_);
-        break;
-      }
-      case T_Transaction_rollback: {
-        context->txn_ = txn_mgr_->get_transaction(*txn_id);
-        txn_mgr_->abort(context->txn_, context->log_mgr_);
-        break;
-      }
-      case T_Transaction_abort: {
-        context->txn_ = txn_mgr_->get_transaction(*txn_id);
-        txn_mgr_->abort(context->txn_, context->log_mgr_);
-        break;
-      }
-      case T_CreateStaticCheckpoint: {
-        context->txn_ = txn_mgr_->get_transaction(*txn_id);
-        txn_mgr_->create_static_checkpoint(context->txn_, context->log_mgr_);
-        break;
-      }
-      default:
-        throw InternalError("Unexpected field type");
-        break;
-    }
+// // 执行help; show tables; desc table; begin; commit; abort;语句
+// void QlManager::run_cmd_utility(std::shared_ptr<Plan> plan, txn_id_t *txn_id, Context *context) {
+//   if (auto x = std::dynamic_pointer_cast<OtherPlan>(plan)) {
+//     switch (x->tag) {
+//       case T_Help: {
+//         memcpy(context->data_send_ + *(context->offset_), help_info, strlen(help_info));
+//         *(context->offset_) = strlen(help_info);
+//         break;
+//       }
+//       case T_ShowTable: {
+//         sm_manager_->show_tables(context);
+//         break;
+//       }
+//       case T_ShowIndex: {
+//         sm_manager_->show_index(x->tab_name_, context);
+//         break;
+//       }
+//       case T_DescTable: {
+//         sm_manager_->desc_table(x->tab_name_, context);
+//         break;
+//       }
+//       case T_Transaction_begin: {
+//         // 显示开启一个事务
+//         context->txn_->set_txn_mode(true);
+//         break;
+//       }
+//       case T_Transaction_commit: {
+//         context->txn_ = txn_mgr_->get_transaction(*txn_id);
+//         txn_mgr_->commit(context->txn_, context->log_mgr_);
+//         break;
+//       }
+//       case T_Transaction_rollback: {
+//         context->txn_ = txn_mgr_->get_transaction(*txn_id);
+//         txn_mgr_->abort(context->txn_, context->log_mgr_);
+//         break;
+//       }
+//       case T_Transaction_abort: {
+//         context->txn_ = txn_mgr_->get_transaction(*txn_id);
+//         txn_mgr_->abort(context->txn_, context->log_mgr_);
+//         break;
+//       }
+//       case T_CreateStaticCheckpoint: {
+//         context->txn_ = txn_mgr_->get_transaction(*txn_id);
+//         txn_mgr_->create_static_checkpoint(context->txn_, context->log_mgr_);
+//         break;
+//       }
+//       default:
+//         throw InternalError("Unexpected field type");
+//         break;
+//     }
 
-  } else if (auto x = std::dynamic_pointer_cast<SetKnobPlan>(plan)) {
-    switch (x->set_knob_type_) {
-      case ast::SetKnobType::EnableNestLoop: {
-        planner_->set_enable_nestedloop_join(x->bool_value_);
-        break;
-      }
-      case ast::SetKnobType::EnableSortMerge: {
-        planner_->set_enable_sortmerge_join(x->bool_value_);
-        break;
-      }
-      case ast::SetKnobType::EnableOutput: {
-        sm_manager_->set_enable_output(x->bool_value_);
-        break;
-      }
-      default: {
-        throw RMDBError("Not implemented!\n");
-        break;
-      }
-    }
-  } else if (auto x = std::dynamic_pointer_cast<LoadDataPlan>(plan)) {
-    // assert(x->tag == T_LoadData);
-    sm_manager_->async_load_data(x->file_name_, x->tab_name_, context);
-    // sm_manager_->load_data(x->file_name_, x->tab_name_, context);
-  }
-}
+//   } else if (auto x = std::dynamic_pointer_cast<SetKnobPlan>(plan)) {
+//     switch (x->set_knob_type_) {
+//       case ast::SetKnobType::EnableNestLoop: {
+//         planner_->set_enable_nestedloop_join(x->bool_value_);
+//         break;
+//       }
+//       case ast::SetKnobType::EnableSortMerge: {
+//         planner_->set_enable_sortmerge_join(x->bool_value_);
+//         break;
+//       }
+//       case ast::SetKnobType::EnableOutput: {
+//         sm_manager_->set_enable_output(x->bool_value_);
+//         break;
+//       }
+//       default: {
+//         throw RMDBError("Not implemented!\n");
+//         break;
+//       }
+//     }
+//   } else if (auto x = std::dynamic_pointer_cast<LoadDataPlan>(plan)) {
+//     // assert(x->tag == T_LoadData);
+//     sm_manager_->async_load_data(x->file_name_, x->tab_name_, context);
+//     // sm_manager_->load_data(x->file_name_, x->tab_name_, context);
+//   }
+// }
 
 // 执行select语句，select语句的输出除了需要返回客户端外，还需要写入output.txt文件中
 void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, std::vector<TabCol> sel_cols,
@@ -177,7 +178,7 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
   // Print records
   size_t num_rec = 0;
   // 执行query_plan
-  for (executorTreeRoot->beginTuple(); !executorTreeRoot->is_end(); executorTreeRoot->nextTuple()) {
+  for (executorTreeRoot->beginTuple(); !executorTreeRoot->IsEnd(); executorTreeRoot->nextTuple()) {
     auto Tuple = executorTreeRoot->Next();
     std::vector<std::string> columns;
     for (auto &col : executorTreeRoot->cols()) {
@@ -234,7 +235,7 @@ execute select stmt in subquery
 std::vector<Value> subquery_select_from(std::shared_ptr<AbstractExecutor> executorTreeRoot, TabCol sel_col) {
   std::vector<Value> outputs;
   // 执行query_plan
-  for (executorTreeRoot->beginTuple(); !executorTreeRoot->is_end(); executorTreeRoot->nextTuple()) {
+  for (executorTreeRoot->beginTuple(); !executorTreeRoot->IsEnd(); executorTreeRoot->nextTuple()) {
     auto Tuple = executorTreeRoot->Next();
     Value output;
     std::vector<std::string> columns;

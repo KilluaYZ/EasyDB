@@ -45,7 +45,7 @@ class SeqScanExecutor : public AbstractExecutor {
 
   RID &rid() override { return rid_; }
 
-  bool is_end() const override { return scan_->is_end(); };
+  bool IsEnd() const override { return scan_->IsEnd(); };
 
   const std::vector<ColMeta> &cols() const override { return cols_; };
 

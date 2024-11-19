@@ -128,14 +128,14 @@ class MergeSorter {
     createLoserTree();
   }
 
-  bool is_end() const {
+  bool IsEnd() const {
     return merge_record_list.size() == 0 ||
            (output_records_count >= total_records_count && merge_record_list[ls[0]] == NULL);
   }
 
   char *getOneRecord() {
     // get a records
-    if (!is_end() && merge_record_list.size() > ls[0]) {
+    if (!IsEnd() && merge_record_list.size() > ls[0]) {
       output_records_count++;
       char *res = (char *)malloc(sizeof(char) * (tuple_len_ + 1));
       memcpy(res, merge_record_list[ls[0]], tuple_len_);

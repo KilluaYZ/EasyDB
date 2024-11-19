@@ -122,7 +122,7 @@ void IndexScanExecutor::beginTuple() override {
   scan_ = std::make_unique<IxScan>(ih, lower, upper, sm_manager_->get_bpm());
 
   // 3. Find the first tuple that satisfies the conditions
-  while (!is_end()) {
+  while (!IsEnd()) {
     rid_ = scan_->rid();
     // Note: There maybe some not satisfied records in the index scan,
     // because the lower and upper bounds may not correct in some cases,
@@ -135,12 +135,12 @@ void IndexScanExecutor::beginTuple() override {
 
   // Lock the gap between lower and upper bounds
   if (context_ != nullptr) {
-    // The reason do before check is_end() is that we need to lock the gap of next key
+    // The reason do before check IsEnd() is that we need to lock the gap of next key
     // when the current key is the last one in the index or the lower=upper.
     auto iid = scan_->iid();
     context_->lock_mgr_->lock_gap_on_index(context_->txn_, iid, fh_->GetFd());
     // lock the gap of next key
-    while (!is_end()) {
+    while (!IsEnd()) {
       scan_->next();
       iid = scan_->iid();
       context_->lock_mgr_->lock_gap_on_index(context_->txn_, iid, fh_->GetFd());
@@ -156,7 +156,7 @@ void IndexScanExecutor::nextTuple() override {
   // std::cout << "IndexScanExecutor nextTuple" << std::endl;
   scan_->next();
   // Note that scan_->next() may out of range
-  while (!is_end()) {
+  while (!IsEnd()) {
     rid_ = scan_->rid();
     // Note: There maybe some not satisfied records in the index scan,
     // because the lower and upper bounds may not correct in some cases,

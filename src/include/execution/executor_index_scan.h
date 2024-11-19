@@ -55,12 +55,12 @@ class IndexScanExecutor : public AbstractExecutor {
   void beginTuple() override;
   void nextTuple() override;
 
-  bool is_end() const override { return scan_->is_end(); }
+  bool IsEnd() const override { return scan_->IsEnd(); }
 
   RID &rid() override { return rid_; }
 
   std::unique_ptr<RmRecord> Next() override {
-    // assert(!is_end());
+    // assert(!IsEnd());
     return fh_->get_record(rid_, context_);
   }
 

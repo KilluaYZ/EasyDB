@@ -106,7 +106,7 @@ class AggregationExecutor : public AbstractExecutor {
     }
     having_conds_ = std::move(having_conds);
 
-    for (prev_->beginTuple(); !prev_->is_end(); prev_->nextTuple()) {
+    for (prev_->beginTuple(); !prev_->IsEnd(); prev_->nextTuple()) {
       auto record_tp = *prev_->Next();
       all_records_.push_back(record_tp);
     }
@@ -140,7 +140,7 @@ class AggregationExecutor : public AbstractExecutor {
       key_records_map_[key_tp] = std::move(all_records_);
     }
     it = key_records_map_.begin();
-    while (!is_end() && !predicate(it->second)) {
+    while (!IsEnd() && !predicate(it->second)) {
       it++;
     }
   }
@@ -148,7 +148,7 @@ class AggregationExecutor : public AbstractExecutor {
   void nextTuple() override {
     do {
       it++;
-    } while (!is_end() && !predicate(it->second));
+    } while (!IsEnd() && !predicate(it->second));
   }
 
   std::unique_ptr<RmRecord> Next() override {
@@ -172,7 +172,7 @@ class AggregationExecutor : public AbstractExecutor {
 
   const std::vector<ColMeta> &cols() const override { return cols_; };
 
-  bool is_end() const override { return it == key_records_map_.end(); };
+  bool IsEnd() const override { return it == key_records_map_.end(); };
 
   ColMeta get_col_offset(const TabCol &target) override {
     for (auto &col : cols_) {

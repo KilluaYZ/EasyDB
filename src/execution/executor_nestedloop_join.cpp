@@ -52,24 +52,24 @@ NestedLoopJoinExecutor::NestedLoopJoinExecutor(std::unique_ptr<AbstractExecutor>
 
 void NestedLoopJoinExecutor::beginTuple() override {
   if (need_sort_) {
-    for (left_->beginTuple(); !left_->is_end(); left_->nextTuple()) {
+    for (left_->beginTuple(); !left_->IsEnd(); left_->nextTuple()) {
       leftSorter_->writeBuffer(*(left_->Next()));
     }
     leftSorter_->clearBuffer();
     leftSorter_->initializeMergeListAndConstructTree();
-    while (!leftSorter_->is_end()) {
+    while (!leftSorter_->IsEnd()) {
       RmRecord tp(left_len_, leftSorter_->getOneRecord());
       // printRecord(tp,left_->cols());
       left_buffer_.emplace_back(tp);
     }
   } else {
-    for (left_->beginTuple(); !left_->is_end(); left_->nextTuple()) {
+    for (left_->beginTuple(); !left_->IsEnd(); left_->nextTuple()) {
       // printRecord(*(left_->Next()),left_->cols());
       left_buffer_.emplace_back(*(left_->Next()));
     }
   }
 
-  for (right_->beginTuple(); !right_->is_end(); right_->nextTuple()) {
+  for (right_->beginTuple(); !right_->IsEnd(); right_->nextTuple()) {
     // printRecord(*(right_->Next()),right_->cols());
     right_buffer_.emplace_back(*(right_->Next()));
   }

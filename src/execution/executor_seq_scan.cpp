@@ -12,8 +12,8 @@
 
 namespace easydb {
 
-SeqScanExecutor::SeqScanExecutor(SmManager *sm_manager, std::string tab_name, std::vector<Condition> conds){
-                                //  Context *context) {
+SeqScanExecutor::SeqScanExecutor(SmManager *sm_manager, std::string tab_name, std::vector<Condition> conds) {
+  //  Context *context) {
   sm_manager_ = sm_manager;
   tab_name_ = std::move(tab_name);
   conds_ = std::move(conds);
@@ -35,7 +35,7 @@ SeqScanExecutor::SeqScanExecutor(SmManager *sm_manager, std::string tab_name, st
 void SeqScanExecutor::beginTuple() override {
   scan_ = std::make_unique<RmScan>(fh_);
   rid_ = scan_->rid();
-  while (!is_end() && !predicate()) {
+  while (!IsEnd() && !predicate()) {
     scan_->next();
     rid_ = scan_->rid();
   }
@@ -45,10 +45,10 @@ void SeqScanExecutor::nextTuple() override {
   do {
     scan_->next();
     rid_ = scan_->rid();
-  } while (!is_end() && !predicate());
+  } while (!IsEnd() && !predicate());
 }
 
-std::unique_ptr<RmRecord> SeqScanExecutor::Next() override { return fh_->get_record(rid_, context_); }
+std::unique_ptr<Tuple> SeqScanExecutor::Next() override { return fh_->get_record(rid_, context_); }
 
 bool SeqScanExecutor::predicate() {
   auto record = *this->Next();

@@ -22,7 +22,7 @@ SortExecutor::SortExecutor(std::unique_ptr<AbstractExecutor> prev, TabCol sel_co
 }
 
 void SortExecutor::beginTuple() override {
-  for (prev_->beginTuple(); !prev_->is_end(); prev_->nextTuple()) {
+  for (prev_->beginTuple(); !prev_->IsEnd(); prev_->nextTuple()) {
     current_tuple = prev_->Next();
     sorter->writeBuffer(*current_tuple);
   }
@@ -32,7 +32,7 @@ void SortExecutor::beginTuple() override {
 }
 
 void SortExecutor::nextTuple() override {
-  if (!sorter->is_end()) {
+  if (!sorter->IsEnd()) {
     current_tuple = std::make_unique<RmRecord>(len_, sorter->getOneRecord());
   } else {
     isend_ = true;

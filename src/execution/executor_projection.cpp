@@ -37,14 +37,14 @@ ProjectionExecutor::ProjectionExecutor(std::unique_ptr<AbstractExecutor> prev, c
 
 void ProjectionExecutor::beginTuple() override {
   prev_->beginTuple();
-  if (!is_end()) {
+  if (!IsEnd()) {
     projection_records_ = projectRecord();
   }
 }
 
 void ProjectionExecutor::nextTuple() override {
   prev_->nextTuple();
-  if (!is_end()) {
+  if (!IsEnd()) {
     projection_records_ = projectRecord();
   }
 }

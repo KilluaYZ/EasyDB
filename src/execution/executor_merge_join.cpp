@@ -63,12 +63,12 @@ void MergeJoinExecutor::beginTuple() override {
     // left_->beginTuple();
     // right_->beginTuple();
 
-    for (left_->beginTuple(); !left_->is_end(); left_->nextTuple()) {
+    for (left_->beginTuple(); !left_->IsEnd(); left_->nextTuple()) {
       // printRecord(*(left_->Next()),left_->cols());
       left_buffer_.emplace_back(*(left_->Next()));
     }
 
-    for (right_->beginTuple(); !right_->is_end(); right_->nextTuple()) {
+    for (right_->beginTuple(); !right_->IsEnd(); right_->nextTuple()) {
       // printRecord(*(left_->Next()),left_->cols());
       right_buffer_.emplace_back(*(right_->Next()));
     }
@@ -78,10 +78,10 @@ void MergeJoinExecutor::beginTuple() override {
 
   } else {
     // sleep(1);
-    for (left_->beginTuple(); !left_->is_end(); left_->nextTuple()) {
+    for (left_->beginTuple(); !left_->IsEnd(); left_->nextTuple()) {
       leftSorter_->writeBuffer(*(left_->Next()));
     }
-    for (right_->beginTuple(); !right_->is_end(); right_->nextTuple()) {
+    for (right_->beginTuple(); !right_->IsEnd(); right_->nextTuple()) {
       rightSorter_->writeBuffer(*(right_->Next()));
     }
 
@@ -147,7 +147,7 @@ void MergeJoinExecutor::iterate_helper() {
   lhs_v.get_value_from_record(current_left_data_, left_sel_col_);
   rhs_v.get_value_from_record(current_right_data_, right_sel_col_);
 
-  while (!leftSorter_->is_end() && !rightSorter_->is_end()) {
+  while (!leftSorter_->IsEnd() && !rightSorter_->IsEnd()) {
     if (lhs_v == rhs_v) {
       break;
     } else if (lhs_v < rhs_v) {
@@ -325,11 +325,11 @@ void MergeJoinExecutor::completeWriting() {
       writeRecord(fd_right, current_right_data_, right_->cols());
     }
   } else {
-    while (!leftSorter_->is_end()) {
+    while (!leftSorter_->IsEnd()) {
       current_left_data_ = leftSorter_->getOneRecord();
       writeRecord(fd_left, current_left_data_, left_->cols());
     }
-    while (!rightSorter_->is_end()) {
+    while (!rightSorter_->IsEnd()) {
       current_right_data_ = rightSorter_->getOneRecord();
       writeRecord(fd_right, current_right_data_, right_->cols());
     }

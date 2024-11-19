@@ -46,8 +46,8 @@ class SortExecutor : public AbstractExecutor {
 
   std::string getType() override { return "SortExecutor"; };
 
-  bool is_end() const override {
-    // return sorter->is_end();
+  bool IsEnd() const override {
+    // return sorter->IsEnd();
     return isend_;
   };
 
