@@ -102,7 +102,7 @@ class Page {
   /** Sets the page LSN. */
   inline void SetLSN(lsn_t lsn) { memcpy(GetData() + OFFSET_LSN, &lsn, sizeof(lsn_t)); }
 
-  /** 
+  /**
    * Common page header format (size in bytes):
    * | page_id (4 bytes) | lsn (4 bytes) | ...(page-specific Header) |
    */

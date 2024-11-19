@@ -17,8 +17,8 @@
 
 #include "common/config.h"
 #include "common/errors.h"
-#include "type/type_id.h"
 #include "defs.h"
+#include "type/type_id.h"
 
 namespace easydb {
 
@@ -198,7 +198,6 @@ class ExtendibleHashIxFileHdr {
         col_num_(col_num),
         col_tot_len_(col_tot_len),
         keys_size_(keys_size) {
-    
     tot_len_ = 0;
   }
 
@@ -292,10 +291,10 @@ class IxExtendibleHashPageHdr {
 
 class Iid {
  public:
-  int page_no;
-  int slot_no;
+  page_id_t page_id_;
+  slot_id_t slot_num_;
 
-  friend bool operator==(const Iid &x, const Iid &y) { return x.page_no == y.page_no && x.slot_no == y.slot_no; }
+  friend bool operator==(const Iid &x, const Iid &y) { return x.page_id_ == y.page_id_ && x.slot_num_ == y.slot_num_; }
 
   friend bool operator!=(const Iid &x, const Iid &y) { return !(x == y); }
 };

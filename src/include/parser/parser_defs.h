@@ -7,7 +7,17 @@ THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
 MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
+
 #pragma once
 
 #include "defs.h"
-#include <string>
+
+namespace easydb {
+int yyparse();
+
+typedef struct yy_buffer_state *YY_BUFFER_STATE;
+
+YY_BUFFER_STATE yy_scan_string(const char *str);
+
+void yy_delete_buffer(YY_BUFFER_STATE buffer);
+};  // namespace easydb

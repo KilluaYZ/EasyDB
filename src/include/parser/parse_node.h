@@ -7,7 +7,31 @@ THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
 MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
+
 #pragma once
 
-#include "defs.h"
+#include <memory>
 #include <string>
+#include <vector>
+
+
+namespace easydb::ast {
+
+// Base class for tree nodes
+struct TreeNode {
+  virtual ~TreeNode() = default;  // enable polymorphism
+};
+
+struct Help : public TreeNode {};
+
+struct ShowTables : public TreeNode {};
+
+struct TxnBegin : public TreeNode {};
+
+struct TxnCommit : public TreeNode {};
+
+struct TxnAbort : public TreeNode {};
+
+struct TxnRollback : public TreeNode {};
+
+}  // namespace easydb::ast

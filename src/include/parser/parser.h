@@ -7,7 +7,9 @@ THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
 MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
+
 #pragma once
 
-#include "defs.h"
-#include <string>
+#include "ast_printer.h"
+#include "ast.h"
+#include "parser_defs.h"

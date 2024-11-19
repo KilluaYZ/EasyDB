@@ -7,7 +7,10 @@ THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
 MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
-#pragma once
+#include "parser/ast.h"
 
-#include "defs.h"
-#include <string>
+namespace easydb::ast {
+
+std::shared_ptr<TreeNode> parse_tree;
+
+}

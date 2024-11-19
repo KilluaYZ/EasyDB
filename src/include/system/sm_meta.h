@@ -11,39 +11,24 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include <algorithm>
-#include <cstdint>
 #include <iostream>
 #include <map>
 #include <string>
 #include <vector>
 
-#include "catalog/schema.h"
 #include "common/errors.h"
 #include "sm_defs.h"
-#include "type/type_id.h"
 
 namespace easydb {
-class Schema;
-
 /* 字段元数据 */
 struct ColMeta {
   std::string tab_name;  // 字段所属表名称
   std::string name;      // 字段名称
-  TypeId type;           // 字段类型
+  ColType type;          // 字段类型
   int len;               // 字段长度
   int offset;            // 字段位于记录中的偏移量
   bool index;            /** unused */
   AggregationType agg_type = NO_AGG;
-
-  ColMeta() {}
-
-  ColMeta(Column &column) {
-    name = column.GetName();
-    offset = column.GetOffset();
-    type = column.GetType();
-    len = column.GetStorageSize();
-    index = false;
-  }
 
   friend std::ostream &operator<<(std::ostream &os, const ColMeta &col) {
     // ColMeta中有各个基本类型的变量，然后调用重载的这些变量的操作符<<（具体实现逻辑在defs.h）
@@ -58,19 +43,15 @@ struct ColMeta {
 
 /* 索引元数据 */
 struct IndexMeta {
-  std::string tab_name;           // 索引所属表名称
-  int col_tot_len;                // 索引字段长度总和
-  int col_num;                    // 索引字段数量
-  std::vector<ColMeta> cols;      // 索引包含的字段
-  std::vector<uint32_t> col_ids;  // 索引字段在表schema中的位置
+  std::string tab_name;       // 索引所属表名称
+  int col_tot_len;            // 索引字段长度总和
+  int col_num;                // 索引字段数量
+  std::vector<ColMeta> cols;  // 索引包含的字段
 
   friend std::ostream &operator<<(std::ostream &os, const IndexMeta &index) {
     os << index.tab_name << " " << index.col_tot_len << " " << index.col_num;
     for (auto &col : index.cols) {
       os << "\n" << col;
-    }
-    for (auto &col_index : index.col_ids) {
-      os << "\n" << col_index;
     }
     return os;
   }
@@ -81,11 +62,6 @@ struct IndexMeta {
       ColMeta col;
       is >> col;
       index.cols.push_back(col);
-    }
-    for (int i = 0; i < index.col_num; ++i) {
-      uint32_t col_index;
-      is >> col_index;
-      index.col_ids.push_back(col_index);
     }
     return is;
   }
@@ -227,5 +203,4 @@ class DbMeta {
     return is;
   }
 };
-
-}  // namespace easydb
+};  // namespace easydb
