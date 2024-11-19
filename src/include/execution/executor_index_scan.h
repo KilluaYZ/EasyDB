@@ -61,7 +61,7 @@ class IndexScanExecutor : public AbstractExecutor {
 
   std::unique_ptr<RmRecord> Next() override {
     // assert(!IsEnd());
-    return fh_->get_record(rid_, context_);
+    return fh_->GetTupleValue(rid_, context_);
   }
 
   ColMeta get_col_offset(const TabCol &target) override {

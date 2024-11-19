@@ -53,7 +53,7 @@ class InsertExecutor : public AbstractExecutor {
       auto &col = tab_.cols[i];
       auto &val = values_[i];
       if (col.type != val.type) {
-        if (col.type == TYPE_STRING || val.type == TYPE_STRING)
+        if (col.type == TYPE_VARCHAR || col.type == TYPE_CHAR || val.type == TYPE_STRING)
           throw IncompatibleTypeError(coltype2str(col.type), coltype2str(val.type));
         else
           val.type_cast(col.type);

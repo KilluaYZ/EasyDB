@@ -205,6 +205,31 @@ auto RmFileHandle::GetRecord(const RID &rid) -> std::unique_ptr<RmRecord> {
   return record;
 }
 
+/**
+ * @description: 获取当前表中记录号为rid的记录
+ * @param {RID&} rid 记录号，指定记录的位置
+ * @return {unique_ptr<Tuple>} rid对应的记录对象指针
+ */
+auto RmFileHandle::GetTupleValue(const RID &rid) -> std::unique_ptr<Tuple> {
+
+  // 1. Fetch the page handle for the page that contains the record
+  RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
+
+  // 2. Initialize a unique pointer to RmRecord
+  auto [meta, tuple] = page_handle.GetTuple(rid);
+  tuple.rid_ = rid;
+
+  return std::unique_ptr<Tuple>(std::move(tuple));
+
+  // // return std::make_pair(meta, std::move(tuple));
+  // auto record = std::make_unique<RmRecord>(tuple.GetLength(), tuple.data_.data());
+
+  // // Unpin the page
+  // buffer_pool_manager_->UnpinPage({fd_, rid.GetPageId()}, false);
+
+  // return record;
+}
+
 auto RmFileHandle::GetKeyTuple(const Schema &schema, const Schema &key_schema, const std::vector<uint32_t> &key_attrs,
                                const RID &rid) -> Tuple {
   // 1. Fetch the page handle for the page that contains the record

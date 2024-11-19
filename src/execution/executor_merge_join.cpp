@@ -237,7 +237,8 @@ void MergeJoinExecutor::writeRecord(std::fstream &fd, char *data, std::vector<Co
       case TYPE_FLOAT:
         col_str = std::to_string(*(float *)rec_buf);
         break;
-      case TYPE_STRING:
+      case TYPE_VARCHAR:
+      case TYPE_CHAR:
         col_str = std::string((char *)rec_buf, col.len);
         col_str.resize(strlen(col_str.c_str()));
         break;
@@ -266,7 +267,8 @@ void MergeJoinExecutor::writeRecord(std::fstream &fd, std::unique_ptr<RmRecord> 
       case TYPE_FLOAT:
         col_str = std::to_string(*(float *)rec_buf);
         break;
-      case TYPE_STRING:
+      case TYPE_VARCHAR:
+      case TYPE_CHAR:
         col_str = std::string((char *)rec_buf, col.len);
         col_str.resize(strlen(col_str.c_str()));
         break;
@@ -294,7 +296,8 @@ void MergeJoinExecutor::writeRecord(std::fstream &fd, RmRecord &Tuple, const std
       case TYPE_FLOAT:
         col_str = std::to_string(*(float *)rec_buf);
         break;
-      case TYPE_STRING:
+      case TYPE_VARCHAR:
+      case TYPE_CHAR:
         col_str = std::string((char *)rec_buf, col.len);
         col_str.resize(strlen(col_str.c_str()));
         break;

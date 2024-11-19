@@ -53,7 +53,7 @@ class UpdateExecutor : public AbstractExecutor {
     for (int i = 0; i < rid_size; i++) {
       RID rid = rids_[i];
       // get records and construct updated value buf
-      auto rec = fh_->get_record(rid, context_);
+      auto rec = fh_->GetTupleValue(rid, context_);
       // auto buf = std::make_unique<char[]>(rec->size);
       auto buf = RmRecord(rec->size, rec->data);
       // memcpy(buf.data, rec->data, rec->size);

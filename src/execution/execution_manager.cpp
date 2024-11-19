@@ -188,7 +188,7 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
         col_str = std::to_string(*(int *)rec_buf);
       } else if (col.type == TYPE_FLOAT) {
         col_str = std::to_string(*(float *)rec_buf);
-      } else if (col.type == TYPE_STRING) {
+      } else if (col.type == TYPE_VARCHAR || col.type == TYPE_CHAR) {
         col_str = std::string((char *)rec_buf, col.len);
         col_str.resize(strlen(col_str.c_str()));
       }
@@ -250,7 +250,7 @@ std::vector<Value> subquery_select_from(std::shared_ptr<AbstractExecutor> execut
       output.set_int(*(int *)rec_buf);
     } else if (col.type == TYPE_FLOAT) {
       output.set_float(*(float *)rec_buf);
-    } else if (col.type == TYPE_STRING) {
+    } else if (col.type == TYPE_VARCHAR || col.type == TYPE_CHAR) {
       col_str = std::string((char *)rec_buf, col.len);
       col_str.resize(strlen(col_str.c_str()));
       output.set_str(col_str);

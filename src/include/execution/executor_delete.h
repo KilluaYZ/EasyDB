@@ -53,7 +53,7 @@ class DeleteExecutor : public AbstractExecutor {
       RID rid = rids_[i];
 
       // get records
-      auto rec = fh_->get_record(rid, context_);
+      auto rec = fh_->GetTupleValue(rid, context_);
 
       // delete corresponding index
       int index_len = tab_.indexes.size();

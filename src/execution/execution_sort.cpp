@@ -52,7 +52,8 @@ void SortExecutor::printRecord(RmRecord record, std::vector<ColMeta> cols) {
       case TYPE_FLOAT:
         printf(" %f   ", *(float *)(data + col.offset));
         break;
-      case TYPE_STRING:
+      case TYPE_VARCHAR:
+      case TYPE_CHAR:
         str_size = col.len < strlen(data + col.offset) ? col.len : strlen(data + col.offset);
         str.assign(data + col.offset, str_size);
         str[str_size] = '\0';
@@ -76,7 +77,8 @@ void SortExecutor::printRecord(char *data, std::vector<ColMeta> cols) {
       case TYPE_FLOAT:
         printf(" %f   ", *(float *)(data + col.offset));
         break;
-      case TYPE_STRING:
+      case TYPE_VARCHAR:
+      case TYPE_CHAR:
         str_size = col.len < strlen(data + col.offset) ? col.len : strlen(data + col.offset);
         str.assign(data + col.offset, str_size);
         str[str_size] = '\0';

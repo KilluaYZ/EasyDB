@@ -48,10 +48,10 @@ void SeqScanExecutor::nextTuple() override {
   } while (!IsEnd() && !predicate());
 }
 
-std::unique_ptr<Tuple> SeqScanExecutor::Next() override { return fh_->get_record(rid_, context_); }
+std::unique_ptr<Tuple> SeqScanExecutor::Next() override { return fh_->GetTupleValue(rid_); }
 
 bool SeqScanExecutor::predicate() {
-  auto record = *this->Next();
+  auto tuple = *this->Next();
   bool satisfy = true;
   // return true only all the conditions were true
   // i.e. all conditions are connected with 'and' operator
@@ -80,12 +80,13 @@ bool SeqScanExecutor::predicate() {
       cond.is_rhs_exe_processed = true;
     }
     Value lhs_v, rhs_v;
-    if (lhs_v.get_value_from_record(record, cols_, cond.lhs_col.col_name) == nullptr) {
+    tuple.GetValue()
+    if (lhs_v.get_value_from_tuple(tuple, cols_, cond.lhs_col.col_name) == nullptr) {
       throw InternalError("target column not found.");
     }
     if (cond.is_rhs_val) {
       rhs_v = cond.rhs_val;
-    } else if (cond.op != OP_IN && rhs_v.get_value_from_record(record, cols_, cond.rhs_col.col_name) == nullptr) {
+    } else if (cond.op != OP_IN && rhs_v.get_value_from_tuple(tuple, cols_, cond.rhs_col.col_name) == nullptr) {
       throw InternalError("target column not found.");
     }
     if (!cond.satisfy(lhs_v, rhs_v)) {
