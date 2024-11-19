@@ -45,13 +45,4 @@ auto Column::ToString(bool simplified) const -> std::string {
   return (os.str());
 }
 
-ColMeta Column::ToColMeta() {
-  ColMeta tmp;
-  tmp.name = this->GetName();
-  tmp.offset = this->GetOffset();
-  tmp.type = this->GetType();
-  tmp.len = this->GetStorageSize();
-  return tmp;
-}
-
 }  // namespace easydb

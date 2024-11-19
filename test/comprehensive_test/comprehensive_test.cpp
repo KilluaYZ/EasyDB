@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -134,7 +135,7 @@ class TB_Reader {
   std::vector<RID> rids;
 
  public:
-  TB_Reader(std::string tab_name, std::string file_path, std::vector<Column> &cols) : schema(cols) {
+  TB_Reader(std::string tab_name, std::string file_path, Schema schema) : schema(schema) {
     this->file_reader = new FileReader(file_path);
     this->tab_name = tab_name;
   }
@@ -142,10 +143,9 @@ class TB_Reader {
   ~TB_Reader() { delete file_reader; }
 
   void parse_and_insert(RmFileHandle *fh_) {
-    // DEBUG: 仅解析第一行数据
-    // file_reader->read_line();
-    // while (file_reader->read_line()) {
-    for (int i = 0; i < 3 && file_reader->read_line(); i++) {
+    // DEBUG: 仅解析前n行数据
+    // for (int i = 0; i < 3 && file_reader->read_line(); i++) {
+    while (file_reader->read_line()) {
       auto splited_str_list = file_reader->get_splited_buf();
       std::vector<Value> values;
       Value _tmp_val(TypeId::TYPE_EMPTY);
@@ -190,7 +190,7 @@ class TB_Reader {
     auto columns = schema.GetColumns();
     std::vector<ColMeta> res;
     for (auto it = columns.begin(); it != columns.end(); it++) {
-      res.push_back(it->ToColMeta());
+      res.emplace_back(ColMeta(*it));
     }
     return res;
   }
@@ -351,7 +351,8 @@ TEST(EasyDBTest, SimpleTest) {
   Column col6{"S_ACCTBAL", TypeId::TYPE_FLOAT};
   Column col7{"S_COMMENT", TypeId::TYPE_VARCHAR, 101};
   std::vector<Column> cols{col1, col2, col3, col4, col5, col6, col7};
-  TB_Reader tb_reader(TEST_FILE_NAME_SUPPLIER, "../../tmp/benchmark_data/" + TEST_FILE_NAME_SUPPLIER, cols);
+  Schema schema{cols};
+  TB_Reader tb_reader(TEST_FILE_NAME_SUPPLIER, "../../tmp/benchmark_data/" + TEST_FILE_NAME_SUPPLIER, schema);
 
   // 创建DiskManager
   std::cout << "[TEST] 创建DiskManager" << std::endl;
@@ -389,6 +390,8 @@ TEST(EasyDBTest, SimpleTest) {
     // std::string index_col_name = "S_SUPPKEY";
     std::string index_col_name = "S_NAME";
     IndexMeta index_meta = {.tab_name = TEST_TB_NAME, .col_tot_len = 25, .col_num = 1, .cols = index_cols};
+    std::vector<uint32_t> key_ids{1};
+    auto key_schema = Schema::CopySchema(&schema, key_ids);
 
     // 创建index
     std::cerr << "[TEST] ==> 创建B+树索引" << std::endl;
@@ -398,23 +401,27 @@ TEST(EasyDBTest, SimpleTest) {
     // 将表中已经存在的记录插入到新创建的index中
     std::cerr << "[TEST] ==> 将表格数据加入到新建的索引中" << std::endl;
     auto Ixh = ix_manager_->OpenIndex(path, index_cols);
-    // TODO: 修改scan类
+
     RmScan scan(fh_);
     bool flag = false;
     char *delete_key = nullptr;
     RID delete_rid;
     while (!scan.IsEnd()) {
       auto rid = scan.GetRid();
-      auto rec = fh_->GetRecord(rid);
+      // auto rec = fh_->GetRecord(rid);
+      auto key_tuple = fh_->GetKeyTuple(schema, key_schema, key_ids, rid);
       char *key = new char[index_meta.col_tot_len];
       int offset = 0;
       for (int i = 0; i < index_meta.col_num; ++i) {
-        memcpy(key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
+        // memcpy(key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
+        auto val = key_tuple.GetValue(&key_schema, i);
+        memcpy(key + offset, val.GetData(), val.GetStorageSize());
         if (!flag) {
           flag = true;
           delete_key = new char[index_meta.col_tot_len];
           delete_rid = rid;
-          memcpy(delete_key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
+          // memcpy(delete_key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
+          memcpy(delete_key + offset, val.GetData(), val.GetStorageSize());
         }
         offset += index_meta.cols[i].len;
       }
@@ -422,7 +429,7 @@ TEST(EasyDBTest, SimpleTest) {
       delete[] key;
       scan.Next();
     }
-    // 生成dot图
+    // // 生成dot图
     // std::cerr << "[TEST] ==> 生成b+树dot图" << std::endl;
     // BPlusTreeDrawer bpt_drawer("b_plus_index.dot", &(*Ixh));
     // bpt_drawer.print();

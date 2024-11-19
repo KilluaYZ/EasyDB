@@ -45,9 +45,9 @@ auto Type::GetTypeSize(const TypeId type_id) -> uint64_t {
   switch (type_id) {
     // case BOOLEAN:
     // case TINYINT:
-    return 1;
+    //   return 1;
     // case SMALLINT:
-    return 2;
+    //   return 2;
     case TYPE_INT:
       return 4;
     case TYPE_LONG:
@@ -144,9 +144,9 @@ auto Type::GetMinValue(TypeId type_id) -> Value {
     // case BOOLEAN:
     //   return {type_id, 0};
     // case TINYINT:
-    // return {type_id, EASYDB_INT8_MIN};
+    //   return {type_id, EASYDB_INT8_MIN};
     // case SMALLINT:
-    // return {type_id, EASYDB_INT16_MIN};
+    //   return {type_id, EASYDB_INT16_MIN};
     case TYPE_INT:
       return {type_id, EASYDB_INT32_MIN};
     case TYPE_LONG:
@@ -167,11 +167,11 @@ auto Type::GetMinValue(TypeId type_id) -> Value {
 auto Type::GetMaxValue(TypeId type_id) -> Value {
   switch (type_id) {
     // case BOOLEAN:
-    return {type_id, 1};
+    //   return {type_id, 1};
     // case TINYINT:
-    return {type_id, EASYDB_INT8_MAX};
+    //   return {type_id, EASYDB_INT8_MAX};
     // case SMALLINT:
-    return {type_id, EASYDB_INT16_MAX};
+    //   return {type_id, EASYDB_INT16_MAX};
     case TYPE_INT:
       return {type_id, EASYDB_INT32_MAX};
     case TYPE_LONG:

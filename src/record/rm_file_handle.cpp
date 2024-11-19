@@ -92,6 +92,11 @@ void RmPageHandle::UpdateTupleInPlaceUnsafe(const TupleMeta &meta, const Tuple &
   memcpy(page_start_ + offset, tuple.data_.data(), tuple.GetLength());
 }
 
+auto RmPageHandle::IsTupleDeleted(const RID &rid) -> bool {
+  auto meta = GetTupleMeta(rid);
+  return meta.is_deleted_;
+}
+
 auto RmFileHandle::InsertTuple(const TupleMeta &meta, const Tuple &tuple) -> std::optional<RID> {
   // 1. Fetch the current first free page handle
   RmPageHandle page_handle = CreatePageHandle();
@@ -198,6 +203,20 @@ auto RmFileHandle::GetRecord(const RID &rid) -> std::unique_ptr<RmRecord> {
   buffer_pool_manager_->UnpinPage({fd_, rid.GetPageId()}, false);
 
   return record;
+}
+
+auto RmFileHandle::GetKeyTuple(const Schema &schema, const Schema &key_schema, const std::vector<uint32_t> &key_attrs,
+                               const RID &rid) -> Tuple {
+  // 1. Fetch the page handle for the page that contains the record
+  RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
+
+  // 2. Initialize a unique pointer to RmRecord
+  auto [meta, tuple] = page_handle.GetTuple(rid);
+  auto key_tuple = tuple.KeyFromTuple(schema, key_schema, key_attrs);
+
+  // Unpin the page
+  buffer_pool_manager_->UnpinPage({fd_, rid.GetPageId()}, false);
+  return key_tuple;
 }
 
 /**

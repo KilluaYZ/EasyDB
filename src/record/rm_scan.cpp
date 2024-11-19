@@ -20,9 +20,6 @@ namespace easydb {
  * @param file_handle
  */
 RmScan::RmScan(const RmFileHandle *file_handle) : file_handle_(file_handle) {
-  // Todo:
-  // 初始化file_handle和rid（指向第一个存放了记录的位置）
-
   // Initialize file_handle and set rid_ to the first valid record
   // Start from the first data page (page 0 is the file header)
   // Initialize slot_no to 0 to start scanning from the beginning
@@ -33,29 +30,26 @@ RmScan::RmScan(const RmFileHandle *file_handle) : file_handle_(file_handle) {
  * @brief 找到文件中下一个存放了记录的位置
  */
 void RmScan::Next() {
-  // Todo:
-  // 找到文件中下一个存放了记录的非空闲位置，用rid_来指向这个位置
-
   auto page_no = rid_.GetPageId();
-  auto slot_no = rid_.GetSlotNum();
+  auto slot_no = rid_.GetSlotNum() + 1;
 
   // If we have not reached the end of the file
   if (page_no < file_handle_->file_hdr_.num_pages) {
     RmPageHandle page_handle = file_handle_->FetchPageHandle(page_no);
     uint32_t num_records = page_handle.GetNumTuples();
-    // uint32_t num_records_per_page = file_handle_->file_hdr_.num_records_per_page;
 
-    // // Move to the next slot
-    // slot_no = Bitmap::next_bit(true, page_handle.bitmap, num_records_per_page, slot_no);
+    while (slot_no < num_records) {
+      // If not deleted, we have found a valid record
+      if (!page_handle.IsTupleDeleted({page_no, slot_no})) break;
+      // Move to the next slot
+      slot_no++;
+    };
 
     // Unpin the page that was pinned in 'fetch_page_handle'
     file_handle_->buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), false);
 
-    if (slot_no < num_records) {
-      // Found a valid record in the current page
-      return;
-    } else {
-      // Move to the next page
+    // If we have reached the end of the page, move to the next page
+    if (slot_no == num_records) {
       page_no++;
       slot_no = 0;
     }
@@ -67,9 +61,6 @@ void RmScan::Next() {
  * @brief ​ 判断是否到达文件末尾
  */
 bool RmScan::IsEnd() const {
-  // Todo: 修改返回值
-  // return false;
-
   // Check if we have reached the end of the file
   return rid_.GetPageId() >= file_handle_->file_hdr_.num_pages;
 }

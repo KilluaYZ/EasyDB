@@ -51,6 +51,7 @@ struct RmPageHdr {
   page_id_t next_page_id;  // 当前页面满了之后，下一个包含空闲空间的页面号（初始化为-1）
   uint16_t num_records;    // 当前页面中当前已经存储的记录个数（初始化为0）
   uint16_t num_deleted_records;  // 当前页面中已经删除的记录个数（初始化为0）
+  // num_records 只增不减，删除记录则增 num_deleted_records，标记相应的slot为已删除
 
   void Init() {
     next_page_id = RM_NO_PAGE;
@@ -117,6 +118,11 @@ class RmPageHandle {
    * Update a tuple in place.
    */
   void UpdateTupleInPlaceUnsafe(const TupleMeta &meta, const Tuple &tuple, RID rid);
+
+  /**
+   * Check if a tuple is deleted.
+   */
+  auto IsTupleDeleted(const RID &rid) -> bool;
 
  private:
   const RmFileHdr *file_hdr;  // 当前页面所在文件的文件头指针
@@ -223,7 +229,17 @@ class RmFileHandle {
   //   std::unique_ptr<RmRecord> get_record(const RID  &rid, Context *context) const;
   auto GetRecord(const RID &rid) -> std::unique_ptr<RmRecord>;
 
-  //   RID  insert_record(char *buf, Context *context);
+  /**
+   * Read a tuple from the table and generates a key tuple given schemas and attributes.
+   * @param schema the schema of the table
+   * @param key_schema the schema of the key
+   * @param key_attrs the attributes of the key in the table schema
+   * @param rid the rid of the tuple to read
+   */
+  auto GetKeyTuple(const Schema &schema, const Schema &key_schema, const std::vector<uint32_t> &key_attrs,
+                   const RID &rid) -> Tuple;
+
+  //   RID insert_record(char *buf, Context *context);
   RID InsertRecord(char *buf);
 
   //   void insert_record(const RID  &rid, char *buf);

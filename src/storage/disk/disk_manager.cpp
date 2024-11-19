@@ -101,7 +101,6 @@ void DiskManager::WritePage(int fd, page_id_t page_id, const char *page_data, si
  * Read the contents of the specified page into the given memory area
  */
 void DiskManager::ReadPage(int fd, page_id_t page_id, char *page_data, size_t num_bytes) {
-  // std::cerr << "[DiskManager] ReadPage" << std::endl;
   // Calculate the offset in the file
   int offset = page_id * PAGE_SIZE;
 
@@ -151,20 +150,16 @@ void DiskManager::DestroyDir(const std::string &path) {
  * Create a file with the given path
  */
 void DiskManager::CreateFile(const std::string &path) {
-
   if (IsFile(path)) {
-    LOG_ERROR("file %s already exists", path.c_str());
-    return;
+    throw Exception("file " + path + " already exists");
   }
   int fd = open(path.c_str(), O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 
   if (fd == -1) {
-    LOG_ERROR("failed to create file %s", path.c_str());
-    return;
+    throw Exception("failed to create file " + path);
   }
   if (close(fd) == -1) {
-    LOG_ERROR("failed to close file %s", path.c_str());
-    return;
+    throw Exception("failed to close file " + path);
   }
 }
 
@@ -175,16 +170,13 @@ void DiskManager::DestroyFile(const std::string &path) {
   if (IsFile(path)) {
     // Check if the file is still opened by any thread
     if (path2fd_.find(path) != path2fd_.end() && path2fd_[path] != -1) {
-      LOG_ERROR("file %s is still opened by other threads", path.c_str());
-      return;
+      throw Exception("file " + path + " is still opened by other threads");
     }
     if (std::filesystem::remove(path) != 0) {
-      LOG_ERROR("failed to remove file %s", path.c_str());
-      return;
+      throw Exception("failed to remove file " + path);
     }
   } else {
-    LOG_ERROR("file %s does not exist", path.c_str());
-    return;
+    throw Exception("file " + path + " does not exist");
   }
 }
 
@@ -192,24 +184,20 @@ void DiskManager::DestroyFile(const std::string &path) {
  * Open a file with the given path and return its file descriptor
  */
 int DiskManager::OpenFile(const std::string &path) {
-  // std::cerr << "[DiskManager] OpenFile" << std::endl;
   if (!IsFile(path)) {
-    LOG_ERROR("file %s does not exist", path.c_str());
-    return -1;
+    throw Exception("file " + path + " does not exist");
   }
 
   // Check if the file is already opened
   if (path2fd_.find(path) != path2fd_.end() && path2fd_[path] != -1) {
-    LOG_ERROR("file %s is already opened by thread %d", path.c_str(), path2fd_[path]);
-    return -1;
+    throw Exception("file " + path + " is already opened by thread " + std::to_string(path2fd_[path]));
   }
 
   // Open the file
   int fd = open(path.c_str(), O_RDWR, S_IRUSR | S_IWUSR);
 
   if (fd == -1) {
-    LOG_ERROR("failed to open file %s", path.c_str());
-    return -1;
+    throw Exception("failed to open file " + path);
   }
 
   // Register the file in the map
@@ -223,7 +211,6 @@ int DiskManager::OpenFile(const std::string &path) {
  * Close a file with the given file descriptor
  */
 void DiskManager::CloseFile(int fd) {
-  // std::cerr << "[DiskManager] CloseFile" << std::endl;
   if (fd < 0 || fd >= MAX_FD) {
     LOG_ERROR("invalid file descriptor %d", fd);
     return;
