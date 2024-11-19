@@ -23,22 +23,22 @@
 #include "type/decimal_type.h"
 
 namespace easydb {
-#define DECIMAL_COMPARE_FUNC(OP)                                          \
-  switch (right.GetTypeId()) {                                            \
-    case TypeId::TYPE_INT:                                                \
-      return GetCmpBool(left.value_.bigint_ OP right.GetAs<int32_t>());   \
-    case TypeId::TYPE_LONG:                                               \
-      return GetCmpBool(left.value_.bigint_ OP right.GetAs<int64_t>());   \
-    case TypeId::TYPE_FLOAT:                                              \
-    case TypeId::TYPE_DOUBLE:                                             \
-      return GetCmpBool(left.value_.bigint_ OP right.GetAs<double>());    \
-    case TypeId::TYPE_CHAR:                                               \
-    case TypeId::TYPE_VARCHAR: {                                          \
-      auto r_value = right.CastAs(TypeId::TYPE_LONG);                     \
-      return GetCmpBool(left.value_.bigint_ OP r_value.GetAs<int64_t>()); \
-    }                                                                     \
-    default:                                                              \
-      break;                                                              \
+#define DECIMAL_COMPARE_FUNC(OP)                                           \
+  switch (right.GetTypeId()) {                                             \
+    case TypeId::TYPE_INT:                                                 \
+      return GetCmpBool(left.value_.decimal_ OP right.GetAs<int32_t>());   \
+    case TypeId::TYPE_LONG:                                                \
+      return GetCmpBool(left.value_.decimal_ OP right.GetAs<int64_t>());   \
+    case TypeId::TYPE_FLOAT:                                               \
+    case TypeId::TYPE_DOUBLE:                                              \
+      return GetCmpBool(left.value_.decimal_ OP right.GetAs<double>());    \
+    case TypeId::TYPE_CHAR:                                                \
+    case TypeId::TYPE_VARCHAR: {                                           \
+      auto r_value = right.CastAs(TypeId::TYPE_DOUBLE);                    \
+      return GetCmpBool(left.value_.decimal_ OP r_value.GetAs<int64_t>()); \
+    }                                                                      \
+    default:                                                               \
+      break;                                                               \
   }  // SWITCH
 
 #define DECIMAL_MODIFY_FUNC(OP)                                                           \
