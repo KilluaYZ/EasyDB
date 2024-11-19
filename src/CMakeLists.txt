@@ -4,12 +4,12 @@ add_subdirectory(type)
 add_subdirectory(storage)
 add_subdirectory(buffer)
 add_subdirectory(record)
-# add_subdirectory(planner)
 add_subdirectory(planner)
 # add_subdirectory(execution)
 add_subdirectory(concurrency)
 add_subdirectory(transaction)
 add_subdirectory(recovery)
+add_subdirectory(system)
 
 add_library(easydb STATIC ${ALL_OBJECT_FILES})
 
@@ -27,6 +27,7 @@ set(EASYDB_LIBS
         easydb_storage_index
         easydb_storage_page
         easydb_storage_table
+        easydb_system
         easydb_planner
         easydb_transaction
         )

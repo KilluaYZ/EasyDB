@@ -81,8 +81,8 @@ struct cmpRecord {
 
   bool operator()(const RmRecord &pl, const RmRecord &pr) const {
     Value leftVal, rightVal;
-    leftVal.get_value_from_record(pl, col_);
-    rightVal.get_value_from_record(pr, col_);
+    // leftVal.get_value_from_record(pl, col_);
+    // rightVal.get_value_from_record(pr, col_);
     return !asce_ ? leftVal < rightVal : leftVal > rightVal;
   }
 

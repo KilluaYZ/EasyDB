@@ -126,11 +126,6 @@ class LockDataId {
   LockDataType type_;
 };
 
-// template <>
-// struct std::hash<LockDataId> {
-//   size_t operator()(const LockDataId &obj) const { return std::hash<int64_t>()(obj.Get()); }
-// };
-
 /* 事务回滚原因 */
 enum class AbortReason { LOCK_ON_SHIRINKING = 0, UPGRADE_CONFLICT, DEADLOCK_PREVENTION };
 
@@ -167,4 +162,14 @@ class TransactionAbortException : public std::exception {
     }
   }
 };
+
 };  // namespace easydb
+
+namespace std {
+
+template <>
+struct std::hash<easydb::LockDataId> {
+  size_t operator()(const easydb::LockDataId &obj) const { return std::hash<int64_t>()(obj.Get()); }
+};
+
+}  // namespace std

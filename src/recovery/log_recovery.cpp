@@ -17,7 +17,8 @@ See the Mulan PSL v2 for more details. */
 #include "common/errors.h"
 #include "recovery/log_manager.h"
 #include "storage/page/page.h"
-using namespace easydb;
+
+namespace easydb {
 
 /**
  * @description: analyze阶段，需要获得脏页表（DPT）和未完成的事务列表（ATT）
@@ -34,8 +35,8 @@ void RecoveryManager::analyze() {
 
   while (true) {
     // 1. Read logs
-    read_size =
-        disk_manager_->read_log(buffer_.buffer_ + buffer_.offset_, LOG_BUFFER_SIZE - buffer_.offset_, file_offset);
+    // read_size =
+    //     disk_manager_->read_log(buffer_.buffer_ + buffer_.offset_, LOG_BUFFER_SIZE - buffer_.offset_, file_offset);
     // no more logs to read
     if (read_size <= 0) {
       break;
@@ -142,7 +143,7 @@ int RecoveryManager::analyze_checkpoint() {
 
   // Read from checkpoint
   lsn_t checkpoint_lsn = INVALID_LSN;
-  read_size = disk_manager_->read_checkpoint(checkpoint_lsn);
+  // read_size = disk_manager_->read_checkpoint(checkpoint_lsn);
   if (checkpoint_lsn == INVALID_LSN) {
     // No checkpoint found, start from the beginning of the log file
     return 0;
@@ -154,8 +155,8 @@ int RecoveryManager::analyze_checkpoint() {
 
   while (true) {
     // 1. Read logs
-    read_size =
-        disk_manager_->read_log(buffer_.buffer_ + buffer_.offset_, LOG_BUFFER_SIZE - buffer_.offset_, file_offset);
+    // read_size =
+    //     disk_manager_->read_log(buffer_.buffer_ + buffer_.offset_, LOG_BUFFER_SIZE - buffer_.offset_, file_offset);
     // no more logs to read
     if (read_size <= 0) {
       break;
@@ -274,7 +275,7 @@ void RecoveryManager::analyze_finish() {
  */
 void RecoveryManager::analyze4chkpt(CheckpointLogRecord *checkpoint) {
   // temp result for checkpoint
-  std::unordered_map<PageId, std::string> page2tab_name;
+  std::unordered_map<PageId, std::string, PageIdHash> page2tab_name;
 
   // Read log records from the checkpoint
   int file_offset = analyze_checkpoint();
@@ -292,8 +293,8 @@ void RecoveryManager::analyze4chkpt(CheckpointLogRecord *checkpoint) {
   min_rec_lsn_ = INVALID_LSN;
   while (true) {
     // 1. Read logs
-    read_size =
-        disk_manager_->read_log(buffer_.buffer_ + buffer_.offset_, LOG_BUFFER_SIZE - buffer_.offset_, file_offset);
+    // read_size =
+    //     disk_manager_->read_log(buffer_.buffer_ + buffer_.offset_, LOG_BUFFER_SIZE - buffer_.offset_, file_offset);
     // no more logs to read
     if (read_size <= 0) {
       break;
@@ -382,11 +383,11 @@ void RecoveryManager::analyze4chkpt(CheckpointLogRecord *checkpoint) {
   // Note: get the correct min_rec_lsn_ after the checkpoint.
   min_rec_lsn_ = std::max(min_rec_lsn_, checkpoint_lsn);
 
-  // set log
-  checkpoint->set_att(att_);
-  checkpoint->set_aborted_txns(aborted_txns_);
-  checkpoint->set_dpt_with_tab_name(dpt_, page2tab_name);
-  checkpoint->set_min_rec_lsn(min_rec_lsn_);
+  // // set log
+  // checkpoint->set_att(att_);
+  // checkpoint->set_aborted_txns(aborted_txns_);
+  // checkpoint->set_dpt_with_tab_name(dpt_, page2tab_name);
+  // checkpoint->set_min_rec_lsn(min_rec_lsn_);
 
   clean_up();
 }
@@ -410,8 +411,8 @@ void RecoveryManager::redo() {
 
   while (true) {
     // Read log records from the file
-    read_size =
-        disk_manager_->read_log(buffer_.buffer_ + buffer_.offset_, LOG_BUFFER_SIZE - buffer_.offset_, file_offset);
+    // read_size =
+    //     disk_manager_->read_log(buffer_.buffer_ + buffer_.offset_, LOG_BUFFER_SIZE - buffer_.offset_, file_offset);
     // no more logs to read
     if (read_size <= 0) {
       break;
@@ -614,8 +615,8 @@ void RecoveryManager::undo() {
     int log_offset = lsn_mapping_[largest_lsn].first;
     int log_size = lsn_mapping_[largest_lsn].second;
 
-    // TODO 完成ReadLog
-    disk_manager_->read_log(buffer_.buffer_, log_size, log_offset);
+    // // TODO 完成ReadLog
+    // disk_manager_->read_log(buffer_.buffer_, log_size, log_offset);
 
     log_record->deserialize(buffer_.buffer_);
 
@@ -798,3 +799,5 @@ void RecoveryManager::undo_update(UpdateLogRecord *update_log) {
   // Set lsn(abort lsn) in page header(not CLR lsn)
   fh->SetPageLSN(rid.GetPageId(), att_[update_log->log_tid_]);
 }
+
+}  // namespace easydb

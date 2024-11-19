@@ -8,14 +8,15 @@ EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
 MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
 
-#include "transaction_manager.h"
+#include "transaction/transaction_manager.h"
 
 #include "common/context.h"
 #include "record/rm_file_handle.h"
 #include "recovery/log_recovery.h"
 #include "system/sm_manager.h"
 #include "transaction/txn_defs.h"
-using namespace easydb;
+
+namespace easydb {
 
 std::unordered_map<txn_id_t, Transaction *> TransactionManager::txn_map = {};
 
@@ -174,9 +175,11 @@ void TransactionManager::create_static_checkpoint(Transaction *txn, LogManager *
 
   // 3. Flush all dirty pages to disk
   auto bpm = sm_manager_->GetBpm();
-  bpm->flush_all_dirty_pages();
+  bpm->FlushAllDirtyPages();
 
-  // 4. Write checkpoint to disk
-  auto disk_mgr = sm_manager_->GetDiskManager();
-  disk_mgr->write_checkpoint(checkpoint_lsn);
+  // // 4. Write checkpoint to disk
+  // auto disk_mgr = sm_manager_->GetDiskManager();
+  // disk_mgr->write_checkpoint(checkpoint_lsn);
 }
+
+}  // namespace easydb

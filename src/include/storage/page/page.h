@@ -48,11 +48,6 @@ struct PageIdHash {
   size_t operator()(const PageId &x) const { return (x.fd << 16) | x.page_no; }
 };
 
-// template <>
-// struct std::hash<PageId> {
-//     size_t operator()(const PageId &obj) const { return std::hash<int64_t>()(obj.Get()); }
-// };
-
 /**
  * @brief
  *
@@ -151,3 +146,12 @@ class Page {
 };
 
 }  // namespace easydb
+
+namespace std {
+
+template <>
+struct std::hash<easydb::PageId> {
+  size_t operator()(const easydb::PageId &obj) const { return std::hash<int64_t>()(obj.Get()); }
+};
+
+}  // namespace std

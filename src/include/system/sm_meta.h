@@ -16,10 +16,13 @@ See the Mulan PSL v2 for more details. */
 #include <string>
 #include <vector>
 
+#include "catalog/column.h"
 #include "common/errors.h"
+#include "common/exception.h"
 #include "sm_defs.h"
 
 namespace easydb {
+
 /* 字段元数据 */
 struct ColMeta {
   std::string tab_name;  // 字段所属表名称
@@ -39,6 +42,8 @@ struct ColMeta {
   friend std::istream &operator>>(std::istream &is, ColMeta &col) {
     return is >> col.tab_name >> col.name >> col.type >> col.len >> col.offset >> col.index;
   }
+  ColMeta() = default;
+  ColMeta(Column &other) { throw Exception("Not implemented"); }
 };
 
 /* 索引元数据 */
@@ -203,4 +208,5 @@ class DbMeta {
     return is;
   }
 };
-};  // namespace easydb
+
+}  // namespace easydb

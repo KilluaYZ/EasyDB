@@ -34,4 +34,5 @@ static constexpr int OFFSET_PREV_LSN = OFFSET_LOG_TID + sizeof(txn_id_t);
 static constexpr int OFFSET_LOG_DATA = OFFSET_PREV_LSN + sizeof(lsn_t);
 // sizeof log_header
 static constexpr int LOG_HEADER_SIZE = OFFSET_LOG_DATA;
-};  // namespace easydb
+
+}  // namespace easydb

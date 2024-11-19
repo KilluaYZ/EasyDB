@@ -19,8 +19,8 @@ See the Mulan PSL v2 for more details. */
 #include "system/sm_manager.h"
 #include "transaction.h"
 
-
 namespace easydb {
+
 /* 系统采用的并发控制算法，当前题目中要求两阶段封锁并发控制算法 */
 enum class ConcurrencyMode { TWO_PHASE_LOCKING = 0, BASIC_TO };
 
@@ -79,4 +79,5 @@ class TransactionManager {
   SmManager *sm_manager_;
   LockManager *lock_manager_;
 };
-};  // namespace easydb
+
+}  // namespace easydb

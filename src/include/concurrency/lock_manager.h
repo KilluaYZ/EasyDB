@@ -48,9 +48,9 @@ class LockManager {
   };
 
  public:
-  LockManager() {}
+  // LockManager() {}
 
-  ~LockManager() {}
+  ~LockManager() { lock_table_.clear(); }
 
   bool lock_shared_on_record(Transaction *txn, const RID &rid, int tab_fd);
 
@@ -81,4 +81,5 @@ class LockManager {
   std::mutex latch_;                                             // 用于锁表的并发
   std::unordered_map<LockDataId, LockRequestQueue> lock_table_;  // 全局锁表
 };
-};  // namespace easydb
+
+}  // namespace easydb

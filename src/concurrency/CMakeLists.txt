@@ -1,3 +1,9 @@
-set(SOURCES lock_manager.cpp)
-add_library(easydb_concurrency STATIC ${SOURCES})
-target_link_libraries(easydb_concurrency system pthread)
+add_library(
+    easydb_concurrency
+    OBJECT
+    lock_manager.cpp
+    )
+
+set(ALL_OBJECT_FILES
+    ${ALL_OBJECT_FILES} $<TARGET_OBJECTS:easydb_concurrency>
+    PARENT_SCOPE)

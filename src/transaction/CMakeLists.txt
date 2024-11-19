@@ -1,3 +1,9 @@
-set(SOURCES transaction_manager.cpp)
-add_library(easydb_transaction STATIC ${SOURCES})
-target_link_libraries(easydb_transaction system recovery pthread)
+add_library(
+    easydb_transaction
+    OBJECT
+    transaction_manager.cpp
+    )
+
+set(ALL_OBJECT_FILES
+    ${ALL_OBJECT_FILES} $<TARGET_OBJECTS:easydb_transaction>
+    PARENT_SCOPE)

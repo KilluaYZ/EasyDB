@@ -20,6 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include "transaction/txn_defs.h"
 
 namespace easydb {
+
 class Context;
 
 struct ColDef {
@@ -138,4 +139,5 @@ class SmManager {
     table_count_[table_name] += count;
   }
 };
-};  // namespace easydb
+
+}  // namespace easydb

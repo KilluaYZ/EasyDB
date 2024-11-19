@@ -11,7 +11,8 @@ See the Mulan PSL v2 for more details. */
 #include "recovery/log_manager.h"
 
 #include <cstring>
-namespace easydb{
+
+namespace easydb {
 
 /**
  * @description: 添加日志记录到日志缓冲区中，并返回日志记录号
@@ -19,7 +20,7 @@ namespace easydb{
  * @return {lsn_t} 返回该日志的日志记录号
  * @note 该函数会serialize log_record并写入log_buffer_中，要求 log_record 后续不变
  */
-lsn_t LogManager::add_log_to_buffer(LogRecord* log_record) {
+lsn_t LogManager::add_log_to_buffer(LogRecord *log_record) {
   std::scoped_lock lock{latch_};
 
   // Assign a new LSN to the log record
@@ -35,7 +36,7 @@ lsn_t LogManager::add_log_to_buffer(LogRecord* log_record) {
   }
 
   // Serialize the log record directly to the log buffer
-  char* buffer_dest = log_buffer_.buffer_ + log_buffer_.offset_;
+  char *buffer_dest = log_buffer_.buffer_ + log_buffer_.offset_;
   log_record->serialize(buffer_dest);
 
   // Update the buffer offset
@@ -50,8 +51,8 @@ lsn_t LogManager::add_log_to_buffer(LogRecord* log_record) {
 void LogManager::flush_log_to_disk() {
   std::scoped_lock lock{latch_};
 
-  // Write the buffer to disk
-  disk_manager_->write_log(log_buffer_.buffer_, log_buffer_.offset_);
+  // // Write the buffer to disk
+  // disk_manager_->write_log(log_buffer_.buffer_, log_buffer_.offset_);
 
   // Update the persistent LSN
   persist_lsn_ = global_lsn_.load() - 1;
@@ -61,4 +62,4 @@ void LogManager::flush_log_to_disk() {
   memset(log_buffer_.buffer_, 0, sizeof(log_buffer_.buffer_));
 }
 
-};
+}  // namespace easydb

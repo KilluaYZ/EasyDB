@@ -63,4 +63,6 @@ static const std::string RESTART_FILE_NAME = "db.restart";
 static const std::string REPLACER_TYPE = "LRU";
 static const std::string DB_META_NAME = "db.meta";
 
+static constexpr int BUFFER_LENGTH = 8192;
+
 }  // namespace easydb

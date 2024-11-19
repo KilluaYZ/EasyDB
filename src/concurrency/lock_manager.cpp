@@ -12,7 +12,8 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/errors.h"
 #include "transaction/txn_defs.h"
-using namespace easydb;
+
+namespace easydb {
 
 /**
  * @description: 申请行级共享锁
@@ -727,3 +728,5 @@ inline void LockManager::wait_die(Transaction *txn, LockRequest &req_holder, Loc
     throw TransactionAbortException(txn->get_transaction_id(), AbortReason::DEADLOCK_PREVENTION);
   }
 }
+
+}  // namespace easydb

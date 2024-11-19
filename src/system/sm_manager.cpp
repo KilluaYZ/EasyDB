@@ -23,7 +23,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/index/ix_defs.h"
 #include "system/sm_meta.h"
 
-using namespace easydb;
+
+namespace easydb {
 
 /**
  * @description: 判断是否为一个文件夹
@@ -206,12 +207,13 @@ void SmManager::CreateTable(const std::string &tab_name, const std::vector<ColDe
   TabMeta tab;
   tab.name = tab_name;
   for (auto &col_def : col_defs) {
-    ColMeta col = {.tab_name = tab_name,
-                   .name = col_def.name,
-                   .type = col_def.type,
-                   .len = col_def.len,
-                   .offset = curr_offset,
-                   .index = false};
+    // ColMeta col = {.tab_name = tab_name,
+    //                .name = col_def.name,
+    //                .type = col_def.type,
+    //                .len = col_def.len,
+    //                .offset = curr_offset,
+    //                .index = false};
+    ColMeta col;
     curr_offset += col_def.len;
     tab.cols.push_back(col);
   }
@@ -332,15 +334,15 @@ void SmManager::CreateIndex(const std::string &tab_name, const std::vector<std::
   RmScan rmScan(Rfh);
 
   while (!rmScan.IsEnd()) {
-    auto rid = rmScan.GetRid();
-    auto rec = Rfh->GetRecord(rid, context);
-    // construct key
-    char *key = new char[index_meta.col_tot_len];
-    int offset = 0;
-    for (int i = 0; i < index_meta.col_num; ++i) {
-      memcpy(key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
-      offset += index_meta.cols[i].len;
-    }
+    // auto rid = rmScan.GetRid();
+    // auto rec = Rfh->GetRecord(rid, context);
+    // // construct key
+    // char *key = new char[index_meta.col_tot_len];
+    // int offset = 0;
+    // for (int i = 0; i < index_meta.col_num; ++i) {
+    //   memcpy(key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
+    //   offset += index_meta.cols[i].len;
+    // }
     // // print key
     // std::cout << "key: " << std::string(key, index_meta.col_tot_len) << std::endl;
     // for (int i = 0; i < 4; ++i) {
@@ -348,11 +350,11 @@ void SmManager::CreateIndex(const std::string &tab_name, const std::vector<std::
     // }
     // std::cout << std::endl;
     // std::cout << "key(int): " << std::to_string(*(int *)key) << std::endl;
-    if (context != nullptr) {
-      Iih->InsertEntry(key, rid, context->txn_);
-    } else {
-      Iih->InsertEntry(key, rid, nullptr);
-    }
+    // if (context != nullptr) {
+    //   Iih->InsertEntry(key, rid, context->txn_);
+    // } else {
+    //   Iih->InsertEntry(key, rid, nullptr);
+    // }
     rmScan.Next();
   }
 
@@ -447,23 +449,23 @@ void SmManager::Rollback(WriteRecord *write_record, Context *context) {
  * @todo DeleteLogRecord
  */
 void SmManager::RollbackInsert(const std::string &table_name, RID &rid, Context *context) {
-  auto fh = fhs_.at(table_name).get();
-  auto record = fh->GetRecord(rid, context);
-  // Delete from index
-  for (auto &index : db_.get_table(table_name).indexes) {
-    auto index_name = ix_manager_->GetIndexName(table_name, index.cols);
-    auto Iih = ihs_.at(index_name).get();
-    char *key = new char[index.col_tot_len];
-    int offset = 0;
-    for (int i = 0; i < index.col_num; ++i) {
-      memcpy(key + offset, record->data + index.cols[i].offset, index.cols[i].len);
-      offset += index.cols[i].len;
-    }
-    Iih->DeleteEntry(key, context->txn_);
-    delete[] key;
-  }
-  // Delete from table
-  fh->DeleteTuple(rid, context);
+  // auto fh = fhs_.at(table_name).get();
+  // auto record = fh->GetRecord(rid, context);
+  // // Delete from index
+  // for (auto &index : db_.get_table(table_name).indexes) {
+  //   auto index_name = ix_manager_->GetIndexName(table_name, index.cols);
+  //   auto Iih = ihs_.at(index_name).get();
+  //   char *key = new char[index.col_tot_len];
+  //   int offset = 0;
+  //   for (int i = 0; i < index.col_num; ++i) {
+  //     memcpy(key + offset, record->data + index.cols[i].offset, index.cols[i].len);
+  //     offset += index.cols[i].len;
+  //   }
+  //   Iih->DeleteEntry(key, context->txn_);
+  //   delete[] key;
+  // }
+  // // Delete from table
+  // fh->DeleteTuple(rid, context);
 
   // // TODO: DeleteLogRecord(CLR)
   // DeleteLogRecord del_log_rec(context->txn_->get_transaction_id(), *record, rid, table_name);
@@ -473,8 +475,8 @@ void SmManager::RollbackInsert(const std::string &table_name, RID &rid, Context 
   // // set lsn in page header
   // fh->set_page_lsn(rid.page_no, lsn);
 
-  // Set lsn(abort lsn) in page header(not CLR lsn)
-  fh->SetPageLSN(rid.GetPageId(), context->txn_->get_prev_lsn());
+  // // Set lsn(abort lsn) in page header(not CLR lsn)
+  // fh->SetPageLSN(rid.GetPageId(), context->txn_->get_prev_lsn());
 }
 
 /**
@@ -488,38 +490,38 @@ void SmManager::RollbackInsert(const std::string &table_name, RID &rid, Context 
  * @todo InsertLogRecord
  */
 void SmManager::RollbackDelete(const std::string &table_name, RID &rid, RmRecord &record, Context *context) {
-  // insert the record back into the record file
-  auto fh = fhs_.at(table_name).get();
-  fh->InsertTuple(rid, record.data);
+  // // insert the record back into the record file
+  // auto fh = fhs_.at(table_name).get();
+  // fh->InsertTuple(rid, record.data);
 
-  // // TODO: InsertLogRecord(CLR)
-  // InsertLogRecord insert_log_rec(context->txn_->get_transaction_id(), record, rid, table_name);
-  // insert_log_rec.prev_lsn_ = context->txn_->get_prev_lsn();
-  // lsn_t lsn = context->log_mgr_->add_log_to_buffer(&insert_log_rec);
-  // context->txn_->set_prev_lsn(lsn);
-  // // set lsn in page header
-  // fh->set_page_lsn(rid.page_no, lsn);
+  // // // TODO: InsertLogRecord(CLR)
+  // // InsertLogRecord insert_log_rec(context->txn_->get_transaction_id(), record, rid, table_name);
+  // // insert_log_rec.prev_lsn_ = context->txn_->get_prev_lsn();
+  // // lsn_t lsn = context->log_mgr_->add_log_to_buffer(&insert_log_rec);
+  // // context->txn_->set_prev_lsn(lsn);
+  // // // set lsn in page header
+  // // fh->set_page_lsn(rid.page_no, lsn);
 
-  // Set lsn(abort lsn) in page header(not CLR lsn)
-  fh->SetPageLSN(rid.GetPageId(), context->txn_->get_prev_lsn());
+  // // Set lsn(abort lsn) in page header(not CLR lsn)
+  // fh->SetPageLSN(rid.GetPageId(), context->txn_->get_prev_lsn());
 
-  // insert the index entry back into the index file
-  for (auto &index : db_.get_table(table_name).indexes) {
-    auto index_name = ix_manager_->GetIndexName(table_name, index.cols);
-    auto Iih = ihs_.at(index_name).get();
-    char *key = new char[index.col_tot_len];
-    int offset = 0;
-    for (int i = 0; i < index.col_num; ++i) {
-      memcpy(key + offset, record.data + index.cols[i].offset, index.cols[i].len);
-      offset += index.cols[i].len;
-    }
-    auto is_insert = Iih->InsertEntry(key, rid, context->txn_);
-    if (is_insert == -1) {
-      // should not happen because this is logged
-      throw InternalError("SmManager::rollback_delete: index entry not found");
-    }
-    delete[] key;
-  }
+  // // insert the index entry back into the index file
+  // for (auto &index : db_.get_table(table_name).indexes) {
+  //   auto index_name = ix_manager_->GetIndexName(table_name, index.cols);
+  //   auto Iih = ihs_.at(index_name).get();
+  //   char *key = new char[index.col_tot_len];
+  //   int offset = 0;
+  //   for (int i = 0; i < index.col_num; ++i) {
+  //     memcpy(key + offset, record.data + index.cols[i].offset, index.cols[i].len);
+  //     offset += index.cols[i].len;
+  //   }
+  //   auto is_insert = Iih->InsertEntry(key, rid, context->txn_);
+  //   if (is_insert == -1) {
+  //     // should not happen because this is logged
+  //     throw InternalError("SmManager::rollback_delete: index entry not found");
+  //   }
+  //   delete[] key;
+  // }
 }
 
 /**
@@ -533,55 +535,55 @@ void SmManager::RollbackDelete(const std::string &table_name, RID &rid, RmRecord
  * @todo UpdateLogRecord
  */
 void SmManager::RollbackUpdate(const std::string &table_name, RID &rid, RmRecord &record, Context *context) {
-  auto fh = fhs_.at(table_name).get();
-  // get the new record
-  auto new_record = fh->get_record(rid, context);
+  // auto fh = fhs_.at(table_name).get();
+  // // get the new record
+  // auto new_record = fh->get_record(rid, context);
 
-  // // TODO: UpdateLogRecord(CLR)
-  // // Log: before update value because the object of new_record(a ptr) will be changed in 'update_record'
-  // UpdateLogRecord update_log_rec(context->txn_->get_transaction_id(), *new_record, record, rid, table_name);
+  // // // TODO: UpdateLogRecord(CLR)
+  // // // Log: before update value because the object of new_record(a ptr) will be changed in 'update_record'
+  // // UpdateLogRecord update_log_rec(context->txn_->get_transaction_id(), *new_record, record, rid, table_name);
 
-  // update the record to the old record
-  fh->update_record(rid, record.data, context);
+  // // update the record to the old record
+  // fh->update_record(rid, record.data, context);
 
-  // // Log: after update
-  // update_log_rec.prev_lsn_ = context->txn_->get_prev_lsn();
-  // lsn_t lsn = context->log_mgr_->add_log_to_buffer(&update_log_rec);
-  // context->txn_->set_prev_lsn(lsn);
-  // // set lsn in page header
-  // fh->set_page_lsn(rid.page_no, lsn);
+  // // // Log: after update
+  // // update_log_rec.prev_lsn_ = context->txn_->get_prev_lsn();
+  // // lsn_t lsn = context->log_mgr_->add_log_to_buffer(&update_log_rec);
+  // // context->txn_->set_prev_lsn(lsn);
+  // // // set lsn in page header
+  // // fh->set_page_lsn(rid.page_no, lsn);
 
-  // Set lsn(abort lsn) in page header(not CLR lsn)
-  fh->SetPageLSN(rid.GetPageId(), context->txn_->get_prev_lsn());
+  // // Set lsn(abort lsn) in page header(not CLR lsn)
+  // fh->SetPageLSN(rid.GetPageId(), context->txn_->get_prev_lsn());
 
-  // update the index entry in the index file
-  for (auto &index : db_.get_table(table_name).indexes) {
-    auto index_name = ix_manager_->GetIndexName(table_name, index.cols);
-    auto Iih = ihs_.at(index_name).get();
-    char *old_key = new char[index.col_tot_len];
-    char *new_key = new char[index.col_tot_len];
-    int offset = 0;
-    for (int i = 0; i < index.col_num; ++i) {
-      memcpy(old_key + offset, record.data + index.cols[i].offset, index.cols[i].len);
-      memcpy(new_key + offset, new_record->data + index.cols[i].offset, index.cols[i].len);
-      offset += index.cols[i].len;
-    }
-    // check if the key is the same as before
-    if (memcmp(old_key, new_key, index.col_tot_len) == 0) {
-      delete[] old_key;
-      delete[] new_key;
-      continue;
-    }
-    // check if the new key duplicated
-    auto is_insert = Iih->InsertEntry(old_key, rid, context->txn_);
-    if (is_insert == -1) {
-      // should not happen because this is logged
-      throw InternalError("SmManager::rollback_update: index entry not found");
-    }
-    Iih->DeleteEntry(new_key, context->txn_);
-    delete[] old_key;
-    delete[] new_key;
-  }
+  // // update the index entry in the index file
+  // for (auto &index : db_.get_table(table_name).indexes) {
+  //   auto index_name = ix_manager_->GetIndexName(table_name, index.cols);
+  //   auto Iih = ihs_.at(index_name).get();
+  //   char *old_key = new char[index.col_tot_len];
+  //   char *new_key = new char[index.col_tot_len];
+  //   int offset = 0;
+  //   for (int i = 0; i < index.col_num; ++i) {
+  //     memcpy(old_key + offset, record.data + index.cols[i].offset, index.cols[i].len);
+  //     memcpy(new_key + offset, new_record->data + index.cols[i].offset, index.cols[i].len);
+  //     offset += index.cols[i].len;
+  //   }
+  //   // check if the key is the same as before
+  //   if (memcmp(old_key, new_key, index.col_tot_len) == 0) {
+  //     delete[] old_key;
+  //     delete[] new_key;
+  //     continue;
+  //   }
+  //   // check if the new key duplicated
+  //   auto is_insert = Iih->InsertEntry(old_key, rid, context->txn_);
+  //   if (is_insert == -1) {
+  //     // should not happen because this is logged
+  //     throw InternalError("SmManager::rollback_update: index entry not found");
+  //   }
+  //   Iih->DeleteEntry(new_key, context->txn_);
+  //   delete[] old_key;
+  //   delete[] new_key;
+  // }
 }
 
 /**
@@ -639,151 +641,151 @@ inline int ix_compare(const char *a, const char *b, const std::vector<ColMeta> c
  * @note: this function does not create table, just load data to existing table
  */
 void SmManager::LoadData(const std::string &file_name, const std::string &table_name, Context *context) {
-  // std::cout << "SmManager::load_data: load data from " << file_name << " to table " << table_name << std::endl;
-  // 1. Get the table object
-  // check if table exists
-  if (!db_.is_table(table_name)) {
-    throw TableNotFoundError(table_name);
-  }
-  auto &tab = db_.get_table(table_name);
-  auto fh = fhs_.at(table_name).get();
-  size_t col_size = tab.cols.size();
+  // // std::cout << "SmManager::load_data: load data from " << file_name << " to table " << table_name << std::endl;
+  // // 1. Get the table object
+  // // check if table exists
+  // if (!db_.is_table(table_name)) {
+  //   throw TableNotFoundError(table_name);
+  // }
+  // auto &tab = db_.get_table(table_name);
+  // auto fh = fhs_.at(table_name).get();
+  // size_t col_size = tab.cols.size();
 
-  // 2. Open file and create memory mapping
-  int fd = open(file_name.c_str(), O_RDONLY);
-  if (fd == -1) {
-    close(fd);
-    throw InternalError("SmManager::load_data: open file failed");
-  }
-  size_t file_size = lseek(fd, 0, SEEK_END);
-  char *data = (char *)mmap(nullptr, file_size, PROT_READ, MAP_SHARED, fd, 0);
-  if (data == MAP_FAILED) {
-    close(fd);
-    throw InternalError("SmManager::load_data: mmap failed");
-  }
+  // // 2. Open file and create memory mapping
+  // int fd = open(file_name.c_str(), O_RDONLY);
+  // if (fd == -1) {
+  //   close(fd);
+  //   throw InternalError("SmManager::load_data: open file failed");
+  // }
+  // size_t file_size = lseek(fd, 0, SEEK_END);
+  // char *data = (char *)mmap(nullptr, file_size, PROT_READ, MAP_SHARED, fd, 0);
+  // if (data == MAP_FAILED) {
+  //   close(fd);
+  //   throw InternalError("SmManager::load_data: mmap failed");
+  // }
 
-  // 3. Parse CSV header and validate
-  char *line_start = data;
-  char *line_end = strchr(line_start, '\n');
-  if (line_end == nullptr) {
-    munmap(data, file_size);
-    close(fd);
-    throw InternalError("SmManager::load_data: invalid CSV file");
-  }
-  std::vector<std::string> header;
-  Split(line_start, line_end - line_start, ',', header);
-  for (int i = 0; i < col_size; ++i) {
-    if (header[i] != tab.cols[i].name) {
-      munmap(data, file_size);
-      close(fd);
-      throw InternalError("SmManager::load_data: header not match table schema");
-    }
-  }
+  // // 3. Parse CSV header and validate
+  // char *line_start = data;
+  // char *line_end = strchr(line_start, '\n');
+  // if (line_end == nullptr) {
+  //   munmap(data, file_size);
+  //   close(fd);
+  //   throw InternalError("SmManager::load_data: invalid CSV file");
+  // }
+  // std::vector<std::string> header;
+  // Split(line_start, line_end - line_start, ',', header);
+  // for (int i = 0; i < col_size; ++i) {
+  //   if (header[i] != tab.cols[i].name) {
+  //     munmap(data, file_size);
+  //     close(fd);
+  //     throw InternalError("SmManager::load_data: header not match table schema");
+  //   }
+  // }
 
-  // 4. Parse data and batch insert into table
-  line_start = line_end + 1;
-  int total_records = 0;
-  int page_record_count = 0;
-  int record_size = fh->get_file_hdr().record_size;
-  int num_records_per_page = fh->get_file_hdr().num_records_per_page;
-  int page_size = record_size * num_records_per_page;
-  char *page_data = new char[page_size];
-  memset(page_data, 0, page_size);
+  // // 4. Parse data and batch insert into table
+  // line_start = line_end + 1;
+  // int total_records = 0;
+  // int page_record_count = 0;
+  // int record_size = fh->get_file_hdr().record_size;
+  // int num_records_per_page = fh->get_file_hdr().num_records_per_page;
+  // int page_size = record_size * num_records_per_page;
+  // char *page_data = new char[page_size];
+  // memset(page_data, 0, page_size);
 
-  // Batch data for indexes(just primary key for now)
-  std::vector<std::pair<std::string, Rid>> index_entries;
+  // // Batch data for indexes(just primary key for now)
+  // std::vector<std::pair<std::string, Rid>> index_entries;
 
-  while (line_start < data + file_size) {
-    line_end = strchr(line_start, '\n');
-    // Last line without \n
-    if (line_end == nullptr) {
-      line_end = data + file_size;
-    }
+  // while (line_start < data + file_size) {
+  //   line_end = strchr(line_start, '\n');
+  //   // Last line without \n
+  //   if (line_end == nullptr) {
+  //     line_end = data + file_size;
+  //   }
 
-    // Directly parse the line and fill the corresponding slot in page_data
-    char *token_start = line_start;
-    for (int i = 0; i < col_size; ++i) {
-      char *token_end = std::find(token_start, line_end, ',');
-      // Calculate the destination address in the page buffer
-      char *dest = page_data + (page_record_count * record_size) + tab.cols[i].offset;
-      int len = tab.cols[i].len;
-      auto type = tab.cols[i].type;
+  //   // Directly parse the line and fill the corresponding slot in page_data
+  //   char *token_start = line_start;
+  //   for (int i = 0; i < col_size; ++i) {
+  //     char *token_end = std::find(token_start, line_end, ',');
+  //     // Calculate the destination address in the page buffer
+  //     char *dest = page_data + (page_record_count * record_size) + tab.cols[i].offset;
+  //     int len = tab.cols[i].len;
+  //     auto type = tab.cols[i].type;
 
-      switch (type) {
-        case TYPE_INT: {
-          *reinterpret_cast<int *>(dest) = std::stoi(std::string(token_start, token_end));
-          break;
-        }
-        case TYPE_FLOAT: {
-          *reinterpret_cast<float *>(dest) = std::stof(std::string(token_start, token_end));
-          break;
-        }
-        case TYPE_STRING: {
-          int token_len = token_end - token_start;
-          if (token_len > len) {
-            throw StringOverflowError();
-          }
-          memset(dest, 0, len);
-          memcpy(dest, token_start, token_len);
-          break;
-        }
-        default:
-          throw InternalError("Unsupported data type.");
-      }
+  //     switch (type) {
+  //       case TYPE_INT: {
+  //         *reinterpret_cast<int *>(dest) = std::stoi(std::string(token_start, token_end));
+  //         break;
+  //       }
+  //       case TYPE_FLOAT: {
+  //         *reinterpret_cast<float *>(dest) = std::stof(std::string(token_start, token_end));
+  //         break;
+  //       }
+  //       case TYPE_STRING: {
+  //         int token_len = token_end - token_start;
+  //         if (token_len > len) {
+  //           throw StringOverflowError();
+  //         }
+  //         memset(dest, 0, len);
+  //         memcpy(dest, token_start, token_len);
+  //         break;
+  //       }
+  //       default:
+  //         throw InternalError("Unsupported data type.");
+  //     }
 
-      // Move to the next token
-      token_start = token_end + 1;
-    }
+  //     // Move to the next token
+  //     token_start = token_end + 1;
+  //   }
 
-    // Extract the key for index
-    for (auto &index : tab.indexes) {
-      char *key = new char[index.col_tot_len];
-      int offset = 0;
-      for (int i = 0; i < index.col_num; ++i) {
-        memcpy(key + offset, page_data + (page_record_count * record_size) + index.cols[i].offset, index.cols[i].len);
-        offset += index.cols[i].len;
-      }
-      index_entries.emplace_back(std::string(key, index.col_tot_len),
-                                 Rid{fh->get_file_hdr().num_pages, page_record_count});
-      delete[] key;
-    }
+  //   // Extract the key for index
+  //   for (auto &index : tab.indexes) {
+  //     char *key = new char[index.col_tot_len];
+  //     int offset = 0;
+  //     for (int i = 0; i < index.col_num; ++i) {
+  //       memcpy(key + offset, page_data + (page_record_count * record_size) + index.cols[i].offset,
+  //       index.cols[i].len); offset += index.cols[i].len;
+  //     }
+  //     index_entries.emplace_back(std::string(key, index.col_tot_len),
+  //                                Rid{fh->get_file_hdr().num_pages, page_record_count});
+  //     delete[] key;
+  //   }
 
-    page_record_count++;
-    line_start = line_end + 1;
-    total_records++;
+  //   page_record_count++;
+  //   line_start = line_end + 1;
+  //   total_records++;
 
-    // If the page is full, insert the page and reset the counter
-    if (page_record_count == num_records_per_page) {
-      fh->insert_page(page_data, page_record_count);
-      page_record_count = 0;
-      memset(page_data, 0, page_size);  // Reset the page buffer
-    }
-  }
+  //   // If the page is full, insert the page and reset the counter
+  //   if (page_record_count == num_records_per_page) {
+  //     fh->insert_page(page_data, page_record_count);
+  //     page_record_count = 0;
+  //     memset(page_data, 0, page_size);  // Reset the page buffer
+  //   }
+  // }
 
-  // Insert any remaining records that did not fill a full page
-  if (page_record_count > 0) {
-    fh->insert_page(page_data, page_record_count);
-  }
+  // // Insert any remaining records that did not fill a full page
+  // if (page_record_count > 0) {
+  //   fh->insert_page(page_data, page_record_count);
+  // }
 
-  SetTableCount(table_name, total_records);
+  // SetTableCount(table_name, total_records);
 
-  // Sort the index entries and insert them into the index file
-  for (auto &index : tab.indexes) {
-    // std::sort(index_entries.begin(), index_entries.end(), [&](const std::pair<std::string, Rid>& a, const
-    // std::pair<std::string, Rid>& b) {
-    //     return ix_compare(a.first.c_str(), b.first.c_str(), index.cols) < 0;
-    // });
-    // Insert the sorted entries into the B+ tree
-    auto index_name = ix_manager_->get_index_name(table_name, index.cols);
-    auto ih = ihs_.at(index_name).get();
-    ih->build_index_bottom_up(index_entries);
-  }
+  // // Sort the index entries and insert them into the index file
+  // for (auto &index : tab.indexes) {
+  //   // std::sort(index_entries.begin(), index_entries.end(), [&](const std::pair<std::string, Rid>& a, const
+  //   // std::pair<std::string, Rid>& b) {
+  //   //     return ix_compare(a.first.c_str(), b.first.c_str(), index.cols) < 0;
+  //   // });
+  //   // Insert the sorted entries into the B+ tree
+  //   auto index_name = ix_manager_->get_index_name(table_name, index.cols);
+  //   auto ih = ihs_.at(index_name).get();
+  //   ih->build_index_bottom_up(index_entries);
+  // }
 
-  // 5. Cleanup resources
-  index_entries.clear();
-  delete[] page_data;
-  munmap(data, file_size);
-  close(fd);
+  // // 5. Cleanup resources
+  // index_entries.clear();
+  // delete[] page_data;
+  // munmap(data, file_size);
+  // close(fd);
 }
 
 void SmManager::AsyncLoadData(const std::string &file_name, const std::string &tab_name, Context *context) {
@@ -799,3 +801,5 @@ void SmManager::AsyncLoadDataFinish() {
   futures_.clear();
   load_ = 1;
 }
+
+}  // namespace easydb

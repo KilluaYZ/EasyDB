@@ -20,6 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include "record/rm_defs.h"
 
 namespace easydb {
+
 /* 日志记录对应操作的类型 */
 enum LogType : int { UPDATE = 0, INSERT, DELETE, BEGIN, COMMIT, ABORT, CHECKPOINT };
 static std::string LogTypeStr[] = {"UPDATE", "INSERT", "DELETE", "BEGIN", "COMMIT", "ABORT", "CHECKPOINT"};
@@ -597,4 +598,5 @@ class LogManager {
   lsn_t persist_lsn_;                 // 记录已经持久化到磁盘中的最后一条日志的日志号
   DiskManager *disk_manager_;
 };
-};  // namespace easydb
+
+}  // namespace easydb

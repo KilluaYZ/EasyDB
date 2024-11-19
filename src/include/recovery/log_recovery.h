@@ -23,6 +23,7 @@ See the Mulan PSL v2 for more details. */
 #include "transaction/transaction_manager.h"
 
 namespace easydb {
+
 class RedoLogsInPage {
  public:
   RedoLogsInPage() { table_file_ = nullptr; }
@@ -67,9 +68,9 @@ class RecoveryManager {
   BufferPoolManager *buffer_pool_manager_;  // 对页面进行读写
   SmManager *sm_manager_;                   // 访问数据库元数据
   // store the running transactions, the mapping of running transactions to their lastest log records
-  std::unordered_map<txn_id_t, lsn_t> att_;    // Active Transaction Table (ATT): txn_id -> last_lsn
-  std::unordered_set<txn_id_t> aborted_txns_;  // Aborted Txn (set of aborted txn in ATT)
-  std::unordered_map<PageId, lsn_t> dpt_;      // Dirty Page Table (DPT): page_id -> rec_lsn
+  std::unordered_map<txn_id_t, lsn_t> att_;            // Active Transaction Table (ATT): txn_id -> last_lsn
+  std::unordered_set<txn_id_t> aborted_txns_;          // Aborted Txn (set of aborted txn in ATT)
+  std::unordered_map<PageId, lsn_t, PageIdHash> dpt_;  // Dirty Page Table (DPT): page_id -> rec_lsn
   lsn_t min_rec_lsn_;
   std::unordered_map<lsn_t, std::pair<int, int>> lsn_mapping_;
   // better instead of must
@@ -125,4 +126,5 @@ class RecoveryManager {
     tab_name_with_index_.clear();
   }
 };
-};  // namespace easydb
+
+}  // namespace easydb

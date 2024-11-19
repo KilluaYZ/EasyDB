@@ -20,6 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include "transaction/txn_defs.h"
 
 namespace easydb {
+
 class Transaction {
  public:
   explicit Transaction(txn_id_t txn_id, IsolationLevel isolation_level = IsolationLevel::SERIALIZABLE)
@@ -77,4 +78,5 @@ class Transaction {
   std::shared_ptr<std::deque<Page *>> index_latch_page_set_;    // 维护事务执行过程中加锁的索引页面
   std::shared_ptr<std::deque<Page *>> index_deleted_page_set_;  // 维护事务执行过程中删除的索引页面
 };
-};  // namespace easydb
+
+}  // namespace easydb
