@@ -72,6 +72,21 @@ auto Tuple::GetValue(const Schema *schema, const uint32_t column_idx) const -> V
   return Value::DeserializeFrom(data_ptr, column_type);
 }
 
+auto Tuple::GetValue(const Schema *schema, std::string column_name) const -> Value {
+  assert(schema);
+  const TypeId column_type = schema->GetColumn(column_name).GetType();
+  const char *data_ptr = GetDataPtr(schema, column_name);
+  // the third parameter "is_inlined" is unused
+  return Value::DeserializeFrom(data_ptr, column_type);
+}
+
+auto Tuple::GetValue(const Column col) const -> Value {
+  const TypeId column_type = col.GetType();
+  const char *data_ptr = GetDataPtr(col);
+  // the third parameter "is_inlined" is unused
+  return Value::DeserializeFrom(data_ptr, column_type);
+}
+
 auto Tuple::KeyFromTuple(const Schema &schema, const Schema &key_schema,
                          const std::vector<uint32_t> &key_attrs) const -> Tuple {
   std::vector<Value> values;
@@ -85,6 +100,32 @@ auto Tuple::KeyFromTuple(const Schema &schema, const Schema &key_schema,
 auto Tuple::GetDataPtr(const Schema *schema, const uint32_t column_idx) const -> const char * {
   assert(schema);
   const auto &col = schema->GetColumn(column_idx);
+  bool is_inlined = col.IsInlined();
+  // For inline type, data is stored where it is.
+  if (is_inlined) {
+    return (data_.data() + col.GetOffset());
+  }
+  // We read the relative offset from the tuple data.
+  int32_t offset = *reinterpret_cast<const int32_t *>(data_.data() + col.GetOffset());
+  // And return the beginning address of the real data for the VARCHAR type.
+  return (data_.data() + offset);
+}
+
+auto Tuple::GetDataPtr(const Schema *schema, const std::string column_name) const -> const char * {
+  assert(schema);
+  const auto &col = schema->GetColumn(column_name);
+  bool is_inlined = col.IsInlined();
+  // For inline type, data is stored where it is.
+  if (is_inlined) {
+    return (data_.data() + col.GetOffset());
+  }
+  // We read the relative offset from the tuple data.
+  int32_t offset = *reinterpret_cast<const int32_t *>(data_.data() + col.GetOffset());
+  // And return the beginning address of the real data for the VARCHAR type.
+  return (data_.data() + offset);
+}
+
+auto Tuple::GetDataPtr(const Column col) const -> const char * {
   bool is_inlined = col.IsInlined();
   // For inline type, data is stored where it is.
   if (is_inlined) {

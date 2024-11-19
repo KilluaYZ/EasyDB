@@ -32,12 +32,13 @@ using SchemaRef = std::shared_ptr<const Schema>;
 
 class Schema {
  public:
+  Schema () {}
+
   /**
    * Constructs the schema corresponding to the vector of columns, read left-to-right.
    * @param columns columns that describe the schema's individual columns
    */
   explicit Schema(const std::vector<Column> &columns);
-
   static auto CopySchema(const Schema *from, const std::vector<uint32_t> &attrs) -> Schema {
     std::vector<Column> cols;
     cols.reserve(attrs.size());
@@ -56,6 +57,19 @@ class Schema {
    * @return requested column
    */
   auto GetColumn(const uint32_t col_idx) const -> const Column & { return columns_[col_idx]; }
+
+
+  auto GetColumn(const std::string col_name) const -> const Column & {
+    Column tp; 
+    for(auto & col : columns_){
+      if(col.GetName() == col_name){
+        tp = col;
+        break;
+      }
+    }
+    // return columns_[col_idx]; 
+    return tp;
+  }
 
   /**
    * Looks up and returns the index of the first column in the schema with the specified name.

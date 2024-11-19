@@ -36,6 +36,7 @@ class Column {
   friend class Schema;
 
  public:
+  Column() {}
   /**
    * Non-variable-length constructor for creating a Column.
    * @param column_name name of the column

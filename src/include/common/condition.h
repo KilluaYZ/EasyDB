@@ -5,7 +5,6 @@
 
 namespace easydb {
 enum CompOp { OP_EQ, OP_NE, OP_LT, OP_GT, OP_LE, OP_GE, OP_IN };
-enum ArithOp { OP_PLUS, OP_MINUS, OP_MULTI, OP_DIV };
 
 struct Condition {
   TabCol lhs_col;    // left-hand side column
@@ -51,43 +50,4 @@ struct Condition {
   }
 };
 
-struct SetClause {
-  TabCol lhs;
-  Value rhs;
-  ArithOp op;               // comparison operator
-  bool is_rhs_exp = false;  // true if right-hand side is a value (not a column)
-  TabCol rhs_col;           // right-hand side column
-
-  Value cal_val(Value rhs_v) {
-    assert(is_rhs_exp);
-    switch (op) {
-      case OP_PLUS:
-        /* code */
-        return rhs_v + rhs;
-      case OP_MINUS:
-        return rhs_v - rhs;
-      case OP_MULTI:
-        return rhs_v * rhs;
-      case OP_DIV:
-        return rhs_v / rhs;
-      default:
-        throw InternalError("unsupported operator.");
-    }
-  }
-};
-
-struct cmpRecord {
-  cmpRecord(bool asce, ColMeta col) : asce_(asce), col_(col) {}
-
-  bool operator()(const RmRecord &pl, const RmRecord &pr) const {
-    Value leftVal, rightVal;
-    // leftVal.get_value_from_record(pl, col_);
-    // rightVal.get_value_from_record(pr, col_);
-    return !asce_ ? leftVal < rightVal : leftVal > rightVal;
-  }
-
- private:
-  bool asce_;
-  ColMeta col_;
-};
 };  // namespace easydb

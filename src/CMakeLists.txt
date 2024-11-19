@@ -5,7 +5,7 @@ add_subdirectory(storage)
 add_subdirectory(buffer)
 add_subdirectory(record)
 add_subdirectory(planner)
-# add_subdirectory(execution)
+add_subdirectory(execution)
 add_subdirectory(concurrency)
 add_subdirectory(transaction)
 add_subdirectory(recovery)
@@ -18,7 +18,7 @@ set(EASYDB_LIBS
         easydb_catalog
         easydb_common
         easydb_concurrency
-        # easydb_execution
+        easydb_execution
         easydb_recovery
         easydb_record
         easydb_type

@@ -1,25 +1,26 @@
-/* Copyright (c) 2023 Renmin University of China
-RMDB is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
-        http://license.coscl.org.cn/MulanPSL2
-THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
-EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
-MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
-See the Mulan PSL v2 for more details. */
+/*-------------------------------------------------------------------------
+ *
+ * EasyDB
+ *
+ *
+ *-------------------------------------------------------------------------
+ */
 
 #pragma once
 
 #include <algorithm>
+#include <cstdint>
 #include <iostream>
 #include <map>
 #include <string>
 #include <vector>
 
 #include "catalog/column.h"
+#include "catalog/schema.h"
 #include "common/errors.h"
 #include "common/exception.h"
 #include "sm_defs.h"
+#include "type/type_id.h"
 
 namespace easydb {
 
@@ -33,6 +34,16 @@ struct ColMeta {
   bool index;            /** unused */
   AggregationType agg_type = NO_AGG;
 
+  ColMeta() {}
+
+  ColMeta(Column &column) {
+    name = column.GetName();
+    offset = column.GetOffset();
+    type = column.GetType();
+    len = column.GetStorageSize();
+    index = false;
+  }
+
   friend std::ostream &operator<<(std::ostream &os, const ColMeta &col) {
     // ColMeta中有各个基本类型的变量，然后调用重载的这些变量的操作符<<（具体实现逻辑在defs.h）
     return os << col.tab_name << ' ' << col.name << ' ' << col.type << ' ' << col.len << ' ' << col.offset << ' '
@@ -42,21 +53,26 @@ struct ColMeta {
   friend std::istream &operator>>(std::istream &is, ColMeta &col) {
     return is >> col.tab_name >> col.name >> col.type >> col.len >> col.offset >> col.index;
   }
-  ColMeta() = default;
-  ColMeta(Column &other) { throw Exception("Not implemented"); }
 };
 
 /* 索引元数据 */
 struct IndexMeta {
-  std::string tab_name;       // 索引所属表名称
-  int col_tot_len;            // 索引字段长度总和
-  int col_num;                // 索引字段数量
-  std::vector<ColMeta> cols;  // 索引包含的字段
+  std::string tab_name;           // 索引所属表名称
+  int col_tot_len;                // 索引字段长度总和
+  int col_num;                    // 索引字段数量
+  std::vector<ColMeta> cols;      // 索引包含的字段
+  std::vector<uint32_t> col_ids;  // 索引字段在表schema中的位置
+  // Schema schema;
+
+  // IndexMeta() {}
 
   friend std::ostream &operator<<(std::ostream &os, const IndexMeta &index) {
     os << index.tab_name << " " << index.col_tot_len << " " << index.col_num;
     for (auto &col : index.cols) {
       os << "\n" << col;
+    }
+    for (auto &col_index : index.col_ids) {
+      os << "\n" << col_index;
     }
     return os;
   }
@@ -68,6 +84,11 @@ struct IndexMeta {
       is >> col;
       index.cols.push_back(col);
     }
+    for (int i = 0; i < index.col_num; ++i) {
+      uint32_t col_index;
+      is >> col_index;
+      index.col_ids.push_back(col_index);
+    }
     return is;
   }
 };
@@ -77,8 +98,12 @@ struct TabMeta {
   std::string name;                // 表名称
   std::vector<ColMeta> cols;       // 表包含的字段
   std::vector<IndexMeta> indexes;  // 表上建立的索引
+  Schema schema;
 
-  TabMeta() {}
+  TabMeta () {}
+
+  // TabMeta(std::string name_, std::vector<ColMeta> cols_, std::vector<IndexMeta> indexes_, Schema schema_)
+  //     : name(name_), cols(cols_), indexes(indexes_), schema_(schema) {}
 
   TabMeta(const TabMeta &other) {
     name = other.name;
