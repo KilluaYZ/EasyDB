@@ -50,3 +50,7 @@ target_link_libraries(
 target_include_directories(
         easydb PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+
+add_executable(easydb_server rmdb.cpp)
+target_link_libraries(easydb_server easydb)
+
