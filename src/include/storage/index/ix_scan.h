@@ -12,19 +12,10 @@
 #pragma once
 #include "storage/index/ix_defs.h"
 #include "storage/index/ix_index_handle.h"
+#include "record/rm_scan.h"
+#include "common/rid.h"
 
 namespace easydb {
-
-class RecScan {
- public:
-  virtual ~RecScan() = default;
-
-  virtual void Next() = 0;
-
-  virtual bool IsEnd() const = 0;
-
-  virtual RID GetRid() const = 0;
-};
 
 // 用于遍历叶子结点
 // 用于直接遍历叶子结点，而不用findleafpage来得到叶子结点

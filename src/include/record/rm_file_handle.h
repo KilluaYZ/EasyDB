@@ -200,6 +200,13 @@ class RmFileHandle {
   auto GetTuple(RID rid) -> std::pair<TupleMeta, Tuple>;
 
   /**
+   * Read a tuple from the table.
+   * @param rid rid of the tuple to read
+   * @return the tuple
+   */
+  auto GetTupleValue(RID rid) -> std::pair<TupleMeta, Tuple>;
+
+  /**
    * Read a tuple meta from the table. Note: if you want to get tuple and meta together, use `GetTuple` instead
    * to ensure atomicity.
    * @param rid rid of the tuple to read
@@ -208,24 +215,24 @@ class RmFileHandle {
   auto GetTupleMeta(RID rid) -> TupleMeta;
 
   // /* 判断指定位置上是否已经存在一条记录，通过Bitmap来判断 */
-  // bool IsRecord(const RID &rid) const {
+  // bool IsRecord(const RID  &rid) const {
   //   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
   //   return Bitmap::is_set(page_handle.bitmap, rid.GetSlotNum());  // page的slot_no位置上是否有record
   // }
 
-  //   std::unique_ptr<RmRecord> get_record(const RID &rid, Context *context) const;
+  //   std::unique_ptr<RmRecord> get_record(const RID  &rid, Context *context) const;
   auto GetRecord(const RID &rid) -> std::unique_ptr<RmRecord>;
 
-  //   RID insert_record(char *buf, Context *context);
+  //   RID  insert_record(char *buf, Context *context);
   RID InsertRecord(char *buf);
 
-  //   void insert_record(const RID &rid, char *buf);
+  //   void insert_record(const RID  &rid, char *buf);
   void InsertRecord(const RID &rid, char *buf);
 
-  //   void delete_record(const RID &rid, Context *context);
+  //   void delete_record(const RID  &rid, Context *context);
   void DeleteRecord(const RID &rid);
 
-  //   void update_record(const RID &rid, char *buf, Context *context);
+  //   void update_record(const RID  &rid, char *buf, Context *context);
   void UpdateRecord(const RID &rid, char *buf);
 
   // RmPageHandle create_new_page_handle();

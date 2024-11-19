@@ -115,7 +115,7 @@ class IxExtendibleHashIndexHandle {
   ExtendibleHashIxFileHdr *file_hdr_;  // 存储hash表元信息
   std::mutex root_latch_;
   int global_depth;     // Record the global depth of the hash table
-  bool GetValue(const char *key, std::vector<Rid> *result); // for search
+  bool GetValue(const char *key, std::vector<RID> *result); // for search
   page_id_t InsertEntry(const char *key, const Rid &value); // for insert
   bool DeleteEntry(const char *key);  // for delete
 }
@@ -158,7 +158,7 @@ class IxExtendibleHashPageHdr {
   - `fd_`：存储哈希表文件的文件描述符，以便对文件执行读写操作。
   - `file_hdr_`：指向`ExtendibleHashIxFileHdr`对象，便于读取或更新文件的元信息。
 - **核心操作接口**：
-  - `GetValue(const char *key, std::vector<Rid> *result)`：实现键值的查找操作，支持通过哈希索引查找特定键的值。
+  - `GetValue(const char *key, std::vector<RID> *result)`：实现键值的查找操作，支持通过哈希索引查找特定键的值。
   - `InsertEntry(const char *key, const Rid &value)`：实现键值对插入操作。若桶已满，将触发桶分裂操作，并可能更新目录结构。
   - `DeleteEntry(const char *key)`：实现键值对删除操作，通过目录和桶的深度管理，确保空间得到释放。
 - **目录与桶管理**：

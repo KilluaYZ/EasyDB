@@ -74,7 +74,7 @@ class IxManager {
     }
     // 根据 |page_hdr| + (|attr| + |rid|) * (n + 1) <= PAGE_SIZE 求得n的最大值btree_order
     // 即 n <= btree_order，那么btree_order就是每个结点最多可插入的键值对数量（实际还多留了一个空位，但其不可插入）
-    int btree_order = static_cast<int>((PAGE_SIZE - sizeof(IxPageHdr)) / (col_tot_len + sizeof(Rid)) - 1);
+    int btree_order = static_cast<int>((PAGE_SIZE - sizeof(IxPageHdr)) / (col_tot_len + sizeof(RID)) - 1);
     assert(btree_order > 2);
 
     // Create file header and write to file
@@ -195,7 +195,7 @@ class IxManager {
       *phdr = {
           .next_free_page_no = IX_NO_PAGE, .is_valid = true, .local_depth = -1, .key_nums = 2, .size = BUCKET_SIZE};
       char *tp_keys = page_buf + sizeof(IxExtendibleHashPageHdr);
-      Rid *tp_rids = reinterpret_cast<Rid *>(tp_keys + fhdr->keys_size_);
+      RID *tp_rids = reinterpret_cast<RID *>(tp_keys + fhdr->keys_size_);
       tp_rids[0] = {.page_no = IX_INIT_BUCKET_0_PAGE, .slot_no = IX_NO_PAGE};  // only page_no is valid
       tp_rids[1] = {.page_no = IX_INIT_BUCKET_1_PAGE, .slot_no = IX_NO_PAGE};  // only page_no is valid
       // Must write PAGE_SIZE here in case of future fetch_node()

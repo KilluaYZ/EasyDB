@@ -120,18 +120,18 @@ using internal::FunctionMocker;
 #define GMOCK_INTERNAL_MOCK_METHOD_ARG_3(_Ret, _MethodName, _Args) \
   GMOCK_INTERNAL_MOCK_METHOD_ARG_4(_Ret, _MethodName, _Args, ())
 
-#define GMOCK_INTERNAL_MOCK_METHOD_ARG_4(_Ret, _MethodName, _Args, _Spec)  \
-  GMOCK_INTERNAL_ASSERT_PARENTHESIS(_Args);                                \
-  GMOCK_INTERNAL_ASSERT_PARENTHESIS(_Spec);                                \
-  GMOCK_INTERNAL_ASSERT_VALID_SIGNATURE(                                   \
-      GMOCK_PP_NARG0 _Args, GMOCK_INTERNAL_SIGNATURE(_Ret, _Args));        \
-  GMOCK_INTERNAL_ASSERT_VALID_SPEC(_Spec)                                  \
-  GMOCK_INTERNAL_MOCK_METHOD_IMPL(                                         \
-      GMOCK_PP_NARG0 _Args, _MethodName, GMOCK_INTERNAL_HAS_CONST(_Spec),  \
-      GMOCK_INTERNAL_HAS_OVERRIDE(_Spec), GMOCK_INTERNAL_HAS_FINAL(_Spec), \
-      GMOCK_INTERNAL_GET_NOEXCEPT_SPEC(_Spec),                             \
-      GMOCK_INTERNAL_GET_CALLTYPE_SPEC(_Spec),                             \
-      GMOCK_INTERNAL_GET_REF_SPEC(_Spec),                                  \
+#define GMOCK_INTERNAL_MOCK_METHOD_ARG_4(_Ret, _MethodName, _Args, _Spec)   \
+  GMOCK_INTERNAL_ASSERT_PARENTHESIS(_Args);                                 \
+  GMOCK_INTERNAL_ASSERT_PARENTHESIS(_Spec);                                 \
+  GMOCK_INTERNAL_ASSERT_VALID_SIGNATURE(                                    \
+      GMOCK_PP_NARG0 _Args, GMOCK_INTERNAL_SIGNATURE(_Ret, _Args));         \
+  GMOCK_INTERNAL_ASSERT_VALID_SPEC(_Spec)                                   \
+  GMOCK_INTERNAL_MOCK_METHOD_IMPL(                                          \
+      GMOCK_PP_NARG0 _Args, _MethodName, GMOCK_INTERNAL_HAS_CONST(_Spec),   \
+      GMOCK_INTERNAL_HAS_OVERRID E(_Spec), GMOCK_INTERNAL_HAS_FINAL(_Spec), \
+      GMOCK_INTERNAL_GET_NOEXCEPT_SPEC(_Spec),                              \
+      GMOCK_INTERNAL_GET_CALLTYPE_SPEC(_Spec),                              \
+      GMOCK_INTERNAL_GET_REF_SPEC(_Spec),                                   \
       (GMOCK_INTERNAL_SIGNATURE(_Ret, _Args)))
 
 #define GMOCK_INTERNAL_MOCK_METHOD_ARG_5(...) \
@@ -177,8 +177,9 @@ using internal::FunctionMocker;
       _Signature)>::Result                                                     \
   GMOCK_INTERNAL_EXPAND(_CallType)                                             \
       _MethodName(GMOCK_PP_REPEAT(GMOCK_INTERNAL_PARAMETER, _Signature, _N))   \
-          GMOCK_PP_IF(_Constness, const, ) _RefSpec _NoexceptSpec              \
-          GMOCK_PP_IF(_Override, override, ) GMOCK_PP_IF(_Final, final, ) {    \
+          GMOCK_PP_IF(_Constness, const, )                                     \
+              _RefSpec _NoexceptSpec GMOCK_PP_IF(_Override, override, )        \
+                  GMOCK_PP_IF(_Final, final, ) {                               \
     GMOCK_MOCKER_(_N, _Constness, _MethodName)                                 \
         .SetOwnerAndName(this, #_MethodName);                                  \
     return GMOCK_MOCKER_(_N, _Constness, _MethodName)                          \
@@ -201,7 +202,7 @@ using internal::FunctionMocker;
             GMOCK_INTERNAL_A_MATCHER_ARGUMENT, _Signature, _N));               \
   }                                                                            \
   mutable ::testing::FunctionMocker<GMOCK_PP_REMOVE_PARENS(_Signature)>        \
-      GMOCK_MOCKER_(_N, _Constness, _MethodName)
+  GMOCK_MOCKER_(_N, _Constness, _MethodName)
 
 #define GMOCK_INTERNAL_EXPAND(...) __VA_ARGS__
 
@@ -209,9 +210,10 @@ using internal::FunctionMocker;
 #define GMOCK_INTERNAL_HAS_CONST(_Tuple) \
   GMOCK_PP_HAS_COMMA(GMOCK_PP_FOR_EACH(GMOCK_INTERNAL_DETECT_CONST, ~, _Tuple))
 
-#define GMOCK_INTERNAL_HAS_OVERRIDE(_Tuple) \
-  GMOCK_PP_HAS_COMMA(                       \
-      GMOCK_PP_FOR_EACH(GMOCK_INTERNAL_DETECT_OVERRIDE, ~, _Tuple))
+#define GMOCK_INTERNAL_HAS_OVERRID \
+  E(_Tuple)                        \
+  GMOCK_PP_HAS_COMMA(              \
+      GMOCK_PP_FOR_EACH(GMOCK_INTERNAL_DETECT_OVERRID E, ~, _Tuple))
 
 #define GMOCK_INTERNAL_HAS_FINAL(_Tuple) \
   GMOCK_PP_HAS_COMMA(GMOCK_PP_FOR_EACH(GMOCK_INTERNAL_DETECT_FINAL, ~, _Tuple))
@@ -250,7 +252,7 @@ using internal::FunctionMocker;
 #define GMOCK_INTERNAL_ASSERT_VALID_SPEC_ELEMENT(_i, _, _elem)                 \
   static_assert(                                                               \
       (GMOCK_PP_HAS_COMMA(GMOCK_INTERNAL_DETECT_CONST(_i, _, _elem)) +         \
-       GMOCK_PP_HAS_COMMA(GMOCK_INTERNAL_DETECT_OVERRIDE(_i, _, _elem)) +      \
+       GMOCK_PP_HAS_COMMA(GMOCK_INTERNAL_DETECT_OVERRID E(_i, _, _elem)) +     \
        GMOCK_PP_HAS_COMMA(GMOCK_INTERNAL_DETECT_FINAL(_i, _, _elem)) +         \
        GMOCK_PP_HAS_COMMA(GMOCK_INTERNAL_DETECT_NOEXCEPT(_i, _, _elem)) +      \
        GMOCK_PP_HAS_COMMA(GMOCK_INTERNAL_DETECT_REF(_i, _, _elem)) +           \
@@ -265,10 +267,11 @@ using internal::FunctionMocker;
 
 #define GMOCK_INTERNAL_DETECT_CONST_I_const ,
 
-#define GMOCK_INTERNAL_DETECT_OVERRIDE(_i, _, _elem) \
-  GMOCK_PP_CAT(GMOCK_INTERNAL_DETECT_OVERRIDE_I_, _elem)
+#define GMOCK_INTERNAL_DETECT_OVERRID \
+  E(_i, _, _elem)                     \
+  GMOCK_PP_CAT(GMOCK_INTERNAL_DETECT_OVERRID E_I_, _elem)
 
-#define GMOCK_INTERNAL_DETECT_OVERRIDE_I_override ,
+#define GMOCK_INTERNAL_DETECT_OVERRID E_I_override,
 
 #define GMOCK_INTERNAL_DETECT_FINAL(_i, _, _elem) \
   GMOCK_PP_CAT(GMOCK_INTERNAL_DETECT_FINAL_I_, _elem)
