@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include "catalog/schema.h"
 #include "common/common.h"
 #include "common/errors.h"
 #include "defs.h"
@@ -43,6 +44,12 @@ class AbstractExecutor {
     return *_cols;
   };
 
+  virtual const Schema &schema() const { 
+    Schema tp;
+    return tp; 
+  };
+
+
   virtual std::string getType() { return "AbstractExecutor"; };
 
   virtual void beginTuple() {};
@@ -55,7 +62,9 @@ class AbstractExecutor {
 
   virtual RID &rid() = 0;
 
-  virtual std::unique_ptr<RmRecord> Next() = 0;
+  virtual std::unique_ptr<Tuple> Next() = 0;
+
+  // virtual std::unique_ptr<RmRecord> Next() = 0;
 
   virtual ColMeta get_col_offset(const TabCol &target) { return ColMeta(); };
 

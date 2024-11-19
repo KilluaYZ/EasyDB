@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "catalog/column.h"
+#include "catalog/schema.h"
 #include "common/errors.h"
 #include "common/exception.h"
 #include "sm_defs.h"
@@ -33,7 +34,6 @@ struct ColMeta {
   bool index;            /** unused */
   AggregationType agg_type = NO_AGG;
 
-
   ColMeta() {}
 
   ColMeta(Column &column) {
@@ -43,7 +43,7 @@ struct ColMeta {
     len = column.GetStorageSize();
     index = false;
   }
-  
+
   friend std::ostream &operator<<(std::ostream &os, const ColMeta &col) {
     // ColMeta中有各个基本类型的变量，然后调用重载的这些变量的操作符<<（具体实现逻辑在defs.h）
     return os << col.tab_name << ' ' << col.name << ' ' << col.type << ' ' << col.len << ' ' << col.offset << ' '
@@ -57,11 +57,14 @@ struct ColMeta {
 
 /* 索引元数据 */
 struct IndexMeta {
-  std::string tab_name;       // 索引所属表名称
-  int col_tot_len;            // 索引字段长度总和
-  int col_num;                // 索引字段数量
-  std::vector<ColMeta> cols;  // 索引包含的字段
+  std::string tab_name;           // 索引所属表名称
+  int col_tot_len;                // 索引字段长度总和
+  int col_num;                    // 索引字段数量
+  std::vector<ColMeta> cols;      // 索引包含的字段
   std::vector<uint32_t> col_ids;  // 索引字段在表schema中的位置
+  // Schema schema;
+
+  // IndexMeta() {}
 
   friend std::ostream &operator<<(std::ostream &os, const IndexMeta &index) {
     os << index.tab_name << " " << index.col_tot_len << " " << index.col_num;
@@ -95,8 +98,12 @@ struct TabMeta {
   std::string name;                // 表名称
   std::vector<ColMeta> cols;       // 表包含的字段
   std::vector<IndexMeta> indexes;  // 表上建立的索引
+  Schema schema;
 
-  TabMeta() {}
+  TabMeta () {}
+
+  // TabMeta(std::string name_, std::vector<ColMeta> cols_, std::vector<IndexMeta> indexes_, Schema schema_)
+  //     : name(name_), cols(cols_), indexes(indexes_), schema_(schema) {}
 
   TabMeta(const TabMeta &other) {
     name = other.name;

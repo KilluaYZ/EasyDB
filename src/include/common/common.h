@@ -30,39 +30,7 @@ struct TabCol {
   }
 };
 
-enum CompOp { OP_EQ, OP_NE, OP_LT, OP_GT, OP_LE, OP_GE };
 enum ArithOp { OP_PLUS, OP_MINUS, OP_MULTI, OP_DIV };
-
-struct Condition {
-  TabCol lhs_col;                  // left-hand side column
-  CompOp op;                       // comparison operator
-  bool is_rhs_val;                 // true if right-hand side is a value (not a column)
-  TabCol rhs_col;                  // right-hand side column
-  Value rhs_val;                   // right-hand side value
-  std::shared_ptr<void> rhs_stmt;  // right-hand side subquery stmt
-  std::shared_ptr<void> rhs_stmt_exe;
-  std::vector<Value> rhs_in_col;
-
-  bool satisfy(Value lhs_v, Value rhs_v) {
-    switch (op) {
-      case OP_EQ:
-        /* code */
-        return lhs_v == rhs_v;
-      case OP_NE:
-        return lhs_v != rhs_v;
-      case OP_LT:
-        return lhs_v < rhs_v;
-      case OP_GT:
-        return lhs_v > rhs_v;
-      case OP_LE:
-        return lhs_v <= rhs_v;
-      case OP_GE:
-        return lhs_v >= rhs_v;
-      default:
-        throw InternalError("unsupported operator.");
-    }
-  }
-};
 
 struct SetClause {
   TabCol lhs;
@@ -89,19 +57,35 @@ struct SetClause {
   }
 };
 
-struct cmpRecord {
-  cmpRecord(bool asce, ColMeta col) : asce_(asce), col_(col) {}
+// struct cmpRecord {
+//   cmpRecord(bool asce, ColMeta col) : asce_(asce), col_(col) {}
+//   bool operator()(const RmRecord &pl, const RmRecord &pr) const {
+//     Value leftVal, rightVal;
+//     // leftVal.get_value_from_record(pl, col_);
+//     // rightVal.get_value_from_record(pr, col_);
+//     return !asce_ ? leftVal < rightVal : leftVal > rightVal;
+//   }
+//  private:
+//   bool asce_;
+//   ColMeta col_;
+// };
 
-  bool operator()(const RmRecord &pl, const RmRecord &pr) const {
+
+struct cmpTuple {
+  cmpTuple(bool asce, Column col) : asce_(asce), col_(col) {}
+
+  bool operator()(const Tuple &pl, const Tuple &pr) const {
     Value leftVal, rightVal;
-    leftVal.get_value_from_record(pl, col_);
-    rightVal.get_value_from_record(pr, col_);
+    leftVal = pl.GetValue(col_);
+    rightVal = pr.GetValue(col_);
+    // leftVal.get_value_from_record(pl, col_);
+    // rightVal.get_value_from_record(pr, col_);
     return !asce_ ? leftVal < rightVal : leftVal > rightVal;
   }
 
  private:
   bool asce_;
-  ColMeta col_;
+  Column col_;
 };
 
 }  // namespace easydb

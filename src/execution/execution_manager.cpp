@@ -16,9 +16,11 @@
 // #include "execution/executor_merge_join.h"
 // #include "execution/executor_nestedloop_join.h"
 // #include "execution/executor_projection.h"
+#include "common/errors.h"
 #include "execution/executor_seq_scan.h"
 #include "storage/index/ix_manager.h"
 #include "storage/index/ix_scan.h"
+#include "type/value.h"
 
 namespace easydb {
 
@@ -172,7 +174,7 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
   // print header into file
   std::fstream outfile;
   outfile.open("output.txt", std::ios::out | std::ios::app);
-  bool enable_output = sm_manager_->is_enable_output();
+  bool enable_output = sm_manager_->IsEnableOutput();
   bool print_caption = false;
 
   // Print records
@@ -181,19 +183,23 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
   for (executorTreeRoot->beginTuple(); !executorTreeRoot->IsEnd(); executorTreeRoot->nextTuple()) {
     auto Tuple = executorTreeRoot->Next();
     std::vector<std::string> columns;
-    for (auto &col : executorTreeRoot->cols()) {
+    std::vector<Column> cols = executorTreeRoot->schema().GetColumns();
+    char *tp = new char[Tuple->GetLength()];
+    for (auto &col : cols) {
       std::string col_str;
-      char *rec_buf = Tuple->data + col.offset;
-      if (col.type == TYPE_INT) {
+      memcpy(tp, Tuple->GetData(), Tuple->GetLength());
+      char *rec_buf = tp + col.GetOffset();
+      if (col.GetType() == TYPE_INT) {
         col_str = std::to_string(*(int *)rec_buf);
-      } else if (col.type == TYPE_FLOAT) {
+      } else if (col.GetType() == TYPE_FLOAT) {
         col_str = std::to_string(*(float *)rec_buf);
-      } else if (col.type == TYPE_VARCHAR || col.type == TYPE_CHAR) {
-        col_str = std::string((char *)rec_buf, col.len);
+      } else if (col.GetType() == TYPE_VARCHAR || col.GetType() == TYPE_CHAR) {
+        col_str = std::string((char *)rec_buf, col.GetStorageSize());
         col_str.resize(strlen(col_str.c_str()));
       }
       columns.push_back(col_str);
     }
+    delete[] tp;
     if (!print_caption && enable_output) {
       outfile << "|";
       for (int i = 0; i < captions.size(); ++i) {
@@ -240,21 +246,30 @@ std::vector<Value> subquery_select_from(std::shared_ptr<AbstractExecutor> execut
     Value output;
     std::vector<std::string> columns;
     if (executorTreeRoot->cols().size() != 1) {
-      throw SubqueryIllegalError("subquery executorTreeRoot->cols().size() should be 1\n");
+      throw InternalError("subquery executorTreeRoot->cols().size() should be 1\n");
     }
 
-    auto col = executorTreeRoot->cols()[0];
+    // auto col = executorTreeRoot->cols()[0];
+    auto col = executorTreeRoot->schema().GetColumn(0);
     std::string col_str;
-    char *rec_buf = Tuple->data + col.offset;
-    if (col.type == TYPE_INT) {
-      output.set_int(*(int *)rec_buf);
-    } else if (col.type == TYPE_FLOAT) {
-      output.set_float(*(float *)rec_buf);
-    } else if (col.type == TYPE_VARCHAR || col.type == TYPE_CHAR) {
-      col_str = std::string((char *)rec_buf, col.len);
-      col_str.resize(strlen(col_str.c_str()));
-      output.set_str(col_str);
+    // char *rec_buf = Tuple->data + col.GetOffset();
+    char *tp = new char[Tuple->GetLength()];
+    memcpy(tp, Tuple->GetData(), Tuple->GetLength());
+    char *rec_buf = tp + col.GetOffset();
+
+    if (col.GetType() == TYPE_INT) {
+      output = Value().DeserializeFrom(rec_buf, TypeId::TYPE_INT);
+    } else if (col.GetType() == TYPE_FLOAT) {
+      output = Value().DeserializeFrom(rec_buf, TypeId::TYPE_FLOAT);
+    } else if (col.GetType() == TYPE_VARCHAR || col.GetType() == TYPE_CHAR) {
+      uint32_t size = *reinterpret_cast<const uint32_t *>(col.GetStorageSize());
+      char *str_tp = new char[Tuple->GetLength() + sizeof(uint32_t)];
+      memcpy(str_tp,(char*)size,sizeof(uint32_t));
+      memcpy(str_tp + sizeof(uint32_t), rec_buf, size);
+      output = Value().DeserializeFrom(str_tp,TypeId::TYPE_VARCHAR);
+      delete[] str_tp;
     }
+    delete[] tp;
     outputs.push_back(output);
   }
   return outputs;

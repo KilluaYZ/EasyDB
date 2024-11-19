@@ -208,7 +208,7 @@ class RmFileHandle {
    * @param rid rid of the tuple to read
    * @return the tuple
    */
-  auto GetTupleValue(RID rid) -> std::pair<TupleMeta, Tuple>;
+  auto GetTupleValue(const RID &rid) -> std::unique_ptr<Tuple> ;
 
   /**
    * Read a tuple meta from the table. Note: if you want to get tuple and meta together, use `GetTuple` instead

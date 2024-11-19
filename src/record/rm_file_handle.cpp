@@ -219,7 +219,7 @@ auto RmFileHandle::GetTupleValue(const RID &rid) -> std::unique_ptr<Tuple> {
   auto [meta, tuple] = page_handle.GetTuple(rid);
   tuple.rid_ = rid;
 
-  return std::unique_ptr<Tuple>(std::move(tuple));
+  return std::make_unique<Tuple>(tuple);
 
   // // return std::make_pair(meta, std::move(tuple));
   // auto record = std::make_unique<RmRecord>(tuple.GetLength(), tuple.data_.data());

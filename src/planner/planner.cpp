@@ -13,6 +13,7 @@ See the Mulan PSL v2 for more details. */
 #include <memory>
 
 #include "common/common.h"
+#include "common/errors.h"
 // #include "execution/executor_delete.h"
 // #include "execution/executor_index_scan.h"
 // #include "execution/executor_insert.h"
@@ -245,7 +246,7 @@ std::shared_ptr<Plan> Planner::make_one_rel(std::shared_ptr<Query> query, Contex
         }
       } else {
         // error
-        throw RMDBError("No join executor selected!");
+        throw EASYDBError("No join executor selected!");
       }
 
       // table_join_executors = std::make_shared<JoinPlan>(T_NestLoop, std::move(left), std::move(right), join_conds);

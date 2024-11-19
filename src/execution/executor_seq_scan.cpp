@@ -19,8 +19,10 @@ SeqScanExecutor::SeqScanExecutor(SmManager *sm_manager, std::string tab_name, st
   conds_ = std::move(conds);
   TabMeta &tab = sm_manager_->db_.get_table(tab_name_);
   fh_ = sm_manager_->fhs_.at(tab_name_).get();
+  schema_ = tab.schema;
   cols_ = tab.cols;
-  len_ = cols_.back().offset + cols_.back().len;
+  // len_ = cols_.back().offset + cols_.back().len;
+  len_ = schema_.length_;
 
   context_ = context;
 
@@ -80,14 +82,18 @@ bool SeqScanExecutor::predicate() {
       cond.is_rhs_exe_processed = true;
     }
     Value lhs_v, rhs_v;
-    tuple.GetValue()
-    if (lhs_v.get_value_from_tuple(tuple, cols_, cond.lhs_col.col_name) == nullptr) {
+    lhs_v = tuple.GetValue(schema,cond.lhs_col.col_name);
+    if (lhs_v == nullptr) {
       throw InternalError("target column not found.");
     }
     if (cond.is_rhs_val) {
       rhs_v = cond.rhs_val;
-    } else if (cond.op != OP_IN && rhs_v.get_value_from_tuple(tuple, cols_, cond.rhs_col.col_name) == nullptr) {
-      throw InternalError("target column not found.");
+    } else if (cond.op != OP_IN) {
+      rhs_v = tuple.GetValue(schema,cond.rhs_col.col_name);
+      // rhs_v.get_value_from_tuple(tuple, cols_, cond.rhs_col.col_name)
+      if(rhs_v == nullptr){
+        throw InternalError("target column not found.");        
+      }
     }
     if (!cond.satisfy(lhs_v, rhs_v)) {
       satisfy = false;
