@@ -32,7 +32,7 @@ using SchemaRef = std::shared_ptr<const Schema>;
 
 class Schema {
  public:
-  Schema () {}
+  Schema() {}
 
   /**
    * Constructs the schema corresponding to the vector of columns, read left-to-right.
@@ -58,16 +58,15 @@ class Schema {
    */
   auto GetColumn(const uint32_t col_idx) const -> const Column & { return columns_[col_idx]; }
 
-
   auto GetColumn(const std::string col_name) const -> const Column & {
-    Column tp; 
-    for(auto & col : columns_){
-      if(col.GetName() == col_name){
+    Column tp;
+    for (auto &col : columns_) {
+      if (col.GetName() == col_name) {
         tp = col;
         break;
       }
     }
-    // return columns_[col_idx]; 
+    // return columns_[col_idx];
     return tp;
   }
 
@@ -116,6 +115,8 @@ class Schema {
 
   /** @return string representation of this schema */
   auto ToString(bool simplified = true) const -> std::string;
+
+  void Append(std::vector<Column> app) { columns_.insert(columns_.end(), app.begin(), app.end()); }
 
  private:
   /** Fixed-length column size, i.e. the number of bytes used by one tuple. */

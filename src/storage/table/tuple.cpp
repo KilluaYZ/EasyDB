@@ -64,6 +64,48 @@ Tuple::Tuple(std::vector<Value> values, const Schema *schema) {
   }
 }
 
+
+Tuple::Tuple(std::vector<char> data) {
+
+  // // 1. Calculate the size of the tuple.
+  // uint32_t tuple_size = schema->GetInlinedStorageSize();
+  // for (auto &i : schema->GetUnlinedColumns()) {
+  //   auto len = values[i].GetStorageSize();
+  //   if (len == EASYDB_VALUE_NULL) {
+  //     len = 0;
+  //   }
+  //   tuple_size += sizeof(uint32_t) + len;
+  // }
+
+  // // 2. Allocate memory.
+  // data_.resize(tuple_size);
+  // std::fill(data_.begin(), data_.end(), 0);
+
+  data_ = data;
+
+
+  // // 3. Serialize each attribute based on the input value.
+  // uint32_t column_count = schema->GetColumnCount();
+  // uint32_t offset = schema->GetInlinedStorageSize();
+
+  // for (uint32_t i = 0; i < column_count; i++) {
+  //   const auto &col = schema->GetColumn(i);
+  //   if (!col.IsInlined()) {
+  //     // Serialize relative offset, where the actual varchar data is stored.
+  //     *reinterpret_cast<uint32_t *>(data_.data() + col.GetOffset()) = offset;
+  //     // Serialize varchar value, in place (size+data).
+  //     values[i].SerializeTo(data_.data() + offset);
+  //     auto len = values[i].GetStorageSize();
+  //     if (len == EASYDB_VALUE_NULL) {
+  //       len = 0;
+  //     }
+  //     offset += sizeof(uint32_t) + len;
+  //   } else {
+  //     values[i].SerializeTo(data_.data() + col.GetOffset());
+  //   }
+  // }
+}
+
 auto Tuple::GetValue(const Schema *schema, const uint32_t column_idx) const -> Value {
   assert(schema);
   const TypeId column_type = schema->GetColumn(column_idx).GetType();

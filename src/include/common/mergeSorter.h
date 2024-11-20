@@ -15,6 +15,7 @@
 #include "defs.h"
 #include "storage/index/ix_manager.h"
 #include "storage/index/ix_scan.h"
+#include "storage/table/tuple.h"
 #include "system/sm_defs.h"
 #include "system/sm_meta.h"
 
@@ -22,12 +23,16 @@ namespace easydb {
 
 class MergeSorter {
  private:
-  ColMeta col_;  // the colMeta of the sort key col
-  std::vector<ColMeta> all_cols;
+  // ColMeta col_;  // the colMeta of the sort key col
+  // std::vector<ColMeta> all_cols;
+  Column colu_;  // the colMeta of the sort key col
+  std::vector<Column> all_colus_;
+
   bool is_desc_;
   size_t tuple_len_;
-
-  std::vector<RmRecord> record_tmp_buffer;
+  
+  std::vector<Tuple> record_tmp_buffer;
+  // std::vector<RmRecord> record_tmp_buffer;
   std::vector<std::ifstream> fd_list;
 
   std::vector<int> ls;
@@ -43,9 +48,25 @@ class MergeSorter {
   std::vector<std::string> file_paths;
 
  public:
-  MergeSorter(ColMeta col, std::vector<ColMeta> cols, size_t tuple_len, bool is_desc) {
-    col_ = col;
-    all_cols = cols;
+  // MergeSorter(ColMeta col, std::vector<ColMeta> cols, size_t tuple_len, bool is_desc) {
+  //   col_ = col;
+  //   all_cols = cols;
+  //   tuple_len_ = tuple_len;
+  //   is_desc_ = is_desc;
+  //   total_records_count = 0;
+  //   output_records_count = 0;
+
+  //   k = 0;
+  //   BUFFER_MAX_SIZE = 1 * 1024 * 1024 * 1024;  // 1Gb
+  //   BUFFER_MAX_RECORD_COUNT = BUFFER_MAX_SIZE / tuple_len_;
+  //   // BUFFER_MAX_RECORD_COUNT = 5;
+  //   // printf(" tuple.len =%d, BUFFER_MAX_RECORD_COUNT = %d\n",tuple_len_,BUFFER_MAX_RECORD_COUNT);
+  //   record_tmp_buffer.clear();
+  // }
+
+  MergeSorter(Column colu, std::vector<Column> colus, size_t tuple_len, bool is_desc) {
+    colu_ = colu;
+    all_colus_ = colus;
     tuple_len_ = tuple_len;
     is_desc_ = is_desc;
     total_records_count = 0;
@@ -73,16 +94,37 @@ class MergeSorter {
     // }
   }
 
-  void writeBuffer(RmRecord current_tuple) {
+  // void writeBuffer(RmRecord current_tuple) {
+  //   if (record_tmp_buffer.size() >= BUFFER_MAX_RECORD_COUNT) {
+  //     // buffer is full, sort and write buffer into disk. wait for multi-way merge sorting.
+  //     k++;
+  //     sort(record_tmp_buffer.begin(), record_tmp_buffer.end(), cmpTuple(is_desc_, col_));
+  //     std::string fileName = col_.tab_name + "_" + col_.name + "_" + std::to_string(file_paths.size());
+  //     std::ofstream fd;
+  //     fd.open(fileName, std::ios::out);
+  //     for (auto rec = record_tmp_buffer.begin(); rec != record_tmp_buffer.end(); rec++) {
+  //       fd.write(rec->data, tuple_len_);
+  //     }
+  //     fd.close();
+  //     record_tmp_buffer.clear();
+  //     file_paths.push_back(fileName);
+  //   }
+  //   // record buffer is still available, just put into it.
+  //   total_records_count++;
+  //   record_tmp_buffer.push_back(current_tuple);
+  // }
+
+
+  void writeBuffer(Tuple current_tuple) {
     if (record_tmp_buffer.size() >= BUFFER_MAX_RECORD_COUNT) {
       // buffer is full, sort and write buffer into disk. wait for multi-way merge sorting.
       k++;
-      sort(record_tmp_buffer.begin(), record_tmp_buffer.end(), cmpRecord(is_desc_, col_));
-      std::string fileName = col_.tab_name + "_" + col_.name + "_" + std::to_string(file_paths.size());
+      sort(record_tmp_buffer.begin(), record_tmp_buffer.end(), cmpTuple(is_desc_, colu_));
+      std::string fileName = colu_.GetTabName() + "_" + colu_.GetName() + "_" + std::to_string(file_paths.size());
       std::ofstream fd;
       fd.open(fileName, std::ios::out);
       for (auto rec = record_tmp_buffer.begin(); rec != record_tmp_buffer.end(); rec++) {
-        fd.write(rec->data, tuple_len_);
+        fd.write(rec->GetData(), tuple_len_);
       }
       fd.close();
       record_tmp_buffer.clear();
@@ -96,13 +138,13 @@ class MergeSorter {
   void clearBuffer() {
     if (!record_tmp_buffer.empty()) {
       k++;
-      sort(record_tmp_buffer.begin(), record_tmp_buffer.end(), cmpRecord(is_desc_, col_));
-      std::string fileName = col_.tab_name + "_" + col_.name + "_" + std::to_string(file_paths.size());
+      sort(record_tmp_buffer.begin(), record_tmp_buffer.end(), cmpTuple(is_desc_, colu_));
+      std::string fileName = colu_.GetTabName() + "_" + colu_.GetName() + "_" + std::to_string(file_paths.size());
       std::ofstream fd;
       fd.open(fileName, std::ios::out);
       fd.flush();
       for (auto rec = record_tmp_buffer.begin(); rec != record_tmp_buffer.end(); rec++) {
-        fd.write(rec->data, tuple_len_);
+        fd.write(rec->GetData(), tuple_len_);
       }
       fd.close();
       record_tmp_buffer.clear();
@@ -118,7 +160,8 @@ class MergeSorter {
       char *record = (char *)malloc(sizeof(char) * (tuple_len_ + 1));
       Value tp;
       fd.read(record, tuple_len_);
-      tp.get_value_from_record(record, col_);
+      tp = Value().DeserializeFrom(record, colu_.GetType());
+      // tp.get_value_from_record(record, col_);
       merge_record_list.push_back(record);
 
       merge_value_list.push_back(tp);
@@ -145,7 +188,8 @@ class MergeSorter {
       if (fd_list[ls[0]].fail()) {
         merge_record_list[ls[0]] = NULL;
       } else {
-        tp.get_value_from_record(record, col_);
+        tp = Value().DeserializeFrom(record, colu_.GetType());
+        // tp.get_value_from_record(record, col_);
         memcpy(merge_record_list[ls[0]], record, tuple_len_);
         free(record);
       }

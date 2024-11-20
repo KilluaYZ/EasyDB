@@ -12,10 +12,10 @@
 // #include "execution/executor_insert.h"
 // #include "execution/executor_update.h"
 
-// #include "execution/executor_index_scan.h"
-// #include "execution/executor_merge_join.h"
-// #include "execution/executor_nestedloop_join.h"
-// #include "execution/executor_projection.h"
+#include "execution/executor_index_scan.h"
+#include "execution/executor_merge_join.h"
+#include "execution/executor_nestedloop_join.h"
+#include "execution/executor_projection.h"
 #include "common/errors.h"
 #include "execution/executor_seq_scan.h"
 #include "storage/index/ix_manager.h"
@@ -194,7 +194,9 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
       } else if (col.GetType() == TYPE_FLOAT) {
         col_str = std::to_string(*(float *)rec_buf);
       } else if (col.GetType() == TYPE_VARCHAR || col.GetType() == TYPE_CHAR) {
-        col_str = std::string((char *)rec_buf, col.GetStorageSize());
+        uint32_t size = *reinterpret_cast<const uint32_t *>(rec_buf);
+        col_str = std::string((char *)rec_buf + sizeof(uint32_t), size);
+        // col_str = std::string((char *)rec_buf + sizeof(uint32_t), col.GetStorageSize()- sizeof(uint32_t));
         col_str.resize(strlen(col_str.c_str()));
       }
       columns.push_back(col_str);

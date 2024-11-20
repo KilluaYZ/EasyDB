@@ -70,6 +70,8 @@ class Tuple {
 
   // constructor for creating a new tuple based on input value
   Tuple(std::vector<Value> values, const Schema *schema);
+  
+  Tuple(std::vector<char> data);
 
   Tuple(const Tuple &other) = default;
 

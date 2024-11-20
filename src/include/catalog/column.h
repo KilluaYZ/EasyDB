@@ -62,6 +62,12 @@ class Column {
     // EASYDB_ASSERT(type == TypeId::TYPE_VARCHAR || type == TypeId::VECTOR, "Wrong constructor for fixed-size type.");
   }
 
+  Column(std::string column_name, std::string tab_name, TypeId type, uint32_t length)
+      : column_name_(std::move(column_name)), tab_name_(tab_name), column_type_(type), length_(TypeSize(type, length)) {
+    EASYDB_ASSERT(type == TypeId::TYPE_CHAR || type == TypeId::TYPE_VARCHAR, "Wrong constructor for fixed-size type.");
+    // EASYDB_ASSERT(type == TypeId::TYPE_VARCHAR || type == TypeId::VECTOR, "Wrong constructor for fixed-size type.");
+  }
+
   /**
    * Replicate a Column with a different name.
    * @param column_name name of the column
@@ -82,11 +88,17 @@ class Column {
   /** @return column name */
   auto GetName() const -> std::string { return column_name_; }
 
+  void SetName(std::string new_name) { column_name_ = new_name; }
+
+  auto GetTabName() const -> std::string { return tab_name_; }
+
   /** @return column length */
   auto GetStorageSize() const -> uint32_t { return length_; }
 
   /** @return column's offset in the tuple */
   auto GetOffset() const -> uint32_t { return column_offset_; }
+
+  void SetOffset(uint32_t new_offset) { column_offset_ = new_offset; }
 
   /** @return column type */
   auto GetType() const -> TypeId { return column_type_; }
@@ -98,6 +110,8 @@ class Column {
 
   /** @return a string representation of this column */
   auto ToString(bool simplified = true) const -> std::string;
+
+  void AddOffset(int off) { column_offset_ += off; };
 
  private:
   /**
@@ -134,6 +148,8 @@ class Column {
 
   /** Column name. */
   std::string column_name_;
+
+  std::string tab_name_;
 
   /** Column value's type. */
   TypeId column_type_;

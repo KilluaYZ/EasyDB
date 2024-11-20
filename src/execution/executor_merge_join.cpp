@@ -16,14 +16,21 @@ MergeJoinExecutor::MergeJoinExecutor(std::unique_ptr<AbstractExecutor> left, std
   left_ = std::move(left);
   right_ = std::move(right);
   len_ = left_->tupleLen() + right_->tupleLen();
-  cols_ = left_->cols();
+  // cols_ = left_->cols();
+  schema_ = left_->schema();
   use_index_ = use_index;
-  auto right_cols = right_->cols();
-  for (auto &col : right_cols) {
-    col.offset += left_->tupleLen();
+  // auto right_cols = right_->cols();
+  // for (auto &col : right_cols) {
+  //   col.offset += left_->tupleLen();
+  // }
+  auto right_schema = right_->schema();
+  auto right_colus_ = right_schema.GetColumns();
+  for (auto &colu : right_colus_) {
+    // col.offset += left_->tupleLen();
+    colu.AddOffset(schema_.GetInlinedStorageSize());
   }
-
-  cols_.insert(cols_.end(), right_cols.begin(), right_cols.end());
+  schema_.Append(right_colus_);
+  // cols_.insert(cols_.end(), right_cols.begin(), right_cols.end());
   isend = false;
   fed_conds_ = std::move(conds);
 
@@ -32,18 +39,23 @@ MergeJoinExecutor::MergeJoinExecutor(std::unique_ptr<AbstractExecutor> left, std
     // op must be OP_EQ and right hand must also be a col
     if (cond.op == OP_EQ && !cond.is_rhs_val) {
       if (cond.lhs_col.tab_name == left_->getTabName() && cond.rhs_col.tab_name == right_->getTabName()) {
-        left_sel_col_ = get_col_offset(left_->cols(), cond.lhs_col);
-        right_sel_col_ = get_col_offset(right_->cols(), cond.rhs_col);
+        // left_sel_col_ = get_col_offset(left_->cols(), cond.lhs_col);
+        // right_sel_col_ = get_col_offset(right_->cols(), cond.rhs_col);
+        left_sel_colu_ = get_col_offset(left_->schema(), cond.lhs_col);
+        right_sel_colu_ = get_col_offset(right_->schema(), cond.rhs_col);
       } else if (cond.rhs_col.tab_name == left_->getTabName() && cond.lhs_col.tab_name == right_->getTabName()) {
-        left_sel_col_ = get_col_offset(left_->cols(), cond.rhs_col);
-        right_sel_col_ = get_col_offset(right_->cols(), cond.lhs_col);
+        // left_sel_col_ = get_col_offset(left_->cols(), cond.rhs_col);
+        // right_sel_col_ = get_col_offset(right_->cols(), cond.lhs_col);
+        left_sel_colu_ = get_col_offset(left_->schema(), cond.rhs_col);
+        right_sel_colu_ = get_col_offset(right_->chema(), cond.lhs_col);
       }
     }
   }
 
   if (!use_index_) {
-    leftSorter_ = std::make_unique<MergeSorter>(left_sel_col_, left_->cols(), left_->tupleLen(), false);
-    rightSorter_ = std::make_unique<MergeSorter>(right_sel_col_, right_->cols(), right_->tupleLen(), false);
+    leftSorter_ = std::make_unique<MergeSorter>(left_sel_col_, left_->schema().GetColumns(), left_->tupleLen(), false);
+    rightSorter_ =
+        std::make_unique<MergeSorter>(right_sel_col_, right_->schema().GetColumns(), right_->tupleLen(), false);
   }
 
   fd_left.open("sorted_results_left.txt", std::ios::out | std::ios::trunc);
@@ -54,8 +66,8 @@ MergeJoinExecutor::MergeJoinExecutor(std::unique_ptr<AbstractExecutor> left, std
   if (!fd_right.is_open()) {
     printf("sorted_results.txt open failed.\n");
   }
-  writeHeader(fd_left, left_->cols());
-  writeHeader(fd_right, right_->cols());
+  writeHeader(fd_left, left_->schema());
+  writeHeader(fd_right, right_->schema());
 }
 
 void MergeJoinExecutor::beginTuple() override {
@@ -141,8 +153,8 @@ void MergeJoinExecutor::iterate_helper() {
     return;
   }
 
-  writeRecord(fd_left, current_left_data_, left_->cols());
-  writeRecord(fd_right, current_right_data_, right_->cols());
+  writeRecord(fd_left, current_left_data_, left_->schema().GetColumns());
+  writeRecord(fd_right, current_right_data_, right_->schema().GetColumns());
   Value lhs_v, rhs_v;
   lhs_v.get_value_from_record(current_left_data_, left_sel_col_);
   rhs_v.get_value_from_record(current_right_data_, right_sel_col_);
@@ -152,11 +164,11 @@ void MergeJoinExecutor::iterate_helper() {
       break;
     } else if (lhs_v < rhs_v) {
       current_left_data_ = leftSorter_->getOneRecord();
-      writeRecord(fd_left, current_left_data_, left_->cols());
+      writeRecord(fd_left, current_left_data_, left_->schema().GetColumns());
       lhs_v.get_value_from_record(current_left_data_, left_sel_col_);
     } else {
       current_right_data_ = rightSorter_->getOneRecord();
-      writeRecord(fd_right, current_right_data_, right_->cols());
+      writeRecord(fd_right, current_right_data_, right_->schema().GetColumns());
       rhs_v.get_value_from_record(current_right_data_, right_sel_col_);
     }
   }
@@ -180,8 +192,8 @@ void MergeJoinExecutor::index_iterate_helper() {
   // right_->nextTuple();
   right_idx_++;
 
-  writeRecord(fd_left, current_left_rec_, left_->cols());
-  writeRecord(fd_right, current_right_rec_, right_->cols());
+  writeRecord(fd_left, current_left_rec_, left_->schema().GetColumns());
+  writeRecord(fd_right, current_right_rec_, right_->schema().GetColumns());
   Value lhs_v, rhs_v;
   lhs_v.get_value_from_record(current_left_rec_, left_sel_col_);
   rhs_v.get_value_from_record(current_right_rec_, right_sel_col_);
@@ -191,12 +203,12 @@ void MergeJoinExecutor::index_iterate_helper() {
       break;
     } else if (lhs_v < rhs_v) {
       current_left_rec_ = left_buffer_[left_idx_];
-      writeRecord(fd_left, current_left_rec_, left_->cols());
+      writeRecord(fd_left, current_left_rec_, left_->schema().GetColumns());
       lhs_v.get_value_from_record(current_left_rec_, left_sel_col_);
       left_idx_++;
     } else {
       current_right_rec_ = right_buffer_[right_idx_];
-      writeRecord(fd_right, current_right_rec_, right_->cols());
+      writeRecord(fd_right, current_right_rec_, right_->schema().GetColumns());
       rhs_v.get_value_from_record(current_right_rec_, right_sel_col_);
       right_idx_++;
     }
@@ -225,12 +237,41 @@ RmRecord MergeJoinExecutor::concat_records() {
   }
 }
 
-void MergeJoinExecutor::writeRecord(std::fstream &fd, char *data, std::vector<ColMeta> cols) {
+// void MergeJoinExecutor::writeRecord(std::fstream &fd, char *data, std::vector<ColMeta> cols) {
+//   std::vector<std::string> columns;
+//   for (auto &col : cols) {
+//     std::string col_str;
+//     char *rec_buf = data + col.offset;
+//     switch (col.type) {
+//       case TYPE_INT:
+//         col_str = std::to_string(*(int *)rec_buf);
+//         break;
+//       case TYPE_FLOAT:
+//         col_str = std::to_string(*(float *)rec_buf);
+//         break;
+//       case TYPE_VARCHAR:
+//       case TYPE_CHAR:
+//         col_str = std::string((char *)rec_buf, col.len);
+//         col_str.resize(strlen(col_str.c_str()));
+//         break;
+//       default:
+//         throw InternalError("unsupported data type.");
+//     }
+//     columns.push_back(col_str);
+//   }
+//   fd << "|";
+//   for (auto &col_str : columns) {
+//     fd << " " << col_str << " |";
+//   }
+//   fd << "\n";
+// }
+
+void MergeJoinExecutor::writeRecord(std::fstream &fd, char *data, std::vector<Column> cols) {
   std::vector<std::string> columns;
   for (auto &col : cols) {
     std::string col_str;
-    char *rec_buf = data + col.offset;
-    switch (col.type) {
+    char *rec_buf = data + col.GetOffset();
+    switch (col.GetType()) {
       case TYPE_INT:
         col_str = std::to_string(*(int *)rec_buf);
         break;
@@ -254,12 +295,13 @@ void MergeJoinExecutor::writeRecord(std::fstream &fd, char *data, std::vector<Co
   fd << "\n";
 }
 
-void MergeJoinExecutor::writeRecord(std::fstream &fd, std::unique_ptr<RmRecord> &Tuple,
-                                    const std::vector<ColMeta> &cols) {
+void MergeJoinExecutor::writeRecord(std::fstream &fd, std::unique_ptr<Tuple> &Tuple, const std::vector<Column> &cols) {
   std::vector<std::string> columns;
+  char *tp = new char[Tuple->GetLength()];
+  memcpy(tp, Tuple->GetData(), Tuple->GetLength());
   for (auto &col : cols) {
     std::string col_str;
-    char *rec_buf = Tuple->data + col.offset;
+    char *rec_buf = tp + col.GetOffset();
     switch (col.type) {
       case TYPE_INT:
         col_str = std::to_string(*(int *)rec_buf);
@@ -269,7 +311,9 @@ void MergeJoinExecutor::writeRecord(std::fstream &fd, std::unique_ptr<RmRecord> 
         break;
       case TYPE_VARCHAR:
       case TYPE_CHAR:
-        col_str = std::string((char *)rec_buf, col.len);
+        uint32_t size = *reinterpret_cast<const uint32_t *>(rec_buf);
+        col_str = std::string((char *)rec_buf + sizeof(uint32_t), size);
+        // col_str = std::string((char *)rec_buf + sizeof(uint32_t), col.GetStorageSize()- sizeof(uint32_t));
         col_str.resize(strlen(col_str.c_str()));
         break;
       default:
@@ -277,6 +321,7 @@ void MergeJoinExecutor::writeRecord(std::fstream &fd, std::unique_ptr<RmRecord> 
     }
     columns.push_back(col_str);
   }
+  delete[] tp;
   fd << "|";
   for (auto &col_str : columns) {
     fd << " " << col_str << " |";
@@ -284,11 +329,14 @@ void MergeJoinExecutor::writeRecord(std::fstream &fd, std::unique_ptr<RmRecord> 
   fd << "\n";
 }
 
-void MergeJoinExecutor::writeRecord(std::fstream &fd, RmRecord &Tuple, const std::vector<ColMeta> &cols) {
+void MergeJoinExecutor::writeRecord(std::fstream &fd, Tuple &Tuple, const std::vector<Column> &cols) {
   std::vector<std::string> columns;
+  char *tp = new char[Tuple.GetLength()];
+  memcpy(tp, Tuple.GetData(), Tuple.GetLength());
   for (auto &col : cols) {
     std::string col_str;
-    char *rec_buf = Tuple.data + col.offset;
+    char *rec_buf = tp + col.GetOffset();
+    // char *rec_buf = Tuple.data + col.offset;
     switch (col.type) {
       case TYPE_INT:
         col_str = std::to_string(*(int *)rec_buf);
@@ -298,7 +346,11 @@ void MergeJoinExecutor::writeRecord(std::fstream &fd, RmRecord &Tuple, const std
         break;
       case TYPE_VARCHAR:
       case TYPE_CHAR:
-        col_str = std::string((char *)rec_buf, col.len);
+        // col_str = std::string((char *)rec_buf, col.len);
+        // col_str.resize(strlen(col_str.c_str()));
+        uint32_t size = *reinterpret_cast<const uint32_t *>(rec_buf);
+        col_str = std::string((char *)rec_buf + sizeof(uint32_t), size);
+        // col_str = std::string((char *)rec_buf + sizeof(uint32_t), col.GetStorageSize()- sizeof(uint32_t));
         col_str.resize(strlen(col_str.c_str()));
         break;
       default:
@@ -306,6 +358,7 @@ void MergeJoinExecutor::writeRecord(std::fstream &fd, RmRecord &Tuple, const std
     }
     columns.push_back(col_str);
   }
+  delete[] tp;
   fd << "|";
   for (auto &col_str : columns) {
     fd << " " << col_str << " |";

@@ -21,10 +21,13 @@ namespace easydb {
 class ProjectionExecutor : public AbstractExecutor {
  private:
   std::unique_ptr<AbstractExecutor> prev_;  // 投影节点的儿子节点
-  std::vector<ColMeta> cols_;               // 需要投影的字段
+  // std::string tab_name_;
+  // std::vector<ColMeta> cols_;               // 需要投影的字段
   size_t len_;                              // 字段总长度
   std::vector<size_t> sel_idxs_;            // 投影字段对应的offset
-  RmRecord projection_records_;             // temp projection record(added by flerovium)
+  // RmRecord projection_records_;             // temp projection record(added by flerovium)
+  Tuple projection_records_;             // temp projection record(added by flerovium)
+  Schema schema_;                       // scan后生成的记录的字段
 
  public:
   ProjectionExecutor(std::unique_ptr<AbstractExecutor> prev, const std::vector<TabCol> &sel_cols);
@@ -33,27 +36,30 @@ class ProjectionExecutor : public AbstractExecutor {
 
   void nextTuple() override;
 
-  std::unique_ptr<RmRecord> Next() override { return std::make_unique<RmRecord>(projection_records_); }
+  std::unique_ptr<Tuple> Next() override { return std::make_unique<Tuple>(projection_records_); }
+  // std::unique_ptr<RmRecord> Next() override { return std::make_unique<RmRecord>(projection_records_); }
 
   RID &rid() override { return _abstract_rid; }
 
-  const std::vector<ColMeta> &cols() const override { return cols_; };
+  const Schema &schema() const override { return schema_; };
+  // const std::vector<ColMeta> &cols() const override { return cols_; };
 
   size_t tupleLen() const override { return len_; };
 
   bool IsEnd() const override { return prev_->IsEnd(); };
 
-  ColMeta get_col_offset(const TabCol &target) override {
-    for (auto &col : cols_) {
-      if (target.col_name == col.name && target.tab_name == col.tab_name) {
-        return col;
-      }
-    }
-    throw ColumnNotFoundError(target.col_name);
-  };
+  // ColMeta get_col_offset(const TabCol &target) override {
+  //   for (auto &col : cols_) {
+  //     if (target.col_name == col.name && target.tab_name == col.tab_name) {
+  //       return col;
+  //     }
+  //   }
+  //   throw ColumnNotFoundError(target.col_name);
+  // };
 
  private:
-  RmRecord projectRecord();
+  // RmRecord projectRecord();
+  Tuple projectRecord();
 
   std::string generate_new_name(TabCol col);
 };
