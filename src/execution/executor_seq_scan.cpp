@@ -82,14 +82,14 @@ bool SeqScanExecutor::predicate() {
       cond.is_rhs_exe_processed = true;
     }
     Value lhs_v, rhs_v;
-    lhs_v = tuple.GetValue(schema,cond.lhs_col.col_name);
+    lhs_v = tuple.GetValue(schema_,cond.lhs_col.col_name);
     if (lhs_v == nullptr) {
       throw InternalError("target column not found.");
     }
     if (cond.is_rhs_val) {
       rhs_v = cond.rhs_val;
     } else if (cond.op != OP_IN) {
-      rhs_v = tuple.GetValue(schema,cond.rhs_col.col_name);
+      rhs_v = tuple.GetValue(schema_,cond.rhs_col.col_name);
       // rhs_v.get_value_from_tuple(tuple, cols_, cond.rhs_col.col_name)
       if(rhs_v == nullptr){
         throw InternalError("target column not found.");        

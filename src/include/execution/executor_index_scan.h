@@ -28,7 +28,8 @@ class IndexScanExecutor : public AbstractExecutor {
   TabMeta tab_;                       // 表的元数据
   std::vector<Condition> conds_;      // 扫描条件
   RmFileHandle *fh_;                  // 表的数据文件句柄
-  std::vector<ColMeta> cols_;         // 需要读取的字段
+  // std::vector<ColMeta> cols_;         // 需要读取的字段
+  Schema schema_;                       // scan后生成的记录的字段
   size_t len_;                        // 选取出来的一条记录的长度
   std::vector<Condition> fed_conds_;  // 扫描条件，和conds_字段相同
 
@@ -48,7 +49,9 @@ class IndexScanExecutor : public AbstractExecutor {
 
   size_t tupleLen() const override { return len_; }
 
-  const std::vector<ColMeta> &cols() const override { return cols_; }
+  // const std::vector<ColMeta> &cols() const override { return cols_; }
+
+  const Schema &schema() const override { return schema_; }
 
   virtual std::string getType() override { return "IndexScanExecutor"; };
 
@@ -59,18 +62,10 @@ class IndexScanExecutor : public AbstractExecutor {
 
   RID &rid() override { return rid_; }
 
-  std::unique_ptr<RmRecord> Next() override {
+  std::unique_ptr<Tuple> Next() override {
     // assert(!IsEnd());
-    return fh_->GetTupleValue(rid_, context_);
-  }
-
-  ColMeta get_col_offset(const TabCol &target) override {
-    for (auto &col : cols_) {
-      if (target.col_name == col.name && target.tab_name == col.tab_name) {
-        return col;
-      }
-    }
-    throw ColumnNotFoundError(target.col_name);
+    return fh_->GetTupleValue(rid_);
+    // return fh_->GetTupleValue(rid_, context_);
   }
 
  private:

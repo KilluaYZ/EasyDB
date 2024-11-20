@@ -25,6 +25,7 @@ class ProjectionExecutor : public AbstractExecutor {
   size_t len_;                              // 字段总长度
   std::vector<size_t> sel_idxs_;            // 投影字段对应的offset
   RmRecord projection_records_;             // temp projection record(added by flerovium)
+  Schema schema_;                       // scan后生成的记录的字段
 
  public:
   ProjectionExecutor(std::unique_ptr<AbstractExecutor> prev, const std::vector<TabCol> &sel_cols);

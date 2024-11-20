@@ -10,6 +10,7 @@
 
 #include "catalog/schema.h"
 #include "common/common.h"
+#include "common/context.h"
 #include "common/errors.h"
 #include "defs.h"
 #include "storage/index/ix_manager.h"
@@ -24,15 +25,15 @@ class AbstractExecutor {
  public:
   RID _abstract_rid;
 
-  // Context *context_;
+  Context *context_;
 
-  AbstractExecutor() : _abstract_rid() {}
-  // AbstractExecutor() : _abstract_rid(), context_(nullptr) {}
+  AbstractExecutor() : _abstract_rid(), context_(nullptr) {}
+  
   AbstractExecutor(std::shared_ptr<void> &ptr) {
     auto derived_ptr = std::static_pointer_cast<AbstractExecutor>(ptr);
     // 使用 derived_ptr 初始化 AbstractExecutor 的成员变量
     _abstract_rid = derived_ptr->_abstract_rid;
-    // context_ = derived_ptr->context_;
+    context_ = derived_ptr->context_;
   }
 
   virtual ~AbstractExecutor() = default;
@@ -44,11 +45,10 @@ class AbstractExecutor {
     return *_cols;
   };
 
-  virtual const Schema &schema() const { 
+  virtual const Schema &schema() const {
     Schema tp;
-    return tp; 
+    return tp;
   };
-
 
   virtual std::string getType() { return "AbstractExecutor"; };
 

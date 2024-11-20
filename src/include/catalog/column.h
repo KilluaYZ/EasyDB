@@ -99,6 +99,8 @@ class Column {
   /** @return a string representation of this column */
   auto ToString(bool simplified = true) const -> std::string;
 
+  void AddOffset(int off) {column_offset_ += off;};
+
  private:
   /**
    * Return the size in bytes of the type.

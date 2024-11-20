@@ -22,6 +22,7 @@ class SortExecutor : public AbstractExecutor {
  private:
   std::unique_ptr<AbstractExecutor> prev_;
   ColMeta cols_;  // 框架中只支持一个键排序，需要自行修改数据结构支持多个键排序
+  Schema schema_;                       // scan后生成的记录的字段
   size_t tuple_num;
   size_t len_;
   bool is_desc_;
