@@ -18,7 +18,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "analyze/analyze.h"
 #include "common/errors.h"
-// #include "common/portal.h"
+#include "common/portal.h"
 #include "optimizer/optimizer.h"
 #include "planner/plan.h"
 #include "planner/planner.h"
@@ -43,6 +43,8 @@ std::unique_ptr<QlManager> ql_manager;
 std::unique_ptr<LogManager> log_manager;
 std::unique_ptr<RecoveryManager> recovery;
 std::unique_ptr<Analyze> analyze;
+std::unique_ptr<Portal> portal;
+
 int sockfd;
 pthread_mutex_t *buffer_mutex;
 pthread_mutex_t *sockfd_mutex;
@@ -134,9 +136,9 @@ void *client_handler(void *sock_fd) {
           if (!optimizer->bypass(query, context)) {
             std::shared_ptr<Plan> plan = optimizer->plan_query(query, context);
             // portal
-            // std::shared_ptr<PortalStmt> portalStmt = portal->start(plan, context);
-            // portal->run(portalStmt, ql_manager.get(), &txn_id, context);
-            // portal->drop();
+            std::shared_ptr<PortalStmt> portalStmt = portal->start(plan, context);
+            portal->run(portalStmt, ql_manager.get(), &txn_id, context);
+            portal->drop();
           }
         } catch (TransactionAbortException &e) {
           // 事务需要回滚，需要把abort信息返回给客户端并写入output.txt文件中
@@ -279,14 +281,13 @@ int main(int argc, char **argv) {
 
   try {
     std::cout << "\n"
-                 "  _____  __  __ _____  ____  \n"
-                 " |  __ \\|  \\/  |  __ \\|  _ \\ \n"
-                 " | |__) | \\  / | |  | | |_) |\n"
-                 " |  _  /| |\\/| | |  | |  _ < \n"
-                 " | | \\ \\| |  | | |__| | |_) |\n"
-                 " |_|  \\_\\_|  |_|_____/|____/ \n"
+                 "███████  █████  ███████ ██    ██ ██████  ██████\n" 
+                 "██      ██   ██ ██       ██  ██  ██   ██ ██   ██\n" 
+                 "█████   ███████ ███████   ████   ██   ██ ██████\n"  
+                 "██      ██   ██      ██    ██    ██   ██ ██   ██\n" 
+                 "███████ ██   ██ ███████    ██    ██████  ██████\n"
                  "\n"
-                 "Welcome to RMDB!\n"
+                 "Welcome to EASYDB!\n"
                  "Type 'help;' for help.\n"
                  "\n";
     // Database name is passed by args
@@ -307,7 +308,7 @@ int main(int argc, char **argv) {
     recovery = std::make_unique<RecoveryManager>(disk_manager.get(), buffer_pool_manager.get(), sm_manager.get(),
                                                  txn_manager.get(), log_manager.get());
 
-    // portal = std::make_unique<Portal>(sm_manager.get());
+    portal = std::make_unique<Portal>(sm_manager.get());
     analyze = std::make_unique<Analyze>(sm_manager.get());
 
     signal(SIGINT, sigint_handler);

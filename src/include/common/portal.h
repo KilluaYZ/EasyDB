@@ -27,7 +27,6 @@ See the Mulan PSL v2 for more details. */
 #include "execution/executor_update.h"
 #include "planner/plan.h"
 
-
 namespace easydb {
 
 typedef enum portalTag {
