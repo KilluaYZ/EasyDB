@@ -18,36 +18,32 @@ See the Mulan PSL v2 for more details. */
 
 #include "analyze/analyze.h"
 #include "common/errors.h"
+// #include "common/portal.h"
 #include "optimizer/optimizer.h"
-#include "optimizer/plan.h"
-#include "optimizer/planner.h"
-#include "portal.h"
+#include "planner/plan.h"
+#include "planner/planner.h"
 #include "recovery/log_recovery.h"
 
-
-namespace easydb {
 #define SOCK_PORT 8765
 #define MAX_CONN_LIMIT 8
+using namespace easydb;
 
 static bool should_exit = false;
 
-// 构建全局所需的管理器对象
-auto disk_manager = std::make_unique<DiskManager>();
-auto buffer_pool_manager = std::make_unique<BufferPoolManager>(BUFFER_POOL_SIZE, disk_manager.get());
-auto rm_manager = std::make_unique<RmManager>(disk_manager.get(), buffer_pool_manager.get());
-auto ix_manager = std::make_unique<IxManager>(disk_manager.get(), buffer_pool_manager.get());
-auto sm_manager =
-    std::make_unique<SmManager>(disk_manager.get(), buffer_pool_manager.get(), rm_manager.get(), ix_manager.get());
-auto lock_manager = std::make_unique<LockManager>();
-auto txn_manager = std::make_unique<TransactionManager>(lock_manager.get(), sm_manager.get());
-auto planner = std::make_unique<Planner>(sm_manager.get());
-auto optimizer = std::make_unique<Optimizer>(sm_manager.get(), planner.get());
-auto ql_manager = std::make_unique<QlManager>(sm_manager.get(), txn_manager.get(), planner.get());
-auto log_manager = std::make_unique<LogManager>(disk_manager.get());
-auto recovery = std::make_unique<RecoveryManager>(disk_manager.get(), buffer_pool_manager.get(), sm_manager.get(),
-                                                  txn_manager.get(), log_manager.get());
-auto portal = std::make_unique<Portal>(sm_manager.get());
-auto analyze = std::make_unique<Analyze>(sm_manager.get());
+std::unique_ptr<DiskManager> disk_manager;
+std::unique_ptr<BufferPoolManager> buffer_pool_manager;
+std::unique_ptr<RmManager> rm_manager;
+std::unique_ptr<IxManager> ix_manager;
+std::unique_ptr<SmManager> sm_manager;
+std::unique_ptr<LockManager> lock_manager;
+std::unique_ptr<TransactionManager> txn_manager;
+std::unique_ptr<Planner> planner;
+std::unique_ptr<Optimizer> optimizer;
+std::unique_ptr<QlManager> ql_manager;
+std::unique_ptr<LogManager> log_manager;
+std::unique_ptr<RecoveryManager> recovery;
+std::unique_ptr<Analyze> analyze;
+int sockfd;
 pthread_mutex_t *buffer_mutex;
 pthread_mutex_t *sockfd_mutex;
 
@@ -138,9 +134,9 @@ void *client_handler(void *sock_fd) {
           if (!optimizer->bypass(query, context)) {
             std::shared_ptr<Plan> plan = optimizer->plan_query(query, context);
             // portal
-            std::shared_ptr<PortalStmt> portalStmt = portal->start(plan, context);
-            portal->run(portalStmt, ql_manager.get(), &txn_id, context);
-            portal->drop();
+            // std::shared_ptr<PortalStmt> portalStmt = portal->start(plan, context);
+            // portal->run(portalStmt, ql_manager.get(), &txn_id, context);
+            // portal->drop();
           }
         } catch (TransactionAbortException &e) {
           // 事务需要回滚，需要把abort信息返回给客户端并写入output.txt文件中
@@ -153,13 +149,13 @@ void *client_handler(void *sock_fd) {
           txn_manager->abort(context->txn_, log_manager.get());
           std::cout << e.GetInfo() << std::endl;
 
-          if (sm_manager->is_enable_output()) {
+          if (sm_manager->IsEnableOutput()) {
             std::fstream outfile;
             outfile.open("output.txt", std::ios::out | std::ios::app);
             outfile << str;
             outfile.close();
           }
-        } catch (RMDBError &e) {
+        } catch (EASYDBError &e) {
           // 遇到异常，需要打印failure到output.txt文件中，并发异常信息返回给客户端
           std::cerr << e.what() << std::endl;
 
@@ -169,7 +165,7 @@ void *client_handler(void *sock_fd) {
           offset = e.get_msg_len() + 1;
 
           // 将报错信息写入output.txt
-          if (sm_manager->is_enable_output()) {
+          if (sm_manager->IsEnableOutput()) {
             std::fstream outfile;
             outfile.open("output.txt", std::ios::out | std::ios::app);
             outfile << "failure\n";
@@ -249,7 +245,7 @@ void start_server() {
 
     // Block here. Until server accepts a new connection.
     pthread_mutex_lock(sockfd_mutex);
-    int sockfd = accept(sockfd_server, (struct sockaddr *)(&s_addr_client), (socklen_t *)(&client_length));
+    sockfd = accept(sockfd_server, (struct sockaddr *)(&s_addr_client), (socklen_t *)(&client_length));
     if (sockfd == -1) {
       std::cout << "Accept error!" << std::endl;
       continue;  // ignore current socket ,continue while loop.
@@ -269,7 +265,7 @@ void start_server() {
     printf("%s\n", strerror(errno));
   }
   //    assert(ret != -1);
-  sm_manager->close_db();
+  sm_manager->CloseDB();
   std::cout << " DB has been closed.\n";
   std::cout << "Server shuts down." << std::endl;
 }
@@ -281,7 +277,6 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  signal(SIGINT, sigint_handler);
   try {
     std::cout << "\n"
                  "  _____  __  __ _____  ____  \n"
@@ -296,12 +291,32 @@ int main(int argc, char **argv) {
                  "\n";
     // Database name is passed by args
     std::string db_name = argv[1];
-    if (!sm_manager->is_dir(db_name)) {
+
+    disk_manager = std::make_unique<DiskManager>(db_name);
+    buffer_pool_manager = std::make_unique<BufferPoolManager>(BUFFER_POOL_SIZE, disk_manager.get());
+    rm_manager = std::make_unique<RmManager>(disk_manager.get(), buffer_pool_manager.get());
+    ix_manager = std::make_unique<IxManager>(disk_manager.get(), buffer_pool_manager.get());
+    sm_manager =
+        std::make_unique<SmManager>(disk_manager.get(), buffer_pool_manager.get(), rm_manager.get(), ix_manager.get());
+    lock_manager = std::make_unique<LockManager>();
+    txn_manager = std::make_unique<TransactionManager>(lock_manager.get(), sm_manager.get());
+    planner = std::make_unique<Planner>(sm_manager.get());
+    optimizer = std::make_unique<Optimizer>(sm_manager.get(), planner.get());
+    ql_manager = std::make_unique<QlManager>(sm_manager.get(), txn_manager.get(), planner.get());
+    log_manager = std::make_unique<LogManager>(disk_manager.get());
+    recovery = std::make_unique<RecoveryManager>(disk_manager.get(), buffer_pool_manager.get(), sm_manager.get(),
+                                                 txn_manager.get(), log_manager.get());
+
+    // portal = std::make_unique<Portal>(sm_manager.get());
+    analyze = std::make_unique<Analyze>(sm_manager.get());
+
+    signal(SIGINT, sigint_handler);
+    if (!sm_manager->IsDir(db_name)) {
       // Database not found, create a new one
-      sm_manager->create_db(db_name);
+      sm_manager->CreateDB(db_name);
     }
     // Open database
-    sm_manager->open_db(db_name);
+    sm_manager->OpenDB(db_name);
 
     // recovery database
     recovery->analyze();
@@ -310,10 +325,9 @@ int main(int argc, char **argv) {
 
     // 开启服务端，开始接受客户端连接
     start_server();
-  } catch (RMDBError &e) {
+  } catch (EASYDBError &e) {
     std::cerr << e.what() << std::endl;
     exit(1);
   }
   return 0;
 }
-};  // namespace easydb

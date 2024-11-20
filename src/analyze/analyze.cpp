@@ -9,7 +9,8 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
 
 #include "analyze/analyze.h"
-using namespace easydb;
+#include "common/errors.h"
+namespace easydb {
 
 /**
  * @description: 分析器，进行语义分析和查询重写，需要检查不符合语义规定的部分
@@ -340,7 +341,8 @@ void Analyze::check_clause(const std::vector<std::string> &tab_names, std::vecto
         if (!cond.is_rhs_val) {
           throw AggregationIllegalError();
         }
-        cond.rhs_val.init_raw(4);
+        // cond.rhs_val.init_raw(4);
+        // cond.rhs_val = Value(4, TYPE_INT);
       }
     } else {
       // Infer table name from column name
@@ -371,14 +373,15 @@ void Analyze::check_clause(const std::vector<std::string> &tab_names, std::vecto
       ColType lhs_type = lhs_col->type;
       ColType rhs_type;
       if (cond.is_rhs_val) {
-        cond.rhs_val.init_raw(lhs_col->len);
-        rhs_type = cond.rhs_val.type;
+        // cond.rhs_val.init_raw(lhs_col->len);
+        rhs_type = cond.rhs_val.GetTypeId();
       } else {
         TabMeta &rhs_tab = sm_manager_->db_.get_table(cond.rhs_col.tab_name);
         auto rhs_col = rhs_tab.get_col(cond.rhs_col.col_name);
         rhs_type = rhs_col->type;
       }
-      if (lhs_type != rhs_type && (lhs_type == TYPE_STRING || rhs_type == TYPE_STRING)) {
+      if (lhs_type != rhs_type &&
+          (lhs_type == TYPE_CHAR || lhs_type == TYPE_VARCHAR || rhs_type == TYPE_CHAR || rhs_type == TYPE_VARCHAR)) {
         throw IncompatibleTypeError(coltype2str(lhs_type), coltype2str(rhs_type));
       }
     }
@@ -414,11 +417,14 @@ bool Analyze::check_aggregation_legality(const std::shared_ptr<ast::SelectStmt> 
 Value Analyze::convert_sv_value(const std::shared_ptr<ast::Value> &sv_val) {
   Value val;
   if (auto int_lit = std::dynamic_pointer_cast<ast::IntLit>(sv_val)) {
-    val.set_int(int_lit->val);
+    // val.set_int(int_lit->val);
+    val = Value(TYPE_INT, int_lit->val);
   } else if (auto float_lit = std::dynamic_pointer_cast<ast::FloatLit>(sv_val)) {
-    val.set_float(float_lit->val);
+    // val.set_float(float_lit->val);
+    val = Value(TYPE_FLOAT, float_lit->val);
   } else if (auto str_lit = std::dynamic_pointer_cast<ast::StringLit>(sv_val)) {
-    val.set_str(str_lit->val);
+    // val.set_str(str_lit->val);
+    val = Value(TYPE_VARCHAR, str_lit->val);
   } else {
     throw InternalError("Unexpected sv value type");
   }
@@ -430,8 +436,8 @@ Need to fill rhs value after executor processed subquery.
 */
 Value Analyze::init_sv_value(const std::shared_ptr<ast::Value> &sv_val) {
   Value val;
-  val.type = TYPE_EMPTY;
-  val.raw = nullptr;
+  // val.type = TYPE_EMPTY;
+  // val.raw = nullptr;
   return val;
 }
 
@@ -446,4 +452,5 @@ ArithOp Analyze::convert_sv_arith_op(ast::SvArithOp op) {
   std::map<ast::SvArithOp, ArithOp> m = {
       {ast::SV_OP_PLUS, OP_PLUS}, {ast::SV_OP_MINUS, OP_MINUS}, {ast::SV_OP_MUL, OP_MULTI}, {ast::SV_OP_DIV, OP_DIV}};
   return m.at(op);
+}
 }

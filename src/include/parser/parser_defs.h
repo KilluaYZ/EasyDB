@@ -10,9 +10,6 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
-#include "defs.h"
-
-namespace easydb {
 int yyparse();
 
 typedef struct yy_buffer_state *YY_BUFFER_STATE;
@@ -20,4 +17,3 @@ typedef struct yy_buffer_state *YY_BUFFER_STATE;
 YY_BUFFER_STATE yy_scan_string(const char *str);
 
 void yy_delete_buffer(YY_BUFFER_STATE buffer);
-};  // namespace easydb

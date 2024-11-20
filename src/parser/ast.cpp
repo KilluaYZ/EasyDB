@@ -9,7 +9,7 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
 #include "parser/ast.h"
 
-namespace easydb::ast {
+namespace ast {
 
 std::shared_ptr<TreeNode> parse_tree;
 
