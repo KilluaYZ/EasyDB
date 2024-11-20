@@ -27,7 +27,6 @@ class MergeSorter {
   // std::vector<ColMeta> all_cols;
   Column colu_;  // the colMeta of the sort key col
   std::vector<Column> all_colus_;
-  std::string tab_name_;
 
   bool is_desc_;
   size_t tuple_len_;
@@ -65,10 +64,9 @@ class MergeSorter {
   //   record_tmp_buffer.clear();
   // }
 
-  MergeSorter(Column colu, std::vector<Column> colus, std::string tab_name, size_t tuple_len, bool is_desc) {
+  MergeSorter(Column colu, std::vector<Column> colus, size_t tuple_len, bool is_desc) {
     colu_ = colu;
     all_colus_ = colus;
-    tab_name_ = tab_name;
     tuple_len_ = tuple_len;
     is_desc_ = is_desc;
     total_records_count = 0;
@@ -122,7 +120,7 @@ class MergeSorter {
       // buffer is full, sort and write buffer into disk. wait for multi-way merge sorting.
       k++;
       sort(record_tmp_buffer.begin(), record_tmp_buffer.end(), cmpTuple(is_desc_, colu_));
-      std::string fileName = tab_name_ + "_" + colu_.GetName() + "_" + std::to_string(file_paths.size());
+      std::string fileName = colu_.GetTabName() + "_" + colu_.GetName() + "_" + std::to_string(file_paths.size());
       std::ofstream fd;
       fd.open(fileName, std::ios::out);
       for (auto rec = record_tmp_buffer.begin(); rec != record_tmp_buffer.end(); rec++) {
@@ -141,7 +139,7 @@ class MergeSorter {
     if (!record_tmp_buffer.empty()) {
       k++;
       sort(record_tmp_buffer.begin(), record_tmp_buffer.end(), cmpTuple(is_desc_, colu_));
-      std::string fileName = tab_name_ + "_" + colu_.GetName() + "_" + std::to_string(file_paths.size());
+      std::string fileName = colu_.GetTabName() + "_" + colu_.GetName() + "_" + std::to_string(file_paths.size());
       std::ofstream fd;
       fd.open(fileName, std::ios::out);
       fd.flush();

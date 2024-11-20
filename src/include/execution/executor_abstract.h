@@ -88,6 +88,17 @@ class AbstractExecutor {
     }
     return pos;
   }
+
+  std::vector<Column>::const_iterator get_col(const std::vector<Column> &rec_cols, const std::string &target_tab_name,
+                                               const std::string &target_col_name) {
+    auto pos = std::find_if(rec_cols.begin(), rec_cols.end(), [&](const Column &col) {
+      return col.GetTabName() == target_tab_name && col.GetName() == target_col_name;
+    });
+    if (pos == rec_cols.end()) {
+      throw ColumnNotFoundError(target_tab_name + '.' + target_col_name);
+    }
+    return pos;
+  }
 };
 
 }  // namespace easydb

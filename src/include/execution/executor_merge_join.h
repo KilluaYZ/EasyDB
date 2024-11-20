@@ -8,7 +8,7 @@
 
 #pragma once
 #include <cstdio>
-#include "catalof/column.h"
+#include "catalog/column.h"
 #include "common/common.h"
 #include "common/errors.h"
 #include "common/mergeSorter.h"
@@ -27,7 +27,7 @@ class MergeJoinExecutor : public AbstractExecutor {
   std::unique_ptr<AbstractExecutor> right_;  // 右儿子节点（需要join的表）
   size_t len_;                               // join后获得的每条记录的长度
   std::vector<ColMeta> cols_;                // join后获得的记录的字段
-  Schema schema_;                       // scan后生成的记录的字段
+  Schema schema_;                            // scan后生成的记录的字段
 
   std::vector<Condition> fed_conds_;  // join条件
   bool isend;
@@ -99,7 +99,7 @@ class MergeJoinExecutor : public AbstractExecutor {
     throw ColumnNotFoundError(target.col_name);
   }
 
-  Column get_col_offset(schema sche, const TabCol &target) {
+  Column get_col_offset(Schema sche, const TabCol &target) {
     auto cols = sche.GetColumns();
     for (auto &col : cols) {
       if (target.col_name == col.GetName()) {
@@ -119,18 +119,32 @@ class MergeJoinExecutor : public AbstractExecutor {
 
   RmRecord concat_records();
 
-  void writeRecord(std::fstream &fd, char *data, std::vector<ColMeta> cols);
+  // void writeRecord(std::fstream &fd, char *data, std::vector<ColMeta> cols);
 
-  void writeRecord(std::fstream &fd, std::unique_ptr<RmRecord> &Tuple, const std::vector<ColMeta> &cols);
+  // void writeRecord(std::fstream &fd, std::unique_ptr<RmRecord> &Tuple, const std::vector<ColMeta> &cols);
 
-  void writeRecord(std::fstream &fd, RmRecord &Tuple, const std::vector<ColMeta> &cols);
+  // void writeRecord(std::fstream &fd, RmRecord &Tuple, const std::vector<ColMeta> &cols);
+
+  // void writeHeader(std::fstream &fd, std::vector<ColMeta> all_cols) {
+  //   fd << "|";
+  //   for (auto &col : all_cols) {
+  //     fd << " " << col.name << " |";
+  //   }
+  //   fd << "\n";
+  // }
+
+  void writeRecord(std::fstream &fd, char *data, std::vector<Column> cols);
+
+  void writeRecord(std::fstream &fd, std::unique_ptr<Tuple> &Tuple, const std::vector<Column> &cols);
+
+  void writeRecord(std::fstream &fd, Tuple &Tuple, const std::vector<Column> &cols);
 
   void completeWriting();
 
-  void writeHeader(std::fstream &fd, std::vector<ColMeta> all_cols) {
+  void writeHeader(std::fstream &fd, std::vector<Column> all_cols) {
     fd << "|";
     for (auto &col : all_cols) {
-      fd << " " << col.name << " |";
+      fd << " " << col.GetName() << " |";
     }
     fd << "\n";
   }

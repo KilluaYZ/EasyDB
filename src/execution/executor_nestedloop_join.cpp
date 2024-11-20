@@ -60,7 +60,7 @@ NestedLoopJoinExecutor::NestedLoopJoinExecutor(std::unique_ptr<AbstractExecutor>
       }
     }
 
-    leftSorter_ = std::make_unique<MergeSorter>(left_sel_col_, left_tab_name_, left_->cols(), left_len_, false);
+    leftSorter_ = std::make_unique<MergeSorter>(left_sel_col_, left_->shema().GetColumns(), left_len_, false);
   }
 }
 
