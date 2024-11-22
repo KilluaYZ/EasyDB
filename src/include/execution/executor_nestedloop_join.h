@@ -16,8 +16,10 @@
 #include "executor_abstract.h"
 #include "storage/index/ix_manager.h"
 #include "storage/index/ix_scan.h"
+#include "storage/table/tuple.h"
 #include "system/sm_defs.h"
 #include "system/sm_meta.h"
+
 namespace easydb {
 
 class NestedLoopJoinExecutor : public AbstractExecutor {
@@ -72,15 +74,15 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
 
   void beginTuple() override;
 
-  void printRecord(RmRecord record, std::vector<ColMeta> cols);
+  // void printRecord(RmRecord record, std::vector<ColMeta> cols);
 
-  void printRecord(char *data, std::vector<ColMeta> cols);
+  // void printRecord(char *data, std::vector<ColMeta> cols);
 
-  void printRecord(std::unique_ptr<RmRecord> &Tuple, const std::vector<ColMeta> &cols);
+  // void printRecord(std::unique_ptr<RmRecord> &Tuple, const std::vector<ColMeta> &cols);
 
   void nextTuple() override;
 
-  std::unique_ptr<Tuple> Next() override { return std::make_unique<Tuple>(joined_records_); }
+  std::unique_ptr<Tuple> Next() override { return std::make_unique<Tuple>(std::move(joined_records_)); }
 
   RID &rid() override { return _abstract_rid; }
 
@@ -120,6 +122,5 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
 
   // RmRecord concat_records();
   Tuple concat_records();
-
 };
 }  // namespace easydb

@@ -38,8 +38,8 @@ class SeqScanExecutor : public AbstractExecutor {
   SmManager *sm_manager_;
 
  public:
-  // SeqScanExecutor(SmManager *sm_manager, std::string tab_name, std::vector<Condition> conds, Context *context);
-  SeqScanExecutor(SmManager *sm_manager, std::string tab_name, std::vector<Condition> conds);
+  SeqScanExecutor(SmManager *sm_manager, std::string tab_name, std::vector<Condition> conds, Context *context);
+  // SeqScanExecutor(SmManager *sm_manager, std::string tab_name, std::vector<Condition> conds);
 
   void beginTuple() override;
 

@@ -107,17 +107,16 @@ void MergeJoinExecutor::beginTuple() {
 }
 
 void MergeJoinExecutor::nextTuple() {
-  // TODO
-  // if (use_index_) {
-  //   index_iterate_helper();
-  // } else {
-  //   iterate_helper();
-  // }
-  // // }while(!isend && !predicate());
-  // if (isend) {
-  //   return;
-  // }
-  // joined_records_ = concat_records();
+  if (use_index_) {
+    index_iterate_helper();
+  } else {
+    iterate_helper();
+  }
+  // }while(!isend && !predicate());
+  if (isend) {
+    return;
+  }
+  joined_records_ = concat_records();
 }
 
 // // attention : statement with additional conds is not supported yet.
@@ -146,157 +145,138 @@ void MergeJoinExecutor::nextTuple() {
 // }
 
 void MergeJoinExecutor::iterate_helper() {
-  // TODO
-  // current_left_data_ = leftSorter_->getOneRecord();
-  // current_right_data_ = rightSorter_->getOneRecord();
-  // if (current_left_data_ == NULL || current_right_data_ == NULL) {
-  //   isend = true;
-  //   completeWriting();
-  //   return;
-  // }
+  current_left_data_ = leftSorter_->getOneRecord();
+  current_right_data_ = rightSorter_->getOneRecord();
+  if (current_left_data_ == NULL || current_right_data_ == NULL) {
+    isend = true;
+    completeWriting();
+    return;
+  }
 
-  // writeRecord(fd_left, current_left_data_, left_->schema().GetColumns());
-  // writeRecord(fd_right, current_right_data_, right_->schema().GetColumns());
-  // Value lhs_v, rhs_v;
+  writeRecord(fd_left, current_left_data_, left_->schema().GetColumns());
+  writeRecord(fd_right, current_right_data_, right_->schema().GetColumns());
+  Value lhs_v, rhs_v;
+  lhs_v = Value().DeserializeFrom(current_left_data_, &schema_, left_sel_colu_.GetName());
+  rhs_v = Value().DeserializeFrom(current_right_data_, &schema_, right_sel_colu_.GetName());
+
   // lhs_v.get_value_from_record(current_left_data_, left_sel_col_);
   // rhs_v.get_value_from_record(current_right_data_, right_sel_col_);
 
-  // while (!leftSorter_->IsEnd() && !rightSorter_->IsEnd()) {
-  //   if (lhs_v == rhs_v) {
-  //     break;
-  //   } else if (lhs_v < rhs_v) {
-  //     current_left_data_ = leftSorter_->getOneRecord();
-  //     writeRecord(fd_left, current_left_data_, left_->schema().GetColumns());
-  //     lhs_v.get_value_from_record(current_left_data_, left_sel_col_);
-  //   } else {
-  //     current_right_data_ = rightSorter_->getOneRecord();
-  //     writeRecord(fd_right, current_right_data_, right_->schema().GetColumns());
-  //     rhs_v.get_value_from_record(current_right_data_, right_sel_col_);
-  //   }
-  // }
+  while (!leftSorter_->IsEnd() && !rightSorter_->IsEnd()) {
+    if (lhs_v == rhs_v) {
+      break;
+    } else if (lhs_v < rhs_v) {
+      current_left_data_ = leftSorter_->getOneRecord();
+      writeRecord(fd_left, current_left_data_, left_->schema().GetColumns());
+      lhs_v = Value().DeserializeFrom(current_left_data_, &schema_, left_sel_colu_.GetName());
+      // lhs_v.get_value_from_record(current_left_data_, left_sel_col_);
+    } else {
+      current_right_data_ = rightSorter_->getOneRecord();
+      writeRecord(fd_right, current_right_data_, right_->schema().GetColumns());
+      rhs_v = Value().DeserializeFrom(current_right_data_, &schema_, right_sel_colu_.GetName());
+      // rhs_v.get_value_from_record(current_right_data_, right_sel_col_);
+    }
+  }
 
-  // if (lhs_v != rhs_v) {
-  //   isend = true;
-  //   completeWriting();
-  // }
+  if (lhs_v != rhs_v) {
+    isend = true;
+    completeWriting();
+  }
 }
 
 void MergeJoinExecutor::index_iterate_helper() {
-  // TODO
-  // if (left_idx_ >= left_buffer_.size() || right_idx_ >= right_buffer_.size()) {
-  //   isend = true;
-  //   completeWriting();
-  //   return;
-  // }
-  // current_left_tup_ = left_buffer_[left_idx_];
-  // // left_->nextTuple();
-  // left_idx_++;
-  // current_right_tup_ = right_buffer_[right_idx_];
-  // // right_->nextTuple();
-  // right_idx_++;
+  if (left_idx_ >= left_buffer_.size() || right_idx_ >= right_buffer_.size()) {
+    isend = true;
+    completeWriting();
+    return;
+  }
+  current_left_tup_ = left_buffer_[left_idx_];
+  // left_->nextTuple();
+  left_idx_++;
+  current_right_tup_ = right_buffer_[right_idx_];
+  // right_->nextTuple();
+  right_idx_++;
 
-  // writeRecord(fd_left, current_left_tup_, left_->schema().GetColumns());
-  // writeRecord(fd_right, current_right_tup_, right_->schema().GetColumns());
-  // Value lhs_v, rhs_v;
+  writeRecord(fd_left, current_left_tup_, left_->schema().GetColumns());
+  writeRecord(fd_right, current_right_tup_, right_->schema().GetColumns());
+  Value lhs_v, rhs_v;
+
+  lhs_v = current_left_tup_.GetValue(&schema_, left_sel_colu_.GetName());
+  rhs_v = current_right_tup_.GetValue(&schema_, right_sel_colu_.GetName());
+
   // lhs_v.get_value_from_record(current_left_tup_, left_sel_colu_);
   // rhs_v.get_value_from_record(current_right_tup_, right_sel_colu_);
 
-  // while (left_idx_ < left_buffer_.size() && right_idx_ < right_buffer_.size()) {
-  //   if (lhs_v == rhs_v) {
-  //     break;
-  //   } else if (lhs_v < rhs_v) {
-  //     current_left_tup_ = left_buffer_[left_idx_];
-  //     writeRecord(fd_left, current_left_tup_, left_->schema().GetColumns());
-  //     lhs_v.get_value_from_record(current_left_tup_, left_sel_colu_);
-  //     left_idx_++;
-  //   } else {
-  //     current_right_tup_ = right_buffer_[right_idx_];
-  //     writeRecord(fd_right, current_right_tup_, right_->schema().GetColumns());
-  //     rhs_v.get_value_from_record(current_right_tup_, right_sel_colu_);
-  //     right_idx_++;
-  //   }
-  // }
+  while (left_idx_ < left_buffer_.size() && right_idx_ < right_buffer_.size()) {
+    if (lhs_v == rhs_v) {
+      break;
+    } else if (lhs_v < rhs_v) {
+      current_left_tup_ = left_buffer_[left_idx_];
+      writeRecord(fd_left, current_left_tup_, left_->schema().GetColumns());
+      lhs_v = current_left_tup_.GetValue(&schema_, left_sel_colu_.GetName());
+      // lhs_v.get_value_from_record(current_left_tup_, left_sel_colu_);
+      left_idx_++;
+    } else {
+      current_right_tup_ = right_buffer_[right_idx_];
+      writeRecord(fd_right, current_right_tup_, right_->schema().GetColumns());
+      rhs_v = current_right_tup_.GetValue(&schema_, right_sel_colu_.GetName());
+      // rhs_v.get_value_from_record(current_right_tup_, right_sel_colu_);
+      right_idx_++;
+    }
+  }
 
-  // if (lhs_v != rhs_v) {
-  //   isend = true;
-  //   completeWriting();
-  // }
+  if (lhs_v != rhs_v) {
+    isend = true;
+    completeWriting();
+  }
 }
 
-RmRecord MergeJoinExecutor::concat_records() {
-  // if (use_index_) {
-  //   RmRecord left = (current_left_rec_);
-  //   RmRecord right = (current_right_rec_);
-  //   left += right;
+Tuple MergeJoinExecutor::concat_records() {
+  if (use_index_) {
+    current_left_data_ = current_left_tup_.GetData();
+    current_right_data_ = current_right_tup_.GetData();
+  }
+  char *data_cat = new char[len_];
 
-  //   return left;
-  // } else {
-  //   char *data_cat = new char[len_];
+  memcpy(data_cat, current_left_data_, current_left_tup_.GetLength());
+  memcpy(data_cat + current_left_tup_.GetLength(), current_right_data_, current_right_tup_.GetLength());
 
-  //   memcpy(data_cat, current_left_data_, left_->tupleLen());
-  //   memcpy(data_cat + left_->tupleLen(), current_right_data_, right_->tupleLen());
-
-  //   return RmRecord(len_, data_cat);
-  // }
+  return Tuple(len_, data_cat);
 }
 
-// void MergeJoinExecutor::writeRecord(std::fstream &fd, char *data, std::vector<ColMeta> cols) {
-//   std::vector<std::string> columns;
-//   for (auto &col : cols) {
-//     std::string col_str;
-//     char *rec_buf = data + col.offset;
-//     switch (col.type) {
-//       case TYPE_INT:
-//         col_str = std::to_string(*(int *)rec_buf);
-//         break;
-//       case TYPE_FLOAT:
-//         col_str = std::to_string(*(float *)rec_buf);
-//         break;
-//       case TYPE_VARCHAR:
-//       case TYPE_CHAR:
-//         col_str = std::string((char *)rec_buf, col.len);
-//         col_str.resize(strlen(col_str.c_str()));
-//         break;
-//       default:
-//         throw InternalError("unsupported data type.");
-//     }
-//     columns.push_back(col_str);
-//   }
-//   fd << "|";
-//   for (auto &col_str : columns) {
-//     fd << " " << col_str << " |";
-//   }
-//   fd << "\n";
-// }
-
-void MergeJoinExecutor::writeRecord(std::fstream &fd, char *data, std::vector<Column> cols) {
-  // TODO
-  // std::vector<std::string> columns;
-  // for (auto &col : cols) {
-  //   std::string col_str;
-  //   char *rec_buf = data + col.GetOffset();
-  //   switch (col.GetType()) {
-  //     case TYPE_INT:
-  //       col_str = std::to_string(*(int *)rec_buf);
-  //       break;
-  //     case TYPE_FLOAT:
-  //       col_str = std::to_string(*(float *)rec_buf);
-  //       break;
-  //     case TYPE_VARCHAR:
-  //     case TYPE_CHAR:
-  //       col_str = std::string((char *)rec_buf, col.len);
-  //       col_str.resize(strlen(col_str.c_str()));
-  //       break;
-  //     default:
-  //       throw InternalError("unsupported data type.");
-  //   }
-  //   columns.push_back(col_str);
-  // }
-  // fd << "|";
-  // for (auto &col_str : columns) {
-  //   fd << " " << col_str << " |";
-  // }
-  // fd << "\n";
+void MergeJoinExecutor::writeRecord(std::fstream &fd, const char *data, std::vector<Column> cols) {
+  std::vector<std::string> columns;
+  for (auto &col : cols) {
+    std::string col_str;
+    char *rec_buf =  new char[len_];
+    memcpy(rec_buf,data,len_);
+    rec_buf = rec_buf + col.GetOffset();
+    switch (col.GetType()) {
+      case TYPE_INT:
+        col_str = std::to_string(*(int *)rec_buf);
+        break;
+      case TYPE_FLOAT:
+        col_str = std::to_string(*(float *)rec_buf);
+        break;
+      case TYPE_VARCHAR:
+      case TYPE_CHAR:
+        uint32_t size = *reinterpret_cast<const uint32_t *>(rec_buf);
+        col_str = std::string((char *)rec_buf + sizeof(uint32_t), size);
+        // col_str = std::string((char *)rec_buf + sizeof(uint32_t), col.GetStorageSize()- sizeof(uint32_t));
+        col_str.resize(strlen(col_str.c_str()));
+        // col_str = std::string((char *)rec_buf, col.len);
+        // col_str.resize(strlen(col_str.c_str()));
+        break;
+      // default:
+      //   throw InternalError("unsupported data type.");
+    }
+    columns.push_back(col_str);
+  }
+  fd << "|";
+  for (auto &col_str : columns) {
+    fd << " " << col_str << " |";
+  }
+  fd << "\n";
 }
 
 void MergeJoinExecutor::writeRecord(std::fstream &fd, std::unique_ptr<Tuple> &Tuple, const std::vector<Column> &cols) {
@@ -326,8 +306,8 @@ void MergeJoinExecutor::writeRecord(std::fstream &fd, std::unique_ptr<Tuple> &Tu
         // col_str = std::string((char *)rec_buf + sizeof(uint32_t), col.GetStorageSize()- sizeof(uint32_t));
         col_str.resize(strlen(col_str.c_str()));
         break;
-      // default:
-      //   throw InternalError("unsupported data type.");
+        // default:
+        //   throw InternalError("unsupported data type.");
     }
     columns.push_back(col_str);
   }
@@ -369,8 +349,8 @@ void MergeJoinExecutor::writeRecord(std::fstream &fd, Tuple &Tuple, const std::v
         // col_str = std::string((char *)rec_buf + sizeof(uint32_t), col.GetStorageSize()- sizeof(uint32_t));
         col_str.resize(strlen(col_str.c_str()));
         break;
-      // default:
-      //   throw InternalError("unsupported data type.");
+        // default:
+        //   throw InternalError("unsupported data type.");
     }
     columns.push_back(col_str);
   }
@@ -383,42 +363,41 @@ void MergeJoinExecutor::writeRecord(std::fstream &fd, Tuple &Tuple, const std::v
 }
 
 void MergeJoinExecutor::completeWriting() {
-  // TODO
-  // if (use_index_) {
-  //   while (left_idx_ < left_buffer_.size()) {
-  //     left_idx_++;
-  //     current_left_tup_ = left_buffer_[left_idx_];
-  //     current_left_data_ = current_left_tup_.GetData();
-  //     writeRecord(fd_left, current_left_data_, left_->cols());
-  //   }
-  //   while (right_idx_ < right_buffer_.size()) {
-  //     right_idx_++;
-  //     current_left_tup_ = right_buffer_[right_idx_];
-  //     current_right_data_ = current_left_tup_.GetData();
-  //     writeRecord(fd_right, current_right_data_, right_->cols());
-  //   }
-  // } else {
-  //   while (!leftSorter_->IsEnd()) {
-  //     current_left_data_ = leftSorter_->getOneRecord();
-  //     writeRecord(fd_left, current_left_data_, left_->cols());
-  //   }
-  //   while (!rightSorter_->IsEnd()) {
-  //     current_right_data_ = rightSorter_->getOneRecord();
-  //     writeRecord(fd_right, current_right_data_, right_->cols());
-  //   }
-  // }
-  //
-  // fd_left.close();
-  // fd_left.open("sorted_results_left.txt", std::ios::in);
-  // char tp;
-  // while (fd_left.get(tp)) {
-  //   fd_right << tp;
-  // }
-  // fd_right.close();
-  // fd_left.close();
-  // if (std::remove("sorted_results_left.txt") != 0) {  // delete file
-  //   printf("Failed to delete file sorted_results_left.txt.\n");
-  // }
+  if (use_index_) {
+    while (left_idx_ < left_buffer_.size()) {
+      left_idx_++;
+      current_left_tup_ = left_buffer_[left_idx_];
+      current_left_data_ = current_left_tup_.GetData();
+      writeRecord(fd_left, current_left_data_, left_->schema().GetColumns());
+    }
+    while (right_idx_ < right_buffer_.size()) {
+      right_idx_++;
+      current_left_tup_ = right_buffer_[right_idx_];
+      current_right_data_ = current_left_tup_.GetData();
+      writeRecord(fd_right, current_right_data_, right_->schema().GetColumns());
+    }
+  } else {
+    while (!leftSorter_->IsEnd()) {
+      current_left_data_ = leftSorter_->getOneRecord();
+      writeRecord(fd_left, current_left_data_, left_->schema().GetColumns());
+    }
+    while (!rightSorter_->IsEnd()) {
+      current_right_data_ = rightSorter_->getOneRecord();
+      writeRecord(fd_right, current_right_data_, right_->schema().GetColumns());
+    }
+  }
+
+  fd_left.close();
+  fd_left.open("sorted_results_left.txt", std::ios::in);
+  char tp;
+  while (fd_left.get(tp)) {
+    fd_right << tp;
+  }
+  fd_right.close();
+  fd_left.close();
+  if (std::remove("sorted_results_left.txt") != 0) {  // delete file
+    printf("Failed to delete file sorted_results_left.txt.\n");
+  }
 }
 
 }  // namespace easydb

@@ -120,7 +120,7 @@ class MergeJoinExecutor : public AbstractExecutor {
 
   void index_iterate_helper();
 
-  RmRecord concat_records();
+  Tuple concat_records();
 
   // void writeRecord(std::fstream &fd, char *data, std::vector<ColMeta> cols);
 
@@ -136,7 +136,7 @@ class MergeJoinExecutor : public AbstractExecutor {
   //   fd << "\n";
   // }
 
-  void writeRecord(std::fstream &fd, char *data, std::vector<Column> cols);
+  void writeRecord(std::fstream &fd, const char *data, std::vector<Column> cols);
 
   void writeRecord(std::fstream &fd, std::unique_ptr<Tuple> &Tuple, const std::vector<Column> &cols);
 

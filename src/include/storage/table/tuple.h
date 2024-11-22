@@ -76,6 +76,8 @@ class Tuple {
   Tuple(int size, char* data);
 
   Tuple(const Tuple &other) = default;
+  
+  Tuple(Tuple &other) = default;
 
   // move constructor
   Tuple(Tuple &&other) noexcept = default;

@@ -30,22 +30,22 @@ ProjectionExecutor::ProjectionExecutor(std::unique_ptr<AbstractExecutor> prev, c
     if (sel_col.aggregation_type != AggregationType::NO_AGG) {
       col.SetName(new_name);
     }
-    col.SetOffset(cur_offset);
+    col.SetOffset(curr_offset);
     // col.offset = curr_offset;
-    curr_offset += col.len;
+    curr_offset += col.GetStorageSize();
     prev_colus_.push_back(col);
   }
   len_ = curr_offset;
 }
 
-void ProjectionExecutor::beginTuple() override {
+void ProjectionExecutor::beginTuple() {
   prev_->beginTuple();
   if (!IsEnd()) {
     projection_records_ = projectRecord();
   }
 }
 
-void ProjectionExecutor::nextTuple() override {
+void ProjectionExecutor::nextTuple() {
   prev_->nextTuple();
   if (!IsEnd()) {
     projection_records_ = projectRecord();
@@ -56,7 +56,7 @@ Tuple ProjectionExecutor::projectRecord() {
   char *projected_record = new char[len_];
   size_t temp_pos = 0;
   auto prev_record = prev_->Next();
-  auto prev_data = prev_record->data;
+  auto prev_data = prev_record->GetData();
   auto sch = prev_->schema();
   for (int i = 0; i < sel_idxs_.size(); i++) {
     // auto col_tmp = prev_->cols().at(sel_idxs_[i]);
@@ -66,7 +66,7 @@ Tuple ProjectionExecutor::projectRecord() {
   }
 
   std::vector<char> tmp;
-  tmp.assign(projected_record,temp_pos);
+  tmp.assign(projected_record, projected_record + temp_pos);
   return Tuple(tmp);
 }
 

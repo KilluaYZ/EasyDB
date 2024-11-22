@@ -23,7 +23,7 @@
 #include <vector>
 
 // #include "fmt/format.h"
-
+#include "catalog/schema.h"
 #include "common/logger.h"
 #include "common/macros.h"
 #include "type/limits.h"
@@ -176,6 +176,13 @@ class Value {
   // Deserialize a value of the given type from the given storage space.
   inline static auto DeserializeFrom(const char *storage, const TypeId type_id) -> Value {
     return Type::GetInstance(type_id)->DeserializeFrom(storage);
+  }
+
+  // Deserialize a value of the given type from the given storage space.
+  inline static auto DeserializeFrom(const char *storage, const Schema *schema, std::string column_name) -> Value {
+    assert(schema);
+    const TypeId column_type = schema->GetColumn(column_name).GetType();
+    return Value::DeserializeFrom(storage, column_type);
   }
 
   // Return a string version of this value
