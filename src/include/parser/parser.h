@@ -10,6 +10,6 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
-#include "ast_printer.h"
-#include "ast.h"
-#include "parser_defs.h"
+#include "parser/ast_printer.h"
+#include "parser/ast.h"
+#include "parser/parser_defs.h"

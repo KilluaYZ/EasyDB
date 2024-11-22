@@ -59,7 +59,7 @@ class Query {
 };
 /*
 当SQL语句经过语法解析模块的处理，获得抽象语法树之后，进⼊分析器analyze，在分析器中需要进⾏语义分
-析，包括表是否存在、字段是否存在等，并把AST改写成Query
+析，包括表是否存在、字段是否存在等，并把easydb改写成Query
 */
 class Analyze {
  private:
@@ -78,7 +78,7 @@ class Analyze {
   void get_clause(const std::vector<std::shared_ptr<ast::BinaryExpr>> &sv_conds, std::vector<Condition> &conds);
   void check_clause(const std::vector<std::string> &tab_names, std::vector<Condition> &conds);
   bool find_col(std::vector<std::shared_ptr<ast::Col>> &cols,
-                std::string col_name);                                         // check if col_name is find in cols
+                std::string col_name);                                            // check if col_name is find in cols
   bool check_aggregation_legality(const std::shared_ptr<ast::SelectStmt> &x);  // 聚集函数相关的合法性
   Value init_sv_value(const std::shared_ptr<ast::Value> &sv_val);
   Value convert_sv_value(const std::shared_ptr<ast::Value> &sv_val);

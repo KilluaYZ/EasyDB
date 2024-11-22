@@ -501,7 +501,8 @@ void RecoveryManager::redo_insert(InsertLogRecord *insert_log) {
   auto &rec = insert_log->insert_value_;
   RID rid = insert_log->rid_;
   // Insert into table
-  fh->InsertRecord(rid, rec.data);
+  // ziyang comment
+  // fh->InsertRecord(rid, rec.data);
   // Insert into index
   if (index_len > 0) {
     tab_name_with_index_.emplace(tab_name);
@@ -716,7 +717,8 @@ void RecoveryManager::undo_delete(DeleteLogRecord *delete_log) {
   auto &record = delete_log->delete_value_;
   RID rid = delete_log->rid_;
   // Insert into table
-  fh->InsertRecord(rid, record.data);
+  // ziyang comment
+  // fh->InsertRecord(rid, record.data);
   // Insert into index
   for (auto &index : sm_manager_->db_.get_table(table_name).indexes) {
     auto index_name = sm_manager_->GetIxManager()->GetIndexName(table_name, index.cols);

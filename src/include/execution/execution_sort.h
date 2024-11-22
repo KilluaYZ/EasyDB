@@ -18,6 +18,7 @@
 #include "storage/table/tuple.h"
 #include "system/sm_defs.h"
 #include "system/sm_meta.h"
+#include <memory>
 
 namespace easydb {
 

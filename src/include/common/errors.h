@@ -169,5 +169,16 @@ class AggregationIllegalError : public EASYDBError {
  public:
   AggregationIllegalError() : EASYDBError("Select query with illegal aggregation conditions") {}
 };
+
+class SubqueryIllegalError : public EASYDBError {
+public:
+ SubqueryIllegalError(const std::string & err_msg) : EASYDBError("Subquery illegal: " + err_msg) {}
+};
+
+class NullptrError : public EASYDBError {
+public:
+ NullptrError() : EASYDBError("Try to access nullptr") {}
+};
+
 }  // namespace easydb
 #endif  // ERRORS_HPP

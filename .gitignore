@@ -21,6 +21,9 @@
 .vscode
 #OS X specific files.
 .DS_store
+#parser yacc and lex
+lex.yy.cpp
+yacc.tab.*
 
 #==============================================================================#
 # Build artifacts

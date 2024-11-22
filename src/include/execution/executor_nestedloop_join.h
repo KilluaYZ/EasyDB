@@ -7,6 +7,7 @@
  */
 
 #pragma once
+#include <memory>
 #include "common/common.h"
 #include "common/errors.h"
 #include "common/mergeSorter.h"
@@ -17,18 +18,17 @@
 #include "storage/index/ix_scan.h"
 #include "system/sm_defs.h"
 #include "system/sm_meta.h"
-
 namespace easydb {
 
 class NestedLoopJoinExecutor : public AbstractExecutor {
  private:
   std::unique_ptr<AbstractExecutor> left_;   // 左儿子节点（需要join的表）
   std::unique_ptr<AbstractExecutor> right_;  // 右儿子节点（需要join的表）
-  std::string left_tab_name_;                    // 表名称
-  std::string right_tab_name_;                    // 表名称
+  std::string left_tab_name_;                // 表名称
+  std::string right_tab_name_;               // 表名称
   size_t len_;                               // join后获得的每条记录的长度
   // std::vector<ColMeta> cols_;                // join后获得的记录的字段
-  Schema schema_;                       // scan后生成的记录的字段
+  Schema schema_;  // scan后生成的记录的字段
 
   std::vector<Condition> fed_conds_;  // join条件
   bool isend;
@@ -110,7 +110,6 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
     }
     throw ColumnNotFoundError(target.col_name);
   }
-
 
  private:
   // bool predicate();

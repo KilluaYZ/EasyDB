@@ -10,6 +10,8 @@ add_subdirectory(concurrency)
 add_subdirectory(transaction)
 add_subdirectory(recovery)
 add_subdirectory(system)
+add_subdirectory(parser)
+add_subdirectory(analyze)
 
 add_library(easydb STATIC ${ALL_OBJECT_FILES})
 
@@ -30,6 +32,8 @@ set(EASYDB_LIBS
         easydb_system
         easydb_planner
         easydb_transaction
+        easydb_parser
+        easydb_analyze
         )
 
 find_package(Threads REQUIRED)
@@ -50,3 +54,7 @@ target_link_libraries(
 target_include_directories(
         easydb PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+
+add_executable(easydb_server easydb.cpp)
+target_link_libraries(easydb_server easydb)
+
