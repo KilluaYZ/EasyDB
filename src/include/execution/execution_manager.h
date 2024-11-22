@@ -42,9 +42,10 @@ class QlManager {
   QlManager(SmManager *sm_manager, TransactionManager *txn_mgr) : sm_manager_(sm_manager), txn_mgr_(txn_mgr) {}
   QlManager(SmManager *sm_manager) : sm_manager_(sm_manager) {}
 
-  //   void run_mutli_query(std::shared_ptr<Plan> plan, Context *context);
-  //   void run_cmd_utility(std::shared_ptr<Plan> plan, txn_id_t *txn_id, Context *context);
-  void select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, std::vector<TabCol> sel_cols, Context *context);
+    void run_mutli_query(std::shared_ptr<Plan> plan, Context *context);
+    void run_cmd_utility(std::shared_ptr<Plan> plan, txn_id_t *txn_id, Context *context);
+    void select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, std::vector<TabCol> sel_cols, Context
+    *context);
 
   void run_dml(std::unique_ptr<AbstractExecutor> exec);
 };

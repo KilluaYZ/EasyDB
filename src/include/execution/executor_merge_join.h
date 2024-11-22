@@ -8,6 +8,7 @@
 
 #pragma once
 #include <cstdio>
+#include <memory>
 #include "catalog/column.h"
 #include "common/common.h"
 #include "common/errors.h"
@@ -50,8 +51,8 @@ class MergeJoinExecutor : public AbstractExecutor {
   Tuple current_left_tup_;
   Tuple current_right_tup_;
 
-  char *current_left_data_;
-  char *current_right_data_;
+  const char *current_left_data_;
+  const char *current_right_data_;
 
   // std::vector<RmRecord> left_buffer_;
   // std::vector<RmRecord> right_buffer_;
@@ -68,6 +69,8 @@ class MergeJoinExecutor : public AbstractExecutor {
  public:
   MergeJoinExecutor(std::unique_ptr<AbstractExecutor> left, std::unique_ptr<AbstractExecutor> right,
                     std::vector<Condition> conds, bool use_index);
+
+  void beginTuple() override;
 
   void nextTuple() override;
 

@@ -11,6 +11,7 @@
 #include <iostream>
 #include <unordered_map>
 
+#include <memory>
 #include "common/errors.h"
 #include "defs.h"
 #include "execution_manager.h"
@@ -19,17 +20,16 @@
 #include "storage/index/ix_scan.h"
 #include "system/sm_defs.h"
 #include "system/sm_meta.h"
-
 namespace easydb {
 
 class IndexScanExecutor : public AbstractExecutor {
  private:
-  std::string tab_name_;              // 表名称
-  TabMeta tab_;                       // 表的元数据
-  std::vector<Condition> conds_;      // 扫描条件
-  RmFileHandle *fh_;                  // 表的数据文件句柄
+  std::string tab_name_;          // 表名称
+  TabMeta tab_;                   // 表的元数据
+  std::vector<Condition> conds_;  // 扫描条件
+  RmFileHandle *fh_;              // 表的数据文件句柄
   // std::vector<ColMeta> cols_;         // 需要读取的字段
-  Schema schema_;                       // scan后生成的记录的字段
+  Schema schema_;                     // scan后生成的记录的字段
   size_t len_;                        // 选取出来的一条记录的长度
   std::vector<Condition> fed_conds_;  // 扫描条件，和conds_字段相同
 

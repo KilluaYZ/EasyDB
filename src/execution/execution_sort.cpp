@@ -21,17 +21,18 @@ SortExecutor::SortExecutor(std::unique_ptr<AbstractExecutor> prev, TabCol sel_co
   sorter = std::make_unique<MergeSorter>(cols_, prev_->cols(), len_, is_desc_);
 }
 
-void SortExecutor::beginTuple() override {
-  for (prev_->beginTuple(); !prev_->IsEnd(); prev_->nextTuple()) {
-    current_tuple = prev_->Next();
-    sorter->writeBuffer(*current_tuple);
-  }
-  sorter->clearBuffer();
-  sorter->initializeMergeListAndConstructTree();
-  nextTuple();
+void SortExecutor::beginTuple() {
+  // for (prev_->beginTuple(); !prev_->IsEnd(); prev_->nextTuple()) {
+  //   // current_tuple = prev_->Next();
+  //   current_tuple = prev_->Next();
+  //   sorter->writeBuffer(*current_tuple);
+  // }
+  // sorter->clearBuffer();
+  // sorter->initializeMergeListAndConstructTree();
+  // nextTuple();
 }
 
-void SortExecutor::nextTuple() override {
+void SortExecutor::nextTuple() {
   if (!sorter->IsEnd()) {
     current_tuple = std::make_unique<RmRecord>(len_, sorter->getOneRecord());
   } else {

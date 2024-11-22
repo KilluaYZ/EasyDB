@@ -14,17 +14,17 @@ See the Mulan PSL v2 for more details. */
 #include <cstring>
 #include <string>
 #include "common/common.h"
-#include "execution/execution_sort.h"
+// #include "execution/execution_sort.h"
 #include "execution/executor_abstract.h"
-#include "execution/executor_aggregation.h"
-#include "execution/executor_delete.h"
+// #include "execution/executor_aggregation.h"
+// #include "execution/executor_delete.h"
 #include "execution/executor_index_scan.h"
-#include "execution/executor_insert.h"
+// #include "execution/executor_insert.h"
 #include "execution/executor_merge_join.h"
 #include "execution/executor_nestedloop_join.h"
-#include "execution/executor_projection.h"
+// #include "execution/executor_projection.h"
 #include "execution/executor_seq_scan.h"
-#include "execution/executor_update.h"
+// #include "execution/executor_update.h"
 #include "planner/plan.h"
 
 namespace easydb {
@@ -81,35 +81,39 @@ class Portal {
           return std::make_shared<PortalStmt>(PORTAL_ONE_SELECT, std::move(p->sel_cols_), std::move(root), plan);
         }
 
-        case T_Update: {
-          std::unique_ptr<AbstractExecutor> scan = convert_plan_executor(x->subplan_, context);
-          std::vector<RID> rids;
-          for (scan->beginTuple(); !scan->IsEnd(); scan->nextTuple()) {
-            rids.push_back(scan->rid());
-          }
-          std::unique_ptr<AbstractExecutor> root =
-              std::make_unique<UpdateExecutor>(sm_manager_, x->tab_name_, x->set_clauses_, x->conds_, rids, context);
-          return std::make_shared<PortalStmt>(PORTAL_DML_WITHOUT_SELECT, std::vector<TabCol>(), std::move(root), plan);
-        }
-        case T_Delete: {
-          std::unique_ptr<AbstractExecutor> scan = convert_plan_executor(x->subplan_, context);
-          std::vector<RID> rids;
-          for (scan->beginTuple(); !scan->IsEnd(); scan->nextTuple()) {
-            rids.push_back(scan->rid());
-          }
+          // case T_Update: {
+          //   std::unique_ptr<AbstractExecutor> scan = convert_plan_executor(x->subplan_, context);
+          //   std::vector<RID> rids;
+          //   for (scan->beginTuple(); !scan->IsEnd(); scan->nextTuple()) {
+          //     rids.push_back(scan->rid());
+          //   }
+          //   std::unique_ptr<AbstractExecutor> root =
+          //       std::make_unique<UpdateExecutor>(sm_manager_, x->tab_name_, x->set_clauses_, x->conds_, rids,
+          //       context);
+          //   return std::make_shared<PortalStmt>(PORTAL_DML_WITHOUT_SELECT, std::vector<TabCol>(), std::move(root),
+          //   plan);
+          // }
+          // case T_Delete: {
+          //   std::unique_ptr<AbstractExecutor> scan = convert_plan_executor(x->subplan_, context);
+          //   std::vector<RID> rids;
+          //   for (scan->beginTuple(); !scan->IsEnd(); scan->nextTuple()) {
+          //     rids.push_back(scan->rid());
+          //   }
 
-          std::unique_ptr<AbstractExecutor> root =
-              std::make_unique<DeleteExecutor>(sm_manager_, x->tab_name_, x->conds_, rids, context);
+          //   std::unique_ptr<AbstractExecutor> root =
+          //       std::make_unique<DeleteExecutor>(sm_manager_, x->tab_name_, x->conds_, rids, context);
 
-          return std::make_shared<PortalStmt>(PORTAL_DML_WITHOUT_SELECT, std::vector<TabCol>(), std::move(root), plan);
-        }
+          //   return std::make_shared<PortalStmt>(PORTAL_DML_WITHOUT_SELECT, std::vector<TabCol>(), std::move(root),
+          //   plan);
+          // }
 
-        case T_Insert: {
-          std::unique_ptr<AbstractExecutor> root =
-              std::make_unique<InsertExecutor>(sm_manager_, x->tab_name_, x->values_, context);
+          // case T_Insert: {
+          //   std::unique_ptr<AbstractExecutor> root =
+          //       std::make_unique<InsertExecutor>(sm_manager_, x->tab_name_, x->values_, context);
 
-          return std::make_shared<PortalStmt>(PORTAL_DML_WITHOUT_SELECT, std::vector<TabCol>(), std::move(root), plan);
-        }
+          //   return std::make_shared<PortalStmt>(PORTAL_DML_WITHOUT_SELECT, std::vector<TabCol>(), std::move(root),
+          //   plan);
+          // }
 
         default:
           throw InternalError("Unexpected field type");
@@ -158,7 +162,8 @@ class Portal {
       // // NOT NULL
       // std::unique_ptr<AbstractExecutor> root = convert_plan_executor(x->subplan_, context);
       // return std::make_unique<ProjectionExecutor>(std::move(root), x->sel_cols_);
-      return std::make_unique<ProjectionExecutor>(convert_plan_executor(x->subplan_, context), x->sel_cols_);
+      // TODO
+      // return std::make_unique<ProjectionExecutor>(convert_plan_executor(x->subplan_, context), x->sel_cols_);
     } else if (auto x = std::dynamic_pointer_cast<ScanPlan>(plan)) {
       // deal subquery
       for (auto &cond : x->conds_) {
@@ -170,30 +175,37 @@ class Portal {
         }
       }
       if (x->tag == T_SeqScan) {
-        return std::make_unique<SeqScanExecutor>(sm_manager_, x->tab_name_, x->conds_, context);
+        // return std::make_unique<SeqScanExecutor>(sm_manager_, x->tab_name_, x->conds_, context);
+        // TODO
+        // return std::make_unique<SeqScanExecutor>(sm_manager_, x->tab_name_, x->conds_);
       } else {
-        return std::make_unique<IndexScanExecutor>(sm_manager_, x->tab_name_, x->conds_, x->index_col_names_, context);
+        // TODO
+        // return std::make_unique<IndexScanExecutor>(sm_manager_, x->tab_name_, x->conds_, x->index_col_names_, context);
       }
     } else if (auto x = std::dynamic_pointer_cast<JoinPlan>(plan)) {
       std::unique_ptr<AbstractExecutor> left = convert_plan_executor(x->left_, context);
       std::unique_ptr<AbstractExecutor> right = convert_plan_executor(x->right_, context);
       std::unique_ptr<AbstractExecutor> join;
       if (x->tag == T_NestLoop) {
-        join = std::make_unique<NestedLoopJoinExecutor>(std::move(left), std::move(right), std::move(x->conds_));
+        // TODO
+        // join = std::make_unique<NestedLoopJoinExecutor>(std::move(left), std::move(right), std::move(x->conds_));
       } else if (x->tag == T_SortMerge) {
-        join = std::make_unique<MergeJoinExecutor>(std::move(left), std::move(right), std::move(x->conds_), false);
+        // TODO
+        // join = std::make_unique<MergeJoinExecutor>(std::move(left), std::move(right), std::move(x->conds_), false);
       } else if (x->tag == T_IndexMerge) {
-        join = std::make_unique<MergeJoinExecutor>(std::move(left), std::move(right), std::move(x->conds_), true);
+        // TODO
+        // join = std::make_unique<MergeJoinExecutor>(std::move(left), std::move(right), std::move(x->conds_), true);
       } else {
         throw InternalError("Unexpected join plan type.");
       }
       return join;
-    } else if (auto x = std::dynamic_pointer_cast<SortPlan>(plan)) {
-      return std::make_unique<SortExecutor>(convert_plan_executor(x->subplan_, context), x->sel_col_, x->is_desc_);
-    } else if (auto x = std::dynamic_pointer_cast<AggregationPlan>(plan)) {
-      return std::make_unique<AggregationExecutor>(convert_plan_executor(x->subplan_, context), x->sel_cols_,
-                                                   x->group_cols_, x->having_conds_);
     }
+    // else if (auto x = std::dynamic_pointer_cast<SortPlan>(plan)) {
+    //   return std::make_unique<SortExecutor>(convert_plan_executor(x->subplan_, context), x->sel_col_, x->is_desc_);
+    // } else if (auto x = std::dynamic_pointer_cast<AggregationPlan>(plan)) {
+    //   return std::make_unique<AggregationExecutor>(convert_plan_executor(x->subplan_, context), x->sel_cols_,
+    //                                                x->group_cols_, x->having_conds_);
+    // }
     return nullptr;
   }
 };

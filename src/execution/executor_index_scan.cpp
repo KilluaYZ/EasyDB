@@ -25,8 +25,8 @@ IndexScanExecutor::IndexScanExecutor(SmManager *sm_manager, std::string tab_name
   fh_ = sm_manager_->fhs_.at(tab_name_).get();
 
   // cols_ = tab_.cols;
-  schema_ = tab.schema;
-  len_ = schema.GetInlinedStorageSize();
+  schema_ = tab_.schema;
+  len_ = schema_.GetInlinedStorageSize();
   // len_ = cols_.back().offset + cols_.back().len;
   std::map<CompOp, CompOp> swap_op = {
       {OP_EQ, OP_EQ}, {OP_NE, OP_NE}, {OP_LT, OP_GT}, {OP_GT, OP_LT}, {OP_LE, OP_GE}, {OP_GE, OP_LE},
@@ -58,16 +58,16 @@ IndexScanExecutor::IndexScanExecutor(SmManager *sm_manager, std::string tab_name
   }
 }
 
-void IndexScanExecutor::beginTuple() override {
+void IndexScanExecutor::beginTuple() {
   // 找到索引的lower bound和upper bound (遍历cond)
   // 初始化scan_ 并扫描
   // 找到第一个满足条件的记录
   // std::cout << "IndexScanExecutor beginTuple" << std::endl;
   // 1. Determine the lower and upper bounds for the index scan based on the conditions
-  auto index_name = sm_manager_->get_ix_manager()->get_index_name(tab_name_, index_col_names_);
+  auto index_name = sm_manager_->GetIxManager()->GetIndexName(tab_name_, index_col_names_);
   auto ih = sm_manager_->ihs_.at(index_name).get();
-  Iid lower = ih->leaf_begin();
-  Iid upper = ih->leaf_end();
+  Iid lower = ih->LeafBegin();
+  Iid upper = ih->LeafEnd();
   // Initialize key buffer
   char *key_lower = new char[index_meta_.col_tot_len];
   char *key_upper = new char[index_meta_.col_tot_len];
@@ -91,30 +91,30 @@ void IndexScanExecutor::beginTuple() override {
       case OP_EQ:
         // lower = ih->lower_bound(key);
         // upper = ih->upper_bound(key);
-        memcpy(key_lower + offset, cond.rhs_val.raw->data, len);
-        memcpy(key_upper + offset, cond.rhs_val.raw->data, len);
-        lower = ih->lower_bound(key_lower);
-        upper = ih->upper_bound(key_upper);
+        memcpy(key_lower + offset, cond.rhs_val.GetData(), len);
+        memcpy(key_upper + offset, cond.rhs_val.GetData(), len);
+        lower = ih->LowerBound(key_lower);
+        upper = ih->UpperBound(key_upper);
         break;
       case OP_GE:
         // lower = ih->lower_bound(key);
-        memcpy(key_lower + offset, cond.rhs_val.raw->data, len);
-        lower = ih->lower_bound(key_lower);
+        memcpy(key_lower + offset, cond.rhs_val.GetData(), len);
+        lower = ih->LowerBound(key_lower);
         break;
       case OP_GT:
         // lower = ih->upper_bound(key);
-        memcpy(key_lower + offset, cond.rhs_val.raw->data, len);
-        lower = ih->upper_bound(key_lower);
+        memcpy(key_lower + offset, cond.rhs_val.GetData(), len);
+        lower = ih->UpperBound(key_lower);
         break;
       case OP_LE:
         // upper = ih->upper_bound(key);
-        memcpy(key_upper + offset, cond.rhs_val.raw->data, len);
-        upper = ih->upper_bound(key_upper);
+        memcpy(key_upper + offset, cond.rhs_val.GetData(), len);
+        upper = ih->UpperBound(key_upper);
         break;
       case OP_LT:
         // upper = ih->lower_bound(key);
-        memcpy(key_upper + offset, cond.rhs_val.raw->data, len);
-        upper = ih->lower_bound(key_upper);
+        memcpy(key_upper + offset, cond.rhs_val.GetData(), len);
+        upper = ih->LowerBound(key_upper);
         break;
       default:
         break;
@@ -122,30 +122,30 @@ void IndexScanExecutor::beginTuple() override {
   }
 
   // 2. Initialize the index scan
-  scan_ = std::make_unique<IxScan>(ih, lower, upper, sm_manager_->get_bpm());
+  scan_ = std::make_unique<IxScan>(ih, lower, upper, sm_manager_->GetBpm());
 
   // 3. Find the first tuple that satisfies the conditions
   while (!IsEnd()) {
-    rid_ = scan_->rid();
+    rid_ = scan_->GetRid();
     // Note: There maybe some not satisfied records in the index scan,
     // because the lower and upper bounds may not correct in some cases,
     // eg. when using a multiple-column index.
     if (predicate()) {
       break;
     }
-    scan_->next();
+    scan_->Next();
   }
 
   // Lock the gap between lower and upper bounds
   if (context_ != nullptr) {
     // The reason do before check IsEnd() is that we need to lock the gap of next key
     // when the current key is the last one in the index or the lower=upper.
-    auto iid = scan_->iid();
+    auto iid = scan_->GetIid();
     context_->lock_mgr_->lock_gap_on_index(context_->txn_, iid, fh_->GetFd());
     // lock the gap of next key
     while (!IsEnd()) {
-      scan_->next();
-      iid = scan_->iid();
+      scan_->Next();
+      iid = scan_->GetIid();
       context_->lock_mgr_->lock_gap_on_index(context_->txn_, iid, fh_->GetFd());
     }
     // reset the lower bound to the first record
@@ -153,21 +153,21 @@ void IndexScanExecutor::beginTuple() override {
   }
 }
 
-void IndexScanExecutor::nextTuple() override {
+void IndexScanExecutor::nextTuple() {
   // TODO:
   // 使用scan_ 找到下一个满足条件的记录
   // std::cout << "IndexScanExecutor nextTuple" << std::endl;
-  scan_->next();
+  scan_->Next();
   // Note that scan_->next() may out of range
   while (!IsEnd()) {
-    rid_ = scan_->rid();
+    rid_ = scan_->GetRid();
     // Note: There maybe some not satisfied records in the index scan,
     // because the lower and upper bounds may not correct in some cases,
     // eg. when using a multiple-column index.
     if (predicate()) {
       break;
     }
-    scan_->next();
+    scan_->Next();
   }
 }
 
@@ -180,18 +180,18 @@ bool IndexScanExecutor::predicate() {
   for (auto &cond : conds_) {
     // auto lhs_col = get_col(cols_, cond.lhs_col);
     Value lhs_v, rhs_v;
-    if (lhs_v.get_value_from_record(record, cols_, cond.lhs_col.col_name) == nullptr) {
-      throw InternalError("target column not found.");
-    }
-    if (cond.is_rhs_val) {
-      rhs_v = cond.rhs_val;
-    } else if (rhs_v.get_value_from_record(record, cols_, cond.rhs_col.col_name) == nullptr) {
-      throw InternalError("target column not found.");
-    }
-    if (!cond.satisfy(lhs_v, rhs_v)) {
-      satisfy = false;
-      break;
-    }
+    // if (lhs_v.get_value_from_record(record, cols_, cond.lhs_col.col_name) == nullptr) {
+    // throw InternalError("target column not found.");
+    // }
+    // if (cond.is_rhs_val) {
+    //   rhs_v = cond.rhs_val;
+    // } else if (rhs_v.get_value_from_record(record, cols_, cond.rhs_col.col_name) == nullptr) {
+    //   throw InternalError("target column not found.");
+    // }
+    // if (!cond.satisfy(lhs_v, rhs_v)) {
+    //   satisfy = false;
+    //   break;
+    // }
   }
   return satisfy;
 }
