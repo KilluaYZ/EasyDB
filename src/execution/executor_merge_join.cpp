@@ -119,30 +119,30 @@ void MergeJoinExecutor::nextTuple() override {
   joined_records_ = concat_records();
 }
 
-// attention : statement with additional conds is not supported yet.
-bool MergeJoinExecutor::predicate() {
-  if (fed_conds_.size() == 1) {
-    return true;
-  }
-  bool satisfy = true;
-  // return true only all the conditions were true
-  // i.e. all conditions are connected with 'and' operator
-  for (auto &cond : fed_conds_) {
-    assert(!cond.is_rhs_val);
-    Value lhs_v, rhs_v;
-    if (lhs_v.get_value_from_record(*current_left_data_, left_->cols(), cond.lhs_col.col_name) == nullptr) {
-      throw InternalError("target column not found.");
-    }
-    if (rhs_v.get_value_from_record(*current_right_data_, right_->cols(), cond.rhs_col.col_name) == nullptr) {
-      throw InternalError("target column not found.");
-    }
-    if (!cond.satisfy(lhs_v, rhs_v)) {
-      satisfy = false;
-      break;
-    }
-  }
-  return satisfy;
-}
+// // attention : statement with additional conds is not supported yet.
+// bool MergeJoinExecutor::predicate() {
+//   if (fed_conds_.size() == 1) {
+//     return true;
+//   }
+//   bool satisfy = true;
+//   // return true only all the conditions were true
+//   // i.e. all conditions are connected with 'and' operator
+//   for (auto &cond : fed_conds_) {
+//     assert(!cond.is_rhs_val);
+//     Value lhs_v, rhs_v;
+//     if (lhs_v.get_value_from_record(*current_left_data_, left_->cols(), cond.lhs_col.col_name) == nullptr) {
+//       throw InternalError("target column not found.");
+//     }
+//     if (rhs_v.get_value_from_record(*current_right_data_, right_->cols(), cond.rhs_col.col_name) == nullptr) {
+//       throw InternalError("target column not found.");
+//     }
+//     if (!cond.satisfy(lhs_v, rhs_v)) {
+//       satisfy = false;
+//       break;
+//     }
+//   }
+//   return satisfy;
+// }
 
 void MergeJoinExecutor::iterate_helper() {
   current_left_data_ = leftSorter_->getOneRecord();

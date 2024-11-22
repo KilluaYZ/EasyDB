@@ -73,6 +73,8 @@ class Tuple {
   
   Tuple(std::vector<char> data);
 
+  Tuple(int size, char* data);
+
   Tuple(const Tuple &other) = default;
 
   // move constructor

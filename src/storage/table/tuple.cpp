@@ -106,6 +106,13 @@ Tuple::Tuple(std::vector<char> data) {
   // }
 }
 
+Tuple::Tuple(int size, char* data) {
+  data_.clear();
+  data_.assign(data,data+size);
+  data_.emplace_back('\0');
+}
+
+
 auto Tuple::GetValue(const Schema *schema, const uint32_t column_idx) const -> Value {
   assert(schema);
   const TypeId column_type = schema->GetColumn(column_idx).GetType();

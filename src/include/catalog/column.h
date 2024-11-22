@@ -113,6 +113,15 @@ class Column {
 
   void AddOffset(int off) { column_offset_ += off; };
 
+  Column &operator=(const Column &other) {
+    column_name_ = other.GetName();
+    tab_name_ = other.GetTabName();
+    column_type_ = other.GetType();
+    length_ = other.GetStorageSize();
+    column_offset_ = other.GetOffset();
+    return *this;
+  };
+
  private:
   /**
    * Return the size in bytes of the type.

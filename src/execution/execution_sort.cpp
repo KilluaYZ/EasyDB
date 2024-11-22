@@ -13,15 +13,17 @@ namespace easydb {
 
 SortExecutor::SortExecutor(std::unique_ptr<AbstractExecutor> prev, TabCol sel_cols, bool is_desc) {
   prev_ = std::move(prev);
-  cols_ = prev_->get_col_offset(sel_cols);
+  // cols_ = prev_->get_colus_offset(sel_cols);
+  schema_ = prev_->schema();
+  colus_ = prev_->get_colu_offset(sel_cols);
   is_desc_ = is_desc;
   tuple_num = 0;
   used_tuple.clear();
   len_ = prev_->tupleLen();
-  sorter = std::make_unique<MergeSorter>(cols_, prev_->cols(), len_, is_desc_);
+  sorter = std::make_unique<MergeSorter>(colus_, prev_->schema().GetColumns(), len_, is_desc_);
 }
 
-void SortExecutor::beginTuple() override {
+void SortExecutor::beginTuple() {
   for (prev_->beginTuple(); !prev_->IsEnd(); prev_->nextTuple()) {
     current_tuple = prev_->Next();
     sorter->writeBuffer(*current_tuple);
@@ -31,9 +33,16 @@ void SortExecutor::beginTuple() override {
   nextTuple();
 }
 
-void SortExecutor::nextTuple() override {
+void SortExecutor::nextTuple() {
   if (!sorter->IsEnd()) {
-    current_tuple = std::make_unique<RmRecord>(len_, sorter->getOneRecord());
+    char *tp = sorter->getOneRecord();
+    // std::vector<char> vec_tp;
+    // vec_tp.assign(tp,tp+len_);
+    // vec_tp.emplace_back('\0');
+    // current_tuple = std::make_unique<Tuple>(vec_tp);
+    current_tuple = std::make_unique<Tuple>(len_, sorter->getOneRecord());
+    delete[] tp;
+    // current_tuple = std::make_unique<RmRecord>(len_, sorter->getOneRecord());
   } else {
     isend_ = true;
     current_tuple = NULL;

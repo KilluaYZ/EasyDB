@@ -9,6 +9,7 @@
 #pragma once
 
 #include "catalog/schema.h"
+#include "catalog/column.h"
 #include "common/common.h"
 #include "common/context.h"
 #include "common/errors.h"
@@ -67,6 +68,7 @@ class AbstractExecutor {
   // virtual std::unique_ptr<RmRecord> Next() = 0;
 
   virtual ColMeta get_col_offset(const TabCol &target) { return ColMeta(); };
+  virtual Column get_colu_offset(const TabCol &target) { return Column(); };
 
   std::vector<ColMeta>::const_iterator get_col(const std::vector<ColMeta> &rec_cols, const TabCol &target) {
     auto pos = std::find_if(rec_cols.begin(), rec_cols.end(), [&](const ColMeta &col) {

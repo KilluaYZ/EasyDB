@@ -259,10 +259,10 @@ Tuple NestedLoopJoinExecutor::concat_records() {
   char *data_cat = new char[len_];
   memcpy(data_cat, left_buffer_[left_idx_].GetData(), left_len_);
   memcpy(data_cat + left_len_, right_buffer_[right_idx_].GetData(), right_len_);
-  std::vector<char> vec_tp;
-  vec_tp.assign(data_cat,len_);
-  vec_tp.emplace_back('\0');
-  return Tuple(data_cat);
+  // std::vector<char> vec_tp;
+  // vec_tp.assign(data_cat,data_cat+len_);
+  // vec_tp.emplace_back('\0');
+  return Tuple(len_,data_cat);
 }
 
 }  // namespace easydb
