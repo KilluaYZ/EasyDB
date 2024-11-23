@@ -188,10 +188,16 @@ bool IndexScanExecutor::predicate() {
     // } else if (rhs_v.get_value_from_record(record, cols_, cond.rhs_col.col_name) == nullptr) {
     //   throw InternalError("target column not found.");
     // }
-    // if (!cond.satisfy(lhs_v, rhs_v)) {
-    //   satisfy = false;
-    //   break;
-    // }
+    lhs_v.DeserializeFrom(record.GetData(), &schema_, cond.lhs_col.col_name);
+    if (cond.is_rhs_val) {
+      rhs_v = cond.rhs_val;
+    } else {
+      rhs_v.DeserializeFrom(record.GetData(), &schema_, cond.rhs_col.col_name);
+    }
+    if (!cond.satisfy(lhs_v, rhs_v)) {
+      satisfy = false;
+      break;
+    }
   }
   return satisfy;
 }

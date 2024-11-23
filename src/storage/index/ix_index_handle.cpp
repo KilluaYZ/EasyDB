@@ -11,6 +11,7 @@
 
 #include "storage/index/ix_index_handle.h"
 #include <memory>
+#include "common/config.h"
 #include "storage/index/ix_defs.h"
 
 namespace easydb {
@@ -556,10 +557,6 @@ page_id_t IxIndexHandle::InsertEntry(const char *key, const RID &value) {
 
   delete leaf_node;
 
-  if (file_hdr_->root_page_ == 4) {
-    auto root = FetchNode(file_hdr_->root_page_);
-    delete root;
-  }
   return page_no;
 }
 
@@ -606,7 +603,12 @@ bool IxIndexHandle::DeleteEntry(const char *key) {
 
   // TODO: 4. Handle concurrent deletion and node removal if necessary
   if (should_delete_node) {
+    // Update the first_leaf pointer in the file header if necessary
+    if (leaf_pageId.page_no == file_hdr_->first_leaf_) {
+      file_hdr_->first_leaf_ = leaf_node->GetNextLeaf();
+    }
     ReleaseNodeHandle(*leaf_node);
+
     // Unpin the leaf node handle
     buffer_pool_manager_->UnpinPage(leaf_pageId, true);
     delete leaf_node;
@@ -894,12 +896,15 @@ bool IxIndexHandle::Coalesce(IxNodeHandle **neighbor_node, IxNodeHandle **node, 
  * @note iid和rid存的不是一个东西，rid是上层传过来的记录位置，iid是索引内部生成的索引槽位置
  */
 RID IxIndexHandle::GetRid(const Iid &iid) const {
-  // IxNodeHandle *node = FetchNode(iid.page_no);
-  // if (iid.slot_no >= node->GetSize()) {
-  //   throw IndexEntryNotFoundError();
-  // }
-  // buffer_pool_manager_->UnpinPage(node->GetPageId(), false);  // unpin it!
-  // return *node->GetRid(iid.slot_no);
+  IxNodeHandle *node = FetchNode(iid.page_id_);
+  if (iid.slot_num_ >= static_cast<slot_id_t>(node->GetSize())) {
+    throw IndexEntryNotFoundError();
+  }
+  auto rid = *node->GetRid(iid.slot_num_);
+
+  buffer_pool_manager_->UnpinPage(node->GetPageId(), false);  // unpin it!
+  delete node;
+  return rid;
 }
 
 /**
@@ -927,18 +932,18 @@ Iid IxIndexHandle::LowerBound(const char *key) {
   int key_index = leaf_node->LowerBound(key);
 
   Iid result;
-  // // target key > all keys in leaf node
-  // if (key_index == leaf_node->GetSize()) {
-  //   if (leaf_node->GetPageNo() == file_hdr_->last_leaf_) {
-  //     // the last leaf node
-  //     result = Iid{leaf_node->GetPageNo(), leaf_node->GetSize()};
-  //   } else {
-  //     // the leaf node has Next leaf
-  //     result = Iid{leaf_node->GetNextLeaf(), 0};
-  //   }
-  // } else {
-  //   result = Iid{leaf_node->GetPageNo(), key_index};
-  // }
+  // target key > all keys in leaf node
+  if (key_index == leaf_node->GetSize()) {
+    if (leaf_node->GetPageNo() == file_hdr_->last_leaf_) {
+      // the last leaf node
+      result = Iid{leaf_node->GetPageNo(), static_cast<slot_id_t>(leaf_node->GetSize())};
+    } else {
+      // the leaf node has Next leaf
+      result = Iid{leaf_node->GetNextLeaf(), 0};
+    }
+  } else {
+    result = Iid{leaf_node->GetPageNo(), static_cast<slot_id_t>(key_index)};
+  }
 
   // 3. Unpin the leaf node that pinned in find_leaf_page()
   buffer_pool_manager_->UnpinPage(leaf_node->GetPageId(), false);
@@ -970,18 +975,18 @@ Iid IxIndexHandle::UpperBound(const char *key) {
   int key_index = leaf_node->UpperBound(key);
 
   Iid result;
-  // // target key >= all keys in leaf node
-  // if (key_index == leaf_node->GetSize()) {
-  //   if (leaf_node->GetPageNo() == file_hdr_->last_leaf_) {
-  //     // the last leaf node
-  //     result = Iid{leaf_node->GetPageNo(), leaf_node->GetSize()};
-  //   } else {
-  //     // the leaf node has Next leaf
-  //     result = Iid{leaf_node->GetNextLeaf(), 0};
-  //   }
-  // } else {
-  //   result = Iid{leaf_node->GetPageNo(), key_index};
-  // }
+  // target key >= all keys in leaf node
+  if (key_index == leaf_node->GetSize()) {
+    if (leaf_node->GetPageNo() == file_hdr_->last_leaf_) {
+      // the last leaf node
+      result = Iid{leaf_node->GetPageNo(), static_cast<slot_id_t>(leaf_node->GetSize())};
+    } else {
+      // the leaf node has Next leaf
+      result = Iid{leaf_node->GetNextLeaf(), 0};
+    }
+  } else {
+    result = Iid{leaf_node->GetPageNo(), static_cast<slot_id_t>(key_index)};
+  }
 
   // 3. Unpin the leaf node that pinned in find_leaf_page()
   buffer_pool_manager_->UnpinPage(leaf_node->GetPageId(), false);
@@ -997,10 +1002,11 @@ Iid IxIndexHandle::UpperBound(const char *key) {
  * @return Iid
  */
 Iid IxIndexHandle::LeafEnd() const {
-  // IxNodeHandle *node = FetchNode(file_hdr_->last_leaf_);
-  // Iid iid = {.page_no = file_hdr_->last_leaf_, .slot_no = node->GetSize()};
-  // buffer_pool_manager_->UnpinPage(node->GetPageId(), false);  // unpin it!
-  // return iid;
+  IxNodeHandle *node = FetchNode(file_hdr_->last_leaf_);
+  Iid iid = {.page_id_ = file_hdr_->last_leaf_, .slot_num_ = static_cast<slot_id_t>(node->GetSize())};
+  buffer_pool_manager_->UnpinPage(node->GetPageId(), false);  // unpin it!
+  delete node;
+  return iid;
 }
 
 /**
@@ -1010,8 +1016,8 @@ Iid IxIndexHandle::LeafEnd() const {
  * @return Iid
  */
 Iid IxIndexHandle::LeafBegin() const {
-  // Iid iid = {.page_no = file_hdr_->first_leaf_, .slot_no = 0};
-  // return iid;
+  Iid iid = {.page_id_ = file_hdr_->first_leaf_, .slot_num_ = 0};
+  return iid;
 }
 
 /**
