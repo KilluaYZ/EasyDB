@@ -68,11 +68,12 @@ int init_tcp_sock(const char *server_host, int server_port) {
 }
 
 int main(int argc, char *argv[]) {
-  int ret = 0;  // set_terminal_noncanonical();
-                //    if (ret < 0) {
-                //        printf("Warning: failed to set terminal non canonical. Long command may be "
-                //               "handled incorrect\n");
-                //    }
+  int ret = 0;
+  // set_terminal_noncanonical();
+  //    if (ret < 0) {
+  //        printf("Warning: failed to set terminal non canonical. Long command may be "
+  //               "handled incorrect\n");
+  //    }
 
   const char *unix_socket_path = nullptr;
   const char *server_host = "127.0.0.1";  // 127.0.0.1 192.168.31.25
@@ -113,7 +114,7 @@ int main(int argc, char *argv[]) {
   char recv_buf[MAX_MEM_BUFFER_SIZE];
 
   while (1) {
-    char *line_read = readline("Rucbase> ");
+    char *line_read = readline("Easydb> ");
     if (line_read == nullptr) {
       // EOF encountered
       break;

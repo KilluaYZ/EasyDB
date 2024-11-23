@@ -172,7 +172,7 @@ void DiskManager::DestroyFile(const std::string &path) {
     if (path2fd_.find(path) != path2fd_.end() && path2fd_[path] != -1) {
       throw Exception("file " + path + " is still opened by other threads");
     }
-    if (std::filesystem::remove(path) != 0) {
+    if (!std::filesystem::remove(path)) {
       throw Exception("failed to remove file " + path);
     }
   } else {
