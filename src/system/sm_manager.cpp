@@ -10,12 +10,12 @@ See the Mulan PSL v2 for more details. */
 
 #include "system/sm_manager.h"
 
+#include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <string>
-
 #include <fstream>
+#include <string>
 #include "catalog/schema.h"
 #include "common/errors.h"
 #include "record/record_printer.h"
@@ -23,6 +23,7 @@ See the Mulan PSL v2 for more details. */
 #include "record/rm_scan.h"
 #include "storage/index/ix_defs.h"
 #include "system/sm_meta.h"
+#include "type/type_id.h"
 
 namespace easydb {
 
@@ -650,6 +651,22 @@ inline int ix_compare(const char *a, const char *b, const std::vector<ColMeta> c
 }
 
 /**
+ * @description: insert record into table
+ * @param file_name
+ * @param table_name
+ * @param context
+ * @note: this function will insert one record into table
+ */
+RID fh_insert(RmFileHandle *fh, std::vector<Value> &values, Schema *schema) {
+  Tuple tuple{values, schema};
+  auto rid = fh->InsertTuple(TupleMeta{0, false}, tuple);
+  auto page_id = rid->GetPageId();
+  auto slot_num = rid->GetSlotNum();
+  // std::cout << "[TEST] insert rid: page id: " << page_id << " slot num: " << slot_num << std::endl;
+  return {page_id, slot_num};
+}
+
+/**
  * @description: load data from csv file to table
  * @param file_name
  * @param table_name
@@ -657,39 +674,39 @@ inline int ix_compare(const char *a, const char *b, const std::vector<ColMeta> c
  * @note: this function does not create table, just load data to existing table
  */
 void SmManager::LoadData(const std::string &file_name, const std::string &table_name, Context *context) {
-  // // std::cout << "SmManager::load_data: load data from " << file_name << " to table " << table_name << std::endl;
-  // // 1. Get the table object
-  // // check if table exists
-  // if (!db_.is_table(table_name)) {
-  //   throw TableNotFoundError(table_name);
-  // }
-  // auto &tab = db_.get_table(table_name);
-  // auto fh = fhs_.at(table_name).get();
-  // size_t col_size = tab.cols.size();
+  // std::cout << "SmManager::load_data: load data from " << file_name << " to table " << table_name << std::endl;
+  // 1. Get the table object
+  // check if table exists
+  if (!db_.is_table(table_name)) {
+    throw TableNotFoundError(table_name);
+  }
+  auto &tab = db_.get_table(table_name);
+  auto fh = fhs_.at(table_name).get();
+  size_t col_size = tab.cols.size();
 
-  // // 2. Open file and create memory mapping
-  // int fd = open(file_name.c_str(), O_RDONLY);
-  // if (fd == -1) {
-  //   close(fd);
-  //   throw InternalError("SmManager::load_data: open file failed");
-  // }
-  // size_t file_size = lseek(fd, 0, SEEK_END);
-  // char *data = (char *)mmap(nullptr, file_size, PROT_READ, MAP_SHARED, fd, 0);
-  // if (data == MAP_FAILED) {
-  //   close(fd);
-  //   throw InternalError("SmManager::load_data: mmap failed");
-  // }
+  // 2. Open file and create memory mapping
+  int fd = open(file_name.c_str(), O_RDONLY);
+  if (fd == -1) {
+    close(fd);
+    throw InternalError("SmManager::load_data: open file failed");
+  }
+  size_t file_size = lseek(fd, 0, SEEK_END);
+  char *data = (char *)mmap(nullptr, file_size, PROT_READ, MAP_SHARED, fd, 0);
+  if (data == MAP_FAILED) {
+    close(fd);
+    throw InternalError("SmManager::load_data: mmap failed");
+  }
 
-  // // 3. Parse CSV header and validate
-  // char *line_start = data;
-  // char *line_end = strchr(line_start, '\n');
-  // if (line_end == nullptr) {
-  //   munmap(data, file_size);
-  //   close(fd);
-  //   throw InternalError("SmManager::load_data: invalid CSV file");
-  // }
-  // std::vector<std::string> header;
-  // Split(line_start, line_end - line_start, ',', header);
+  // 3. Parse CSV header and validate
+  char *line_start = data;
+  char *line_end = strchr(line_start, '\n');
+  if (line_end == nullptr) {
+    munmap(data, file_size);
+    close(fd);
+    throw InternalError("SmManager::load_data: invalid CSV file");
+  }
+  std::vector<std::string> header;
+  Split(line_start, line_end - line_start, '|', header);
   // for (int i = 0; i < col_size; ++i) {
   //   if (header[i] != tab.cols[i].name) {
   //     munmap(data, file_size);
@@ -698,92 +715,102 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
   //   }
   // }
 
-  // // 4. Parse data and batch insert into table
-  // line_start = line_end + 1;
-  // int total_records = 0;
-  // int page_record_count = 0;
-  // int record_size = fh->get_file_hdr().record_size;
+  // 4. Parse data and batch insert into table
+  line_start = line_end + 1;
+  int total_records = 0;
+  int page_record_count = 0;
+  // int record_size = fh->GetFileHdr().record_size;
   // int num_records_per_page = fh->get_file_hdr().num_records_per_page;
   // int page_size = record_size * num_records_per_page;
+  // fh->GetFileHdr()
   // char *page_data = new char[page_size];
   // memset(page_data, 0, page_size);
 
-  // // Batch data for indexes(just primary key for now)
-  // std::vector<std::pair<std::string, Rid>> index_entries;
+  // Batch data for indexes(just primary key for now)
+  std::vector<std::pair<std::string, RID>> index_entries;
 
-  // while (line_start < data + file_size) {
-  //   line_end = strchr(line_start, '\n');
-  //   // Last line without \n
-  //   if (line_end == nullptr) {
-  //     line_end = data + file_size;
-  //   }
+  while (line_start < data + file_size) {
+    line_end = strchr(line_start, '\n');
+    // Last line without \n
+    if (line_end == nullptr) {
+      line_end = data + file_size;
+    }
 
-  //   // Directly parse the line and fill the corresponding slot in page_data
-  //   char *token_start = line_start;
-  //   for (int i = 0; i < col_size; ++i) {
-  //     char *token_end = std::find(token_start, line_end, ',');
-  //     // Calculate the destination address in the page buffer
-  //     char *dest = page_data + (page_record_count * record_size) + tab.cols[i].offset;
-  //     int len = tab.cols[i].len;
-  //     auto type = tab.cols[i].type;
+    // Directly parse the line and fill the corresponding slot in page_data
+    std::vector<Value> values;
+    char *token_start = line_start;
+    for (int i = 0; i < col_size; ++i) {
+      char *token_end = std::find(token_start, line_end, '|');
+      // Calculate the destination address in the page buffer
+      // char *dest = page_data + (page_record_count * record_size) + tab.cols[i].offset;
+      int len = tab.cols[i].len;
+      auto type = tab.cols[i].type;
+      Value _tmp_val;
+      switch (type) {
+        case TYPE_INT: {
+          _tmp_val = Value(type, std::stoi(std::string(token_start, token_end)));
+          // *reinterpret_cast<int *>(dest) = std::stoi(std::string(token_start, token_end));
+          break;
+        }
+        case TYPE_DOUBLE:
+        case TYPE_FLOAT: {
+          _tmp_val = Value(type, std::stof(std::string(token_start, token_end)));
+          // *reinterpret_cast<float *>(dest) = std::stof(std::string(token_start, token_end));
+          break;
+        }
+        case TYPE_CHAR:
+        case TYPE_VARCHAR: {
+          // int token_len = token_end - token_start;
+          // if (token_len > len) {
+          //   throw StringOverflowError();
+          // }
+          // memset(dest, 0, len);
+          // memcpy(dest, token_start, token_len);
+          std::string _tmp_str = std::string(token_start, token_end);
+          _tmp_val = Value(type, _tmp_str);
+          break;
+        }
+        default:
+          throw InternalError("Unsupported data type.");
+      }
+      values.push_back(_tmp_val);
+      // Move to the next token
+      token_start = token_end + 1;
+    }
+    auto _tmp_rid = fh_insert(fh, values, &tab.schema);
 
-  //     switch (type) {
-  //       case TYPE_INT: {
-  //         *reinterpret_cast<int *>(dest) = std::stoi(std::string(token_start, token_end));
-  //         break;
-  //       }
-  //       case TYPE_FLOAT: {
-  //         *reinterpret_cast<float *>(dest) = std::stof(std::string(token_start, token_end));
-  //         break;
-  //       }
-  //       case TYPE_STRING: {
-  //         int token_len = token_end - token_start;
-  //         if (token_len > len) {
-  //           throw StringOverflowError();
-  //         }
-  //         memset(dest, 0, len);
-  //         memcpy(dest, token_start, token_len);
-  //         break;
-  //       }
-  //       default:
-  //         throw InternalError("Unsupported data type.");
-  //     }
+    // // Extract the key for index
+    // for (auto &index : tab.indexes) {
+    //   char *key = new char[index.col_tot_len];
+    //   int offset = 0;
+    //   for (int i = 0; i < index.col_num; ++i) {
+    //     auto val = index.
+    //     // memcpy(key + offset, page_data + (page_record_count * record_size) + index.cols[i].offset,
+    //     // index.cols[i].len); offset += index.cols[i].len;
+    //     memcpy(key + offset, )
+    //   }
+    //   index_entries.emplace_back(std::string(key, index.col_tot_len),
+    //                              RID{fh->get_file_hdr().num_pages, page_record_count});
+    //   delete[] key;
+    // }
+    page_record_count++;
+    line_start = line_end + 1;
+    total_records++;
 
-  //     // Move to the next token
-  //     token_start = token_end + 1;
-  //   }
+    // // If the page is full, insert the page and reset the counter
+    // if (page_record_count == num_records_per_page) {
+    //   fh->insert_page(page_data, page_record_count);
+    //   page_record_count = 0;
+    //   memset(page_data, 0, page_size);  // Reset the page buffer
+    // }
+  }
 
-  //   // Extract the key for index
-  //   for (auto &index : tab.indexes) {
-  //     char *key = new char[index.col_tot_len];
-  //     int offset = 0;
-  //     for (int i = 0; i < index.col_num; ++i) {
-  //       memcpy(key + offset, page_data + (page_record_count * record_size) + index.cols[i].offset,
-  //       index.cols[i].len); offset += index.cols[i].len;
-  //     }
-  //     index_entries.emplace_back(std::string(key, index.col_tot_len),
-  //                                Rid{fh->get_file_hdr().num_pages, page_record_count});
-  //     delete[] key;
-  //   }
-
-  //   page_record_count++;
-  //   line_start = line_end + 1;
-  //   total_records++;
-
-  //   // If the page is full, insert the page and reset the counter
-  //   if (page_record_count == num_records_per_page) {
-  //     fh->insert_page(page_data, page_record_count);
-  //     page_record_count = 0;
-  //     memset(page_data, 0, page_size);  // Reset the page buffer
-  //   }
-  // }
-
-  // // Insert any remaining records that did not fill a full page
+  // Insert any remaining records that did not fill a full page
   // if (page_record_count > 0) {
   //   fh->insert_page(page_data, page_record_count);
   // }
 
-  // SetTableCount(table_name, total_records);
+  SetTableCount(table_name, total_records);
 
   // // Sort the index entries and insert them into the index file
   // for (auto &index : tab.indexes) {
@@ -792,16 +819,17 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
   //   //     return ix_compare(a.first.c_str(), b.first.c_str(), index.cols) < 0;
   //   // });
   //   // Insert the sorted entries into the B+ tree
-  //   auto index_name = ix_manager_->get_index_name(table_name, index.cols);
+  //   auto index_name = ix_manager_->GetIndexName(table_name, index.cols);
   //   auto ih = ihs_.at(index_name).get();
   //   ih->build_index_bottom_up(index_entries);
   // }
-
-  // // 5. Cleanup resources
-  // index_entries.clear();
+  buffer_pool_manager_->FlushAllDirtyPages();
+  // buffer_pool_manager_->FlushAllPages(fd);
+  // 5. Cleanup resources
+  index_entries.clear();
   // delete[] page_data;
-  // munmap(data, file_size);
-  // close(fd);
+  munmap(data, file_size);
+  close(fd);
 }
 
 void SmManager::AsyncLoadData(const std::string &file_name, const std::string &tab_name, Context *context) {
