@@ -25,13 +25,12 @@ ProjectionExecutor::ProjectionExecutor(std::unique_ptr<AbstractExecutor> prev, c
       new_name = generate_new_name(sel_col);
     }
     auto pos = get_col(prev_colus_, sel_col.tab_name, new_name);
-    sel_idxs_.push_back(pos - prev_colus_.begin());
+    sel_ids_.emplace_back(schema_.GetColIdx(new_name));
     auto col = *pos;
     if (sel_col.aggregation_type != AggregationType::NO_AGG) {
       col.SetName(new_name);
     }
     col.SetOffset(curr_offset);
-    // col.offset = curr_offset;
     curr_offset += col.GetStorageSize();
     prev_colus_.push_back(col);
   }
@@ -53,21 +52,12 @@ void ProjectionExecutor::nextTuple() {
 }
 
 Tuple ProjectionExecutor::projectRecord() {
-  char *projected_record = new char[len_];
-  size_t temp_pos = 0;
-  auto prev_record = prev_->Next();
-  auto prev_data = prev_record->GetData();
-  auto sch = prev_->schema();
-  for (int i = 0; i < sel_idxs_.size(); i++) {
-    // auto col_tmp = prev_->cols().at(sel_idxs_[i]);
-    auto colu_tmp = sch.GetColumn(sel_idxs_[i]);
-    memcpy(projected_record + temp_pos, prev_data + colu_tmp.GetOffset(), colu_tmp.GetStorageSize());
-    temp_pos += colu_tmp.GetStorageSize();
-  }
+  auto prev_tuple = prev_->Next();
+  auto prev_schema = prev_->schema();
+  auto proj_schema = prev_schema.CopySchema(&prev_schema, sel_ids_);
+  auto proj_tuple = prev_tuple->KeyFromTuple(prev_schema, proj_schema, sel_ids_);
 
-  std::vector<char> tmp;
-  tmp.assign(projected_record, projected_record + temp_pos);
-  return Tuple(tmp);
+  return proj_tuple;
 }
 
 std::string ProjectionExecutor::generate_new_name(TabCol col) {
