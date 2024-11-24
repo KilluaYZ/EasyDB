@@ -24,7 +24,8 @@ class ProjectionExecutor : public AbstractExecutor {
   // std::string tab_name_;
   // std::vector<ColMeta> cols_;               // 需要投影的字段
   size_t len_;                              // 字段总长度
-  std::vector<size_t> sel_idxs_;            // 投影字段对应的offset
+  std::vector<uint32_t> sel_ids_;            // 投影字段对应的id(位置)
+
   // RmRecord projection_records_;             // temp projection record(added by flerovium)
   Tuple projection_records_;             // temp projection record(added by flerovium)
   Schema schema_;                       // scan后生成的记录的字段

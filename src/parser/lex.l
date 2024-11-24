@@ -93,6 +93,7 @@ arith_op "+"|"-"|"*"|"/"
 "ASC" { return ASC; }
 "ENABLE_NESTLOOP" { return ENABLE_NESTLOOP; }
 "ENABLE_SORTMERGE" { return ENABLE_SORTMERGE; }
+"ENABLE_HASHJOIN" { return ENABLE_HASHJOIN; }
 "AS" {return AS;}
 "COUNT" { return COUNT;}
 "MAX" { return MAX; }

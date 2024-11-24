@@ -17,24 +17,24 @@ ProjectionExecutor::ProjectionExecutor(std::unique_ptr<AbstractExecutor> prev, c
 
   size_t curr_offset = 0;
   // auto &prev_cols = prev_->cols();
-  schema_ = prev_->schema();
-  std::vector<Column> prev_colus_ = schema_.GetColumns();
+  auto prev_schema = prev_->schema();
+  std::vector<Column> prev_colus_ = prev_schema.GetColumns();
   for (auto &sel_col : sel_cols) {
     std::string new_name = sel_col.col_name;
     if (sel_col.aggregation_type != AggregationType::NO_AGG) {
       new_name = generate_new_name(sel_col);
     }
     auto pos = get_col(prev_colus_, sel_col.tab_name, new_name);
-    sel_idxs_.push_back(pos - prev_colus_.begin());
+    sel_ids_.emplace_back(prev_schema.GetColIdx(new_name));
     auto col = *pos;
     if (sel_col.aggregation_type != AggregationType::NO_AGG) {
       col.SetName(new_name);
     }
     col.SetOffset(curr_offset);
-    // col.offset = curr_offset;
     curr_offset += col.GetStorageSize();
     prev_colus_.push_back(col);
   }
+  schema_ = prev_schema.CopySchema(&prev_schema, sel_ids_);
   len_ = curr_offset;
 }
 
@@ -53,21 +53,12 @@ void ProjectionExecutor::nextTuple() {
 }
 
 Tuple ProjectionExecutor::projectRecord() {
-  char *projected_record = new char[len_];
-  size_t temp_pos = 0;
-  auto prev_record = prev_->Next();
-  auto prev_data = prev_record->GetData();
-  auto sch = prev_->schema();
-  for (int i = 0; i < sel_idxs_.size(); i++) {
-    // auto col_tmp = prev_->cols().at(sel_idxs_[i]);
-    auto colu_tmp = sch.GetColumn(sel_idxs_[i]);
-    memcpy(projected_record + temp_pos, prev_data + colu_tmp.GetOffset(), colu_tmp.GetStorageSize());
-    temp_pos += colu_tmp.GetStorageSize();
-  }
+  auto prev_tuple = prev_->Next();
+  auto prev_schema = prev_->schema();
+  // auto proj_schema = prev_schema.CopySchema(&prev_schema, sel_ids_);
+  auto proj_tuple = prev_tuple->KeyFromTuple(prev_schema, schema_, sel_ids_);
 
-  std::vector<char> tmp;
-  tmp.assign(projected_record, projected_record + temp_pos);
-  return Tuple(tmp);
+  return proj_tuple;
 }
 
 std::string ProjectionExecutor::generate_new_name(TabCol col) {

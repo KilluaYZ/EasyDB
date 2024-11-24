@@ -12,6 +12,7 @@
 // #include "execution/executor_insert.h"
 // #include "execution/executor_update.h"
 
+#include "catalog/schema.h"
 #include "common/errors.h"
 #include "execution/executor_index_scan.h"
 #include "execution/executor_merge_join.h"
@@ -137,6 +138,10 @@ void QlManager::run_cmd_utility(std::shared_ptr<Plan> plan, txn_id_t *txn_id, Co
         planner_->set_enable_sortmerge_join(x->bool_value_);
         break;
       }
+      case ast::SetKnobType::EnableHashJoin: {
+        planner_->setEnableHashJoin(x->bool_value_);
+        break;
+      }
       case ast::SetKnobType::EnableOutput: {
         sm_manager_->SetEnableOutput(x->bool_value_);
         break;
@@ -181,27 +186,21 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
   size_t num_rec = 0;
   // 执行query_plan
   for (executorTreeRoot->beginTuple(); !executorTreeRoot->IsEnd(); executorTreeRoot->nextTuple()) {
-    auto Tuple = executorTreeRoot->Next();
+    auto tuple = executorTreeRoot->Next();
     std::vector<std::string> columns;
-    std::vector<Column> cols = executorTreeRoot->schema().GetColumns();
-    char *tp = new char[Tuple->GetLength()];
-    for (auto &col : cols) {
-      std::string col_str;
-      memcpy(tp, Tuple->GetData(), Tuple->GetLength());
-      char *rec_buf = tp + col.GetOffset();
-      if (col.GetType() == TYPE_INT) {
-        col_str = std::to_string(*(int *)rec_buf);
-      } else if (col.GetType() == TYPE_FLOAT) {
-        col_str = std::to_string(*(float *)rec_buf);
-      } else if (col.GetType() == TYPE_VARCHAR || col.GetType() == TYPE_CHAR) {
-        uint32_t size = *reinterpret_cast<const uint32_t *>(rec_buf);
-        col_str = std::string((char *)rec_buf + sizeof(uint32_t), size);
-        // col_str = std::string((char *)rec_buf + sizeof(uint32_t), col.GetStorageSize()- sizeof(uint32_t));
-        col_str.resize(strlen(col_str.c_str()));
+    std::string col_str;
+    auto schema = &executorTreeRoot->schema();
+    int column_count = schema->GetColumnCount();
+    for (int column_itr = 0; column_itr < column_count; column_itr++) {
+      if (tuple->IsNull(schema, column_itr)) {
+        col_str = "NULL";
+      } else {
+        Value val = (tuple->GetValue(schema, column_itr));
+        col_str = val.ToString();
       }
-      columns.push_back(col_str);
+      columns.emplace_back(col_str);
     }
-    delete[] tp;
+
     if (!print_caption && enable_output) {
       outfile << "|";
       for (int i = 0; i < captions.size(); ++i) {
