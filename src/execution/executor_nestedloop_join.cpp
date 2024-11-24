@@ -27,7 +27,7 @@ NestedLoopJoinExecutor::NestedLoopJoinExecutor(std::unique_ptr<AbstractExecutor>
   schema_ = left_->schema();
   
   // auto right_cols = right_->cols();
-  auto right_colums = right->schema().GetColumns();
+  auto right_colums = right_->schema().GetColumns();
   // for (auto &col : right_cols) {
   //   col.offset += left_->tupleLen();
   // }
@@ -212,8 +212,8 @@ void NestedLoopJoinExecutor::nextTuple() {
 
 void NestedLoopJoinExecutor::iterate_helper() {
   Value lhs_v, rhs_v;
-  lhs_v = left_buffer_[left_idx_].GetValue(&schema_,left_sel_colu_.GetName());
-  rhs_v = right_buffer_[right_idx_].GetValue(&schema_,right_sel_colu_.GetName());
+  lhs_v = left_buffer_[left_idx_].GetValue(&left_->schema(),left_sel_colu_.GetName());
+  rhs_v = right_buffer_[right_idx_].GetValue(&right_->schema(),right_sel_colu_.GetName());
   
   // lhs_v.get_value_from_record(left_buffer_[left_idx_], left_sel_col_);
   // rhs_v.get_value_from_record(right_buffer_[right_idx_], right_sel_col_);
