@@ -39,7 +39,7 @@ identifier {alpha}(_|{alpha}|{digit})*
 value_int {sign}?{digit}+
 value_float {sign}?{digit}+\.({digit}+)?
 value_string '[^']*'
-path_string ({alpha}|{digit}|_|\.|\/|\-)+\.csv
+path_string ({alpha}|{digit}|_|\.|\/|\-)+\.(csv|tbl)
 single_op ";"|"("|")"|","|"*"|"="|">"|"<"|"."
 arith_op "+"|"-"|"*"|"/"
 
