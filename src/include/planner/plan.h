@@ -50,6 +50,7 @@ typedef enum PlanTag {
   T_NestLoop,
   T_SortMerge,   // sort merge join
   T_IndexMerge,  // merge join using index
+  T_HashJoin,
   T_Sort,
   T_Projection,
   T_Aggregation

@@ -183,6 +183,9 @@ class Portal {
         join = std::make_unique<MergeJoinExecutor>(std::move(left), std::move(right), std::move(x->conds_), false);
       } else if (x->tag == T_IndexMerge) {
         join = std::make_unique<MergeJoinExecutor>(std::move(left), std::move(right), std::move(x->conds_), true);
+      } else if (x->tag == T_HashJoin) {
+        UNIMPLEMENTED("HashJoinExecutor is not implemented yet.");
+        // join = std::make_unique<HashJoinExecutor>(std::move(left), std::move(right), std::move(x->conds_));
       } else {
         throw InternalError("Unexpected join plan type.");
       }

@@ -34,6 +34,7 @@ class Planner {
 
   bool enable_nestedloop_join = true;
   bool enable_sortmerge_join = false;
+  bool enable_hash_join = false;
 
  public:
   Planner(SmManager *sm_manager) : sm_manager_(sm_manager) {}
@@ -43,6 +44,8 @@ class Planner {
   void set_enable_nestedloop_join(bool set_val) { enable_nestedloop_join = set_val; }
 
   void set_enable_sortmerge_join(bool set_val) { enable_sortmerge_join = set_val; }
+
+  void setEnableHashJoin(bool set_val) { enable_hash_join = set_val; }
 
  private:
   std::shared_ptr<Query> logical_optimization(std::shared_ptr<Query> query, Context *context);
@@ -67,4 +70,5 @@ class Planner {
     return m.at(sv_type);
   }
 };
-};  // namespace easydb
+
+}  // namespace easydb
