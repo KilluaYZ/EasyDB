@@ -77,9 +77,12 @@ arith_op "+"|"-"|"*"|"/"
 "SET" { return SET; }
 "SELECT" { return SELECT; }
 "INT" { return INT; }
+"INTEGER" { return INT; }
 "CHAR" { return CHAR; }
+"VARCHAR" { return VARCHAR; }
 "FLOAT" { return FLOAT; }
 "DATETIME" { return DATETIME; }
+"NOT NULL" { return NOT_NULL; }
 "INDEX" { return INDEX; }
 "AND" { return AND; }
 "JOIN" {return JOIN;}

@@ -11,7 +11,7 @@ See the Mulan PSL v2 for more details. */
 
 #include <cassert>
 
-#include "parser.h"
+#include "parser/parser.h"
 
 int main() {
     std::vector<std::string> sqls = {
