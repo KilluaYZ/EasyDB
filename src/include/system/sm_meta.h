@@ -36,6 +36,11 @@ struct ColMeta {
 
   ColMeta() {}
 
+  ColMeta(std::string tab_name_, std::string name_, ColType type_, int len_, int offset_, bool index_)
+      : tab_name(tab_name_), name(name_), type(type_), len(len_), offset(offset_), index(index_) {
+    agg_type = NO_AGG;
+  }
+
   ColMeta(Column &column) {
     name = column.GetName();
     offset = column.GetOffset();

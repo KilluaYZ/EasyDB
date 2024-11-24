@@ -16,13 +16,13 @@ See the Mulan PSL v2 for more details. */
 #include <string>
 
 #include <fstream>
+#include "catalog/schema.h"
 #include "common/errors.h"
 #include "record/record_printer.h"
 #include "record/rm_defs.h"
 #include "record/rm_scan.h"
 #include "storage/index/ix_defs.h"
 #include "system/sm_meta.h"
-
 
 namespace easydb {
 
@@ -206,17 +206,33 @@ void SmManager::CreateTable(const std::string &tab_name, const std::vector<ColDe
   int curr_offset = 0;
   TabMeta tab;
   tab.name = tab_name;
+  std::vector<Column> columns;
   for (auto &col_def : col_defs) {
-    // ColMeta col = {.tab_name = tab_name,
-    //                .name = col_def.name,
-    //                .type = col_def.type,
-    //                .len = col_def.len,
-    //                .offset = curr_offset,
-    //                .index = false};
-    ColMeta col;
+    ColMeta col(tab_name, col_def.name, col_def.type, col_def.len, curr_offset, false);
     curr_offset += col_def.len;
     tab.cols.push_back(col);
+
+    Column tmp_col;
+    TypeId type = col_def.type;
+    switch (type) {
+      case TypeId::TYPE_INT:
+      case TypeId::TYPE_LONG:
+      case TypeId::TYPE_FLOAT:
+      case TypeId::TYPE_DOUBLE:
+        tmp_col = Column(col_def.name, type);
+        break;
+      case TypeId::TYPE_CHAR:
+      case TypeId::TYPE_VARCHAR:
+        tmp_col = Column(col_def.name, type, col_def.len);
+        break;
+      default:
+        throw Exception("unsupported type\n");
+    }
+    columns.emplace_back(tmp_col);
   }
+  Schema schema(columns);
+  tab.schema = schema;
+
   // Create & open record file
   int record_size = curr_offset;  // record_size就是col meta所占的大小（表的元数据也是以记录的形式进行存储的）
   rm_manager_->CreateFile(tab_name, record_size);
@@ -227,7 +243,7 @@ void SmManager::CreateTable(const std::string &tab_name, const std::vector<ColDe
 
   // lock manager
   if (context != nullptr) {
-    context->lock_mgr_->lock_exclusive_on_table(context->txn_, fhs_[tab_name]->GetFd());
+    // context->lock_mgr_->lock_exclusive_on_table(context->txn_, fhs_[tab_name]->GetFd());
   }
 
   FlushMeta();

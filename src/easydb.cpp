@@ -133,7 +133,8 @@ void *client_handler(void *sock_fd) {
           finish_analyze = true;
           pthread_mutex_unlock(buffer_mutex);
           // 优化器
-          if (!optimizer->bypass(query, context)) {
+          // if (!optimizer->bypass(query, context))
+          {
             std::shared_ptr<Plan> plan = optimizer->plan_query(query, context);
             // portal
             std::shared_ptr<PortalStmt> portalStmt = portal->start(plan, context);

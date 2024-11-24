@@ -158,6 +158,7 @@ class Column {
   /** Column name. */
   std::string column_name_;
 
+  // TODO: Better to remove this field
   std::string tab_name_;
 
   /** Column value's type. */

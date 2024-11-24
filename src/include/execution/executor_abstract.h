@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include "catalog/schema.h"
 #include "catalog/column.h"
+#include "catalog/schema.h"
 #include "common/common.h"
 #include "common/context.h"
 #include "common/errors.h"
@@ -29,7 +29,7 @@ class AbstractExecutor {
   Context *context_;
 
   AbstractExecutor() : _abstract_rid(), context_(nullptr) {}
-  
+
   AbstractExecutor(std::shared_ptr<void> &ptr) {
     auto derived_ptr = std::static_pointer_cast<AbstractExecutor>(ptr);
     // 使用 derived_ptr 初始化 AbstractExecutor 的成员变量
@@ -92,10 +92,9 @@ class AbstractExecutor {
   }
 
   std::vector<Column>::const_iterator get_col(const std::vector<Column> &rec_cols, const std::string &target_tab_name,
-                                               const std::string &target_col_name) {
-    auto pos = std::find_if(rec_cols.begin(), rec_cols.end(), [&](const Column &col) {
-      return col.GetTabName() == target_tab_name && col.GetName() == target_col_name;
-    });
+                                              const std::string &target_col_name) {
+    auto pos = std::find_if(rec_cols.begin(), rec_cols.end(),
+                            [&](const Column &col) { return col.GetName() == target_col_name; });
     if (pos == rec_cols.end()) {
       throw ColumnNotFoundError(target_tab_name + '.' + target_col_name);
     }
