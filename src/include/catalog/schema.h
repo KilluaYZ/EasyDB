@@ -59,15 +59,8 @@ class Schema {
   auto GetColumn(const uint32_t col_idx) const -> const Column & { return columns_[col_idx]; }
 
   auto GetColumn(const std::string col_name) const -> const Column & {
-    Column tp;
-    for (auto &col : columns_) {
-      if (col.GetName() == col_name) {
-        tp = col;
-        break;
-      }
-    }
-    // return columns_[col_idx];
-    return tp;
+    uint32_t col_idx = GetColIdx(col_name);
+    return columns_[col_idx];
   }
 
   /**
