@@ -17,7 +17,7 @@ ProjectionExecutor::ProjectionExecutor(std::unique_ptr<AbstractExecutor> prev, c
 
   size_t curr_offset = 0;
   // auto &prev_cols = prev_->cols();
-  auto schema_ = prev_->schema();
+  schema_ = prev_->schema();
   std::vector<Column> prev_colus_ = schema_.GetColumns();
   for (auto &sel_col : sel_cols) {
     std::string new_name = sel_col.col_name;
