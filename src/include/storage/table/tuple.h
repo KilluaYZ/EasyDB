@@ -70,13 +70,13 @@ class Tuple {
 
   // constructor for creating a new tuple based on input value
   Tuple(std::vector<Value> values, const Schema *schema);
-  
+
   Tuple(std::vector<char> data);
 
-  Tuple(int size, char* data);
+  Tuple(int size, char *data);
 
   Tuple(const Tuple &other) = default;
-  
+
   Tuple(Tuple &other) = default;
 
   // move constructor
@@ -114,6 +114,8 @@ class Tuple {
 
   auto GetValue(const Column col) const -> Value;
 
+  auto GetValueVec(const Schema *schema) const -> std::vector<Value>;
+
   // Generates a key tuple given schemas and attributes
   auto KeyFromTuple(const Schema &schema, const Schema &key_schema,
                     const std::vector<uint32_t> &key_attrs) const -> Tuple;
@@ -135,7 +137,7 @@ class Tuple {
   auto GetDataPtr(const Schema *schema, std::string column_name) const -> const char *;
 
   auto GetDataPtr(const Column col) const -> const char *;
-  
+
   RID rid_{};  // if pointing to the table heap, the rid is valid
   std::vector<char> data_;
 };

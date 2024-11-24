@@ -2,6 +2,9 @@
  *
  * EasyDB
  *
+ * executor_index_scan.h
+ *
+ * Identification: src/include/execution/executor_index_scan.h
  *
  *-------------------------------------------------------------------------
  */

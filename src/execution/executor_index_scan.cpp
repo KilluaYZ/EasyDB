@@ -2,11 +2,12 @@
  *
  * EasyDB
  *
+ * executor_index_scan.cpp
+ *
+ * Identification: src/execution/executor_index_scan.cpp
  *
  *-------------------------------------------------------------------------
  */
-
-#pragma once
 
 #include "execution/executor_index_scan.h"
 

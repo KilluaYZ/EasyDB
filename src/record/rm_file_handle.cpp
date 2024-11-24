@@ -146,8 +146,10 @@ auto RmFileHandle::UpdateTupleInPlace(const TupleMeta &meta, const Tuple &tuple,
   auto [old_meta, old_tup] = page_handle.GetTuple(rid);
   if (check == nullptr || check(old_meta, old_tup, rid)) {
     page_handle.UpdateTupleInPlaceUnsafe(meta, tuple, rid);
+    buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), true);
     return true;
   }
+  buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), false);
   return false;
 }
 
@@ -160,7 +162,7 @@ void RmFileHandle::UpdateTupleMeta(const TupleMeta &meta, RID rid) {
 auto RmFileHandle::GetTuple(RID rid) -> std::pair<TupleMeta, Tuple> {
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
   auto [meta, tuple] = page_handle.GetTuple(rid);
-  buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), true);
+  buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), false);
   tuple.rid_ = rid;
   return std::make_pair(meta, std::move(tuple));
 }
@@ -168,7 +170,7 @@ auto RmFileHandle::GetTuple(RID rid) -> std::pair<TupleMeta, Tuple> {
 auto RmFileHandle::GetTupleMeta(RID rid) -> TupleMeta {
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
   TupleMeta meat = page_handle.GetTupleMeta(rid);
-  buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), true);
+  buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), false);
   return meat;
 }
 
@@ -211,7 +213,6 @@ auto RmFileHandle::GetRecord(const RID &rid) -> std::unique_ptr<RmRecord> {
  * @return {unique_ptr<Tuple>} rid对应的记录对象指针
  */
 auto RmFileHandle::GetTupleValue(const RID &rid) -> std::unique_ptr<Tuple> {
-
   // 1. Fetch the page handle for the page that contains the record
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
 
@@ -219,13 +220,13 @@ auto RmFileHandle::GetTupleValue(const RID &rid) -> std::unique_ptr<Tuple> {
   auto [meta, tuple] = page_handle.GetTuple(rid);
   tuple.rid_ = rid;
 
+  // Unpin the page
+  buffer_pool_manager_->UnpinPage({fd_, rid.GetPageId()}, false);
+
   return std::make_unique<Tuple>(tuple);
 
   // // return std::make_pair(meta, std::move(tuple));
   // auto record = std::make_unique<RmRecord>(tuple.GetLength(), tuple.data_.data());
-
-  // // Unpin the page
-  // buffer_pool_manager_->UnpinPage({fd_, rid.GetPageId()}, false);
 
   // return record;
 }

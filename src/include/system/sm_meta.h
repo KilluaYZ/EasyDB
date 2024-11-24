@@ -100,10 +100,10 @@ struct TabMeta {
   std::vector<IndexMeta> indexes;  // 表上建立的索引
   Schema schema;
 
-  TabMeta () {}
+  TabMeta() {}
 
-  // TabMeta(std::string name_, std::vector<ColMeta> cols_, std::vector<IndexMeta> indexes_, Schema schema_)
-  //     : name(name_), cols(cols_), indexes(indexes_), schema_(schema) {}
+  TabMeta(std::string name_, std::vector<ColMeta> cols_, std::vector<IndexMeta> indexes_, Schema schema_)
+      : name(name_), cols(cols_), indexes(indexes_), schema(schema_) {}
 
   TabMeta(const TabMeta &other) {
     name = other.name;
@@ -154,6 +154,9 @@ struct TabMeta {
     return pos;
   }
 
+  /* 根据字段名称获取字段在schema中的位置(0..字段数量-1) */
+  uint32_t GetColId(const std::string &col_name) { return get_col(col_name) - cols.begin(); }
+
   friend std::ostream &operator<<(std::ostream &os, const TabMeta &tab) {
     os << tab.name << '\n' << tab.cols.size() << '\n';
     for (auto &col : tab.cols) {
@@ -163,6 +166,7 @@ struct TabMeta {
     for (auto &index : tab.indexes) {
       os << index << "\n";
     }
+    os << tab.schema.ToString(false) << '\n';
     return os;
   }
 
@@ -180,6 +184,8 @@ struct TabMeta {
       is >> index;
       tab.indexes.push_back(index);
     }
+    // TODO
+    // is >> tab.schema;
     return is;
   }
 };
