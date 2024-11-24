@@ -22,7 +22,7 @@ using namespace ast;
 
 // keywords
 %token SHOW TABLES CREATE TABLE DROP DESC INSERT INTO VALUES DELETE FROM ASC ORDER BY AS COUNT MAX MIN SUM GROUP HAVING IN
-WHERE UPDATE SET SELECT INT CHAR FLOAT DATETIME INDEX AND JOIN EXIT HELP TXN_BEGIN TXN_COMMIT TXN_ABORT TXN_ROLLBACK ORDER_BY ENABLE_NESTLOOP ENABLE_SORTMERGE
+WHERE UPDATE SET SELECT INT CHAR VARCHAR FLOAT DATETIME NOT_NULL INDEX AND JOIN EXIT HELP TXN_BEGIN TXN_COMMIT TXN_ABORT TXN_ROLLBACK ORDER_BY ENABLE_NESTLOOP ENABLE_SORTMERGE
 STATIC_CHECKPOINT LOAD OUTPUT_FILE
 
 // non-keywords
@@ -221,6 +221,10 @@ field:
     {
         $$ = std::make_shared<ColDef>($1, $2);
     }
+    |   colName type NOT_NULL
+    {
+        $$ = std::make_shared<ColDef>($1, $2, true);
+    }
     ;
 
 type:
@@ -229,6 +233,10 @@ type:
         $$ = std::make_shared<TypeLen>(SV_TYPE_INT, sizeof(int));
     }
     |   CHAR '(' VALUE_INT ')'
+    {
+        $$ = std::make_shared<TypeLen>(SV_TYPE_STRING, $3);
+    }
+    |   VARCHAR '(' VALUE_INT ')'
     {
         $$ = std::make_shared<TypeLen>(SV_TYPE_STRING, $3);
     }

@@ -18,7 +18,6 @@ See the Mulan PSL v2 for more details. */
 #include "common/condition.h"
 #include "parser/ast.h"
 
-
 #include "parser/parser.h"
 
 #include "common/common.h"
