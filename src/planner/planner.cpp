@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/common.h"
 #include "common/errors.h"
+#include "common/macros.h"
 // #include "execution/executor_delete.h"
 // #include "execution/executor_index_scan.h"
 // #include "execution/executor_insert.h"
@@ -244,6 +245,8 @@ std::shared_ptr<Plan> Planner::make_one_rel(std::shared_ptr<Query> query, Contex
         } else {  // 不存在索引
           table_join_executors = std::make_shared<JoinPlan>(T_SortMerge, std::move(left), std::move(right), join_conds);
         }
+      } else if (enable_hash_join) {
+        table_join_executors = std::make_shared<JoinPlan>(T_HashJoin, std::move(left), std::move(right), join_conds);
       } else {
         // error
         throw EASYDBError("No join executor selected!");

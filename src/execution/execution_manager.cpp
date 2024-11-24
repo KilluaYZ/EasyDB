@@ -138,6 +138,10 @@ void QlManager::run_cmd_utility(std::shared_ptr<Plan> plan, txn_id_t *txn_id, Co
         planner_->set_enable_sortmerge_join(x->bool_value_);
         break;
       }
+      case ast::SetKnobType::EnableHashJoin: {
+        planner_->setEnableHashJoin(x->bool_value_);
+        break;
+      }
       case ast::SetKnobType::EnableOutput: {
         sm_manager_->SetEnableOutput(x->bool_value_);
         break;
