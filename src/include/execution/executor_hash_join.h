@@ -138,7 +138,7 @@ std::unique_ptr<Tuple> HashJoinExecutor::Next() {
       return nullptr;
     }
 
-    if (match_index_ <= current_matches_.size()) {
+    if (match_index_ < current_matches_.size()) {
       // Return the current match
       auto result_tuple = ConcatenateTuples(current_matches_[match_index_], right_tuple_);
       match_index_++;
