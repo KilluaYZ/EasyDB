@@ -4,7 +4,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "common/utils/hashutil.h"
+#include "common/hashutil.h"
 #include "execution/executor_abstract.h"
 #include "storage/table/tuple.h"
 
@@ -34,217 +34,168 @@ struct hash<easydb::HashJoinKey> {
 
 }  // namespace std
 
+#pragma once
+
+#include <memory>
+#include <unordered_map>
+#include <vector>
+#include "common/common.h"
+#include "common/errors.h"
+#include "common/hashutil.h"
+#include "defs.h"
+#include "executor_abstract.h"
+#include "storage/table/tuple.h"
+#include "type/value.h"
+
 namespace easydb {
 
-/**
- * HashJoinExecutor executes a hash join on two tables.
- */
 class HashJoinExecutor : public AbstractExecutor {
  private:
-  std::unique_ptr<AbstractExecutor> left_child_;   // Left child executor
-  std::unique_ptr<AbstractExecutor> right_child_;  // Right child executor
+  std::unique_ptr<AbstractExecutor> left_;
+  std::unique_ptr<AbstractExecutor> right_;
   std::string left_tab_name_;
   std::string right_tab_name_;
-  size_t tuple_len_;    // Length of the joined tuple
-  Schema schema_;       // Schema of the joined tuple
-  std::vector<Condition> join_conditions_;
+  size_t len_;
+  Schema schema_;
+  std::vector<Condition> conds_;
+  bool isend_;
 
-  // Hash table for the join
+  // Hash table data structure
   std::unordered_multimap<HashJoinKey, Tuple> hash_table_;
 
-  // Iterator for the current matching tuples
-  std::vector<Tuple> current_matches_;
-  size_t match_index_;
+  // Join columns
+  Column left_join_col_;
+  Column right_join_col_;
 
-  // Current right tuple
-  Tuple right_tuple_;
-
-  bool is_end_;
+  // Iterators for output
+  std::unordered_multimap<HashJoinKey, Tuple>::iterator match_iter_;
+  std::unordered_multimap<HashJoinKey, Tuple>::iterator match_end_;
+  Tuple current_probe_tuple_;
 
  public:
-  HashJoinExecutor(std::unique_ptr<AbstractExecutor> left_child, std::unique_ptr<AbstractExecutor> right_child,
-                  std::vector<Condition> join_conditions);
+  HashJoinExecutor(std::unique_ptr<AbstractExecutor> left, std::unique_ptr<AbstractExecutor> right,
+                   std::vector<Condition> conds);
 
   void beginTuple() override;
-
+  void nextTuple() override;
   std::unique_ptr<Tuple> Next() override;
-
   RID &rid() override { return _abstract_rid; }
 
-  size_t tupleLen() const override { return tuple_len_; }
-
+  size_t tupleLen() const override { return len_; }
   const Schema &schema() const override { return schema_; }
 
-  bool IsEnd() const override { return is_end_; }
-
-  Column get_col_offset(const Schema& sche, const TabCol &target);
+  bool IsEnd() const override { return isend_; }
 
  private:
   void BuildHashTable();
-
   void ProbeHashTable();
-
-  Tuple ConcatenateTuples(const Tuple &left_tuple, const Tuple &right_tuple);
 };
 
-HashJoinExecutor::HashJoinExecutor(std::unique_ptr<AbstractExecutor> left_child,
-                                   std::unique_ptr<AbstractExecutor> right_child,
-                                   std::vector<Condition> join_conditions)
-    : left_child_(std::move(left_child)),
-      right_child_(std::move(right_child)),
-      join_conditions_(std::move(join_conditions)),
-      is_end_(false),
-      match_index_(0) {
-  left_tab_name_ = left_child_->getTabName();
-  right_tab_name_ = right_child_->getTabName();
+HashJoinExecutor::HashJoinExecutor(std::unique_ptr<AbstractExecutor> left,
+                                   std::unique_ptr<AbstractExecutor> right,
+                                   std::vector<Condition> conds)
+    : left_(std::move(left)),
+      right_(std::move(right)),
+      conds_(std::move(conds)),
+      isend_(false) {
+  left_tab_name_ = left_->getTabName();
+  right_tab_name_ = right_->getTabName();
 
-  // Combine schemas from both children
-  auto left_schema = left_child_->schema();
-  auto right_schema = right_child_->schema();
-  schema_ = left_schema;
-  auto right_columns = right_schema.GetColumns();
-  for (auto &col : right_columns) {
-    col.AddOffset(schema_.GetInlinedStorageSize());
+  // Build the output schema
+  auto left_columns = left_->schema().GetColumns();
+  auto right_columns = right_->schema().GetColumns();
+  left_columns.insert(left_columns.end(), right_columns.begin(), right_columns.end());
+  schema_ = Schema(left_columns);
+
+  len_ = left_->tupleLen() + right_->tupleLen();
+
+  // Determine join columns
+  if (conds_.size() > 0) {
+    for (auto &cond : conds_) {
+      if (cond.op == OP_EQ && !cond.is_rhs_val) {
+        if (cond.lhs_col.tab_name == left_tab_name_ && cond.rhs_col.tab_name == right_tab_name_) {
+          left_join_col_ = left_->schema().GetColumn(cond.lhs_col.col_name);
+          right_join_col_ = right_->schema().GetColumn(cond.rhs_col.col_name);
+          break;
+        } else if (cond.rhs_col.tab_name == left_tab_name_ && cond.lhs_col.tab_name == right_tab_name_) {
+          left_join_col_ = left_->schema().GetColumn(cond.rhs_col.col_name);
+          right_join_col_ = right_->schema().GetColumn(cond.lhs_col.col_name);
+          break;
+        }
+      }
+    }
+  } else {
+    throw InternalError("HashJoinExecutor requires at least one equality condition for join.");
   }
-  schema_.Append(right_columns);
-
-  tuple_len_ = schema_.GetInlinedStorageSize();
 }
 
 void HashJoinExecutor::beginTuple() {
-  // Build the hash table on the left child
   BuildHashTable();
-
-  // Initialize the right child
-  right_child_->beginTuple();
-
-  // Reset any previous state
-  current_matches_.clear();
-  match_index_ = 0;
-
-  // Get the first tuple from the right child
-  auto right_tuple_ptr = right_child_->Next();
-  if (right_tuple_ptr != nullptr) {
-    right_tuple_ = *right_tuple_ptr;
+  // Initialize right iterator
+  right_->beginTuple();
+  if (right_->IsEnd()) {
+    isend_ = true;
+    return;
+  }
+  // Initialize match iterators
+  do {
+    current_probe_tuple_ = *(right_->Next());
     ProbeHashTable();
-  } else {
-    is_end_ = true;
+    if (match_iter_ != match_end_) {
+      // Found matches
+      return;
+    }
+    right_->nextTuple();
+  } while (!right_->IsEnd());
+  // No matches found
+  isend_ = true;
+}
+
+void HashJoinExecutor::nextTuple() {
+  ++match_iter_;
+  while (match_iter_ == match_end_) {
+    right_->nextTuple();
+    if (right_->IsEnd()) {
+      isend_ = true;
+      return;
+    }
+    current_probe_tuple_ = *(right_->Next());
+    ProbeHashTable();
   }
 }
 
 std::unique_ptr<Tuple> HashJoinExecutor::Next() {
-  while (true) {
-    if (is_end_) {
-      return nullptr;
-    }
-
-    if (match_index_ < current_matches_.size()) {
-      // Return the current match
-      auto result_tuple = ConcatenateTuples(current_matches_[match_index_], right_tuple_);
-      match_index_++;
-      return std::make_unique<Tuple>(std::move(result_tuple));
-    } else {
-      // Advance to the next right tuple
-      auto right_tuple_ptr = right_child_->Next();
-      if (right_tuple_ptr == nullptr) {
-        is_end_ = true;
-        return nullptr;
-      }
-      right_tuple_ = *right_tuple_ptr;
-      // Probe hash table for the new right tuple
-      ProbeHashTable();
-      // Reset match_index_
-      match_index_ = 0;
-    }
+  if (isend_) {
+    return nullptr;
   }
-}
-
-Column HashJoinExecutor::get_col_offset(const Schema& sche, const TabCol &target) {
-  auto cols = sche.GetColumns();
-  for (auto &col : cols) {
-    if (target.col_name == col.GetName()) {
-      return col;
-    }
-  }
-  throw ColumnNotFoundError(target.col_name);
+  // Combine the current left and right tuples
+  auto left_values = match_iter_->second.GetValueVec(&left_->schema());
+  auto right_values = current_probe_tuple_.GetValueVec(&right_->schema());
+  left_values.insert(left_values.end(), right_values.begin(), right_values.end());
+  Tuple joined_tuple(left_values, &schema_);
+  return std::make_unique<Tuple>(std::move(joined_tuple));
 }
 
 void HashJoinExecutor::BuildHashTable() {
-  // Build hash table from the left child
-  left_child_->beginTuple();
-
-  while (!left_child_->IsEnd()) {
-    auto left_tuple_ptr = left_child_->Next();
-    left_child_->nextTuple();
-
-    if (left_tuple_ptr == nullptr) {
-      // Assuming Next() sets IsEnd() when there are no more tuples
-      break;
-    }
-
-    auto left_tuple = *left_tuple_ptr;
-
-    // Extract the join key based on join conditions
-    // Assuming a single join condition for simplicity
-    if (join_conditions_.empty()) {
-      throw InternalError("No join conditions provided.");
-    }
-
-    // For simplicity, use the first join condition
-    const auto &cond = join_conditions_[0];
-    if (cond.is_rhs_val) {
-      throw InternalError("Hash join does not support RHS value conditions.");
-    }
-
-    Column left_col = get_col_offset(left_child_->schema(), cond.lhs_col);
-    Value left_value = left_tuple.GetValue(&left_child_->schema(), left_col.GetName());
-
-    HashJoinKey key{left_value};
-    hash_table_.emplace(key, left_tuple);
+  // Build the hash table from the left input
+  left_->beginTuple();
+  while (!left_->IsEnd()) {
+    Tuple tuple = *(left_->Next());
+    // Extract join key
+    Value key_value = tuple.GetValue(&left_->schema(), left_join_col_.GetName());
+    HashJoinKey key{key_value};
+    hash_table_.emplace(key, tuple);
+    left_->nextTuple();
   }
 }
 
 void HashJoinExecutor::ProbeHashTable() {
-  // Reset matches
-  current_matches_.clear();
-  match_index_ = 0;
-
-  // Extract the join key from the right tuple based on join conditions
-  if (join_conditions_.empty()) {
-    throw InternalError("No join conditions provided.");
-  }
-
-  // For simplicity, use the first join condition
-  const auto &cond = join_conditions_[0];
-  if (cond.is_rhs_val) {
-    throw InternalError("Hash join does not support RHS value conditions.");
-  }
-
-  Column right_col = get_col_offset(right_child_->schema(), cond.rhs_col);
-  Value right_value = right_tuple_.GetValue(&right_child_->schema(), right_col.GetName());
-
-  HashJoinKey key{right_value};
+  // Probe the hash table with current_probe_tuple_
+  Value key_value = current_probe_tuple_.GetValue(&right_->schema(), right_join_col_.GetName());
+  HashJoinKey key{key_value};
   auto range = hash_table_.equal_range(key);
-  for (auto it = range.first; it != range.second; ++it) {
-    current_matches_.push_back(it->second);
-  }
-}
-
-Tuple HashJoinExecutor::ConcatenateTuples(const Tuple &left_tuple, const Tuple &right_tuple) {
-  size_t left_len = left_tuple.GetLength();
-  size_t right_len = right_tuple.GetLength();
-  size_t total_len = left_len + right_len;
-
-  // Allocate memory for the concatenated tuple
-  char *data_cat = new char[total_len];
-  memcpy(data_cat, left_tuple.GetData(), left_len);
-  memcpy(data_cat + left_len, right_tuple.GetData(), right_len);
-
-  // Create the concatenated tuple without deleting data_cat
-  Tuple result_tuple(total_len, data_cat);
-
-  // Ownership of data_cat is transferred to the Tuple, so do not delete it here
-  return result_tuple;
+  match_iter_ = range.first;
+  match_end_ = range.second;
 }
 
 }  // namespace easydb
