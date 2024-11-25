@@ -50,14 +50,11 @@ class HashJoinExecutor : public AbstractExecutor {
   std::vector<Condition> conds_;
   bool isend_;
 
-  // Hash table data structure
   std::unordered_multimap<HashJoinKey, Tuple> hash_table_;
 
-  // Join columns
   Column left_join_col_;
   Column right_join_col_;
 
-  // Iterators for output
   std::unordered_multimap<HashJoinKey, Tuple>::iterator match_iter_;
   std::unordered_multimap<HashJoinKey, Tuple>::iterator match_end_;
   Tuple current_probe_tuple_;
@@ -91,7 +88,6 @@ HashJoinExecutor::HashJoinExecutor(std::unique_ptr<AbstractExecutor> left,
   left_tab_name_ = left_->getTabName();
   right_tab_name_ = right_->getTabName();
 
-  // Build the output schema
   auto left_columns = left_->schema().GetColumns();
   auto right_columns = right_->schema().GetColumns();
   left_columns.insert(left_columns.end(), right_columns.begin(), right_columns.end());
@@ -99,7 +95,6 @@ HashJoinExecutor::HashJoinExecutor(std::unique_ptr<AbstractExecutor> left,
 
   len_ = left_->tupleLen() + right_->tupleLen();
 
-  // Determine join columns
   if (conds_.size() > 0) {
     for (auto &cond : conds_) {
       if (cond.op == OP_EQ && !cond.is_rhs_val) {
@@ -162,7 +157,6 @@ std::unique_ptr<Tuple> HashJoinExecutor::Next() {
 }
 
 void HashJoinExecutor::BuildHashTable() {
-  // Build the hash table from the left input
   left_->beginTuple();
   while (!left_->IsEnd()) {
     Tuple tuple = *(left_->Next());

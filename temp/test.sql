@@ -310,3 +310,4 @@ SET enable_nestloop = false;
 SET enable_sortmerge = false;
 SET enable_hashjoin = true;
 select * from item, stock where s_i_id = i_id;
+select * from item,stock ;
