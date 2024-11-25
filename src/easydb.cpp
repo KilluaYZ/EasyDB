@@ -15,7 +15,6 @@ See the Mulan PSL v2 for more details. */
 #include <signal.h>
 #include <unistd.h>
 #include <atomic>
-
 #include "analyze/analyze.h"
 #include "common/errors.h"
 #include "common/portal.h"
@@ -24,9 +23,11 @@ See the Mulan PSL v2 for more details. */
 #include "planner/planner.h"
 #include "recovery/log_recovery.h"
 
-#define SOCK_PORT 8765
+// #define SOCK_PORT 8765
 #define MAX_CONN_LIMIT 8
 using namespace easydb;
+
+int SOCK_PORT = 8765;
 
 static bool should_exit = false;
 
@@ -273,11 +274,30 @@ void start_server() {
   std::cout << "Server shuts down." << std::endl;
 }
 
+void print_help() { std::cout << "Usage: ./easydb_server -p <port> -d <database>"; }
+
 int main(int argc, char **argv) {
-  if (argc != 2) {
-    // 需要指定数据库名称
-    std::cerr << "Usage: " << argv[0] << " <database>" << std::endl;
-    exit(1);
+  std::string db_name;
+  int opt;
+  while ((opt = getopt(argc, argv, "d:p:h")) > 0) {
+    switch (opt) {
+      case 'd':
+        db_name = optarg;
+        break;
+      case 'p':
+        SOCK_PORT = std::stoi(std::string(optarg));
+        break;
+      case 'h':
+        print_help();
+        exit(0);
+      default:
+        break;
+    }
+  }
+
+  if (db_name.empty()) {
+    print_help();
+    exit(0);
   }
 
   try {
@@ -292,7 +312,6 @@ int main(int argc, char **argv) {
                  "Type 'help;' for help.\n"
                  "\n";
     // Database name is passed by args
-    std::string db_name = argv[1];
 
     disk_manager = std::make_unique<DiskManager>(db_name);
     buffer_pool_manager = std::make_unique<BufferPoolManager>(BUFFER_POOL_SIZE, disk_manager.get());
