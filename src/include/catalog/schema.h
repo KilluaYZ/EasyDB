@@ -111,9 +111,15 @@ class Schema {
 
   void Append(std::vector<Column> app) { columns_.insert(columns_.end(), app.begin(), app.end()); }
 
+  auto GetPhysicalSize() const -> uint32_t;
+
+  void SetPhysicalSize() ;
+
  private:
   /** Fixed-length column size, i.e. the number of bytes used by one tuple. */
   uint32_t length_;
+
+  uint32_t physical_size_{0};
 
   /** All the columns in the schema, inlined and uninlined. */
   std::vector<Column> columns_;

@@ -44,6 +44,24 @@ Schema::Schema(const std::vector<Column> &columns) {
   }
   // set tuple length
   length_ = curr_offset;
+
+  SetPhysicalSize();
+}
+
+auto Schema::GetPhysicalSize() const -> uint32_t {
+  // if(physical_size_ == 0){ // incase physical_size_ not initialized.
+  //   SetPhysicalSize();
+  // }
+  return physical_size_;
+}
+
+void Schema::SetPhysicalSize() {
+  physical_size_ = length_ + 4;
+  for(auto &colu: columns_){
+    if(!colu.IsInlined()){
+      physical_size_ += colu.GetStorageSize();
+    }
+  }
 }
 
 auto Schema::ToString(bool simplified) const -> std::string {

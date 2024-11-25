@@ -108,6 +108,11 @@ Tuple::Tuple(int size, char *data) {
   memcpy(this->data_.data(), data, size);
 }
 
+Tuple::Tuple(int size,const char *data) {
+  this->data_.resize(size);
+  memcpy(this->data_.data(), data, size);
+}
+
 auto Tuple::GetValue(const Schema *schema, const uint32_t column_idx) const -> Value {
   assert(schema);
   const TypeId column_type = schema->GetColumn(column_idx).GetType();

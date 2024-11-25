@@ -122,34 +122,5 @@ class MergeJoinExecutor : public AbstractExecutor {
 
   Tuple concat_records();
 
-  // void writeRecord(std::fstream &fd, char *data, std::vector<ColMeta> cols);
-
-  // void writeRecord(std::fstream &fd, std::unique_ptr<RmRecord> &Tuple, const std::vector<ColMeta> &cols);
-
-  // void writeRecord(std::fstream &fd, RmRecord &Tuple, const std::vector<ColMeta> &cols);
-
-  // void writeHeader(std::fstream &fd, std::vector<ColMeta> all_cols) {
-  //   fd << "|";
-  //   for (auto &col : all_cols) {
-  //     fd << " " << col.name << " |";
-  //   }
-  //   fd << "\n";
-  // }
-
-  void writeRecord(std::fstream &fd, const char *data, std::vector<Column> cols);
-
-  void writeRecord(std::fstream &fd, std::unique_ptr<Tuple> &Tuple, const std::vector<Column> &cols);
-
-  void writeRecord(std::fstream &fd, Tuple &Tuple, const std::vector<Column> &cols);
-
-  void completeWriting();
-
-  void writeHeader(std::fstream &fd, std::vector<Column> all_cols) {
-    fd << "|";
-    for (auto &col : all_cols) {
-      fd << " " << col.GetName() << " |";
-    }
-    fd << "\n";
-  }
 };
 }  // namespace easydb
