@@ -92,6 +92,8 @@ class Column {
 
   auto GetTabName() const -> std::string { return tab_name_; }
 
+  void SetTabName(std::string tab_name) { tab_name_ = tab_name; }
+
   /** @return column length */
   auto GetStorageSize() const -> uint32_t { return length_; }
 

@@ -229,6 +229,7 @@ void SmManager::CreateTable(const std::string &tab_name, const std::vector<ColDe
       default:
         throw Exception("unsupported type\n");
     }
+    tmp_col.SetTabName(tab_name);
     columns.emplace_back(tmp_col);
   }
   Schema schema(columns);
