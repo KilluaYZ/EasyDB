@@ -309,5 +309,5 @@ INSERT INTO stock VALUES (50, 1, 33, '2IFs', 'fLMs', 'xwiL', 'KxKO', 'VBYg', '5D
 SET enable_nestloop = false;
 SET enable_sortmerge = false;
 SET enable_hashjoin = true;
-select * from item, stock where s_i_id = i_id order by i_id;
+select * from item, stock where s_i_id = i_id ;
 select * from item,stock ;
