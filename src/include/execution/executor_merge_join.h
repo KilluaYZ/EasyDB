@@ -27,7 +27,6 @@ class MergeJoinExecutor : public AbstractExecutor {
   std::unique_ptr<AbstractExecutor> left_;   // 左儿子节点（需要join的表）
   std::unique_ptr<AbstractExecutor> right_;  // 右儿子节点（需要join的表）
   size_t len_;                               // join后获得的每条记录的长度
-  std::vector<ColMeta> cols_;                // join后获得的记录的字段
   Schema schema_;                            // scan后生成的记录的字段
 
   std::vector<Condition> fed_conds_;  // join条件
@@ -80,27 +79,9 @@ class MergeJoinExecutor : public AbstractExecutor {
 
   size_t tupleLen() const override { return len_; };
 
-  const std::vector<ColMeta> &cols() const override { return cols_; };
+  const Schema &schema() const override { return schema_; };
 
   bool IsEnd() const override { return isend; };
-
-  ColMeta get_col_offset(const TabCol &target) override {
-    for (auto &col : cols_) {
-      if (target.col_name == col.name && target.tab_name == col.tab_name) {
-        return col;
-      }
-    }
-    throw ColumnNotFoundError(target.col_name);
-  }
-
-  ColMeta get_col_offset(std::vector<ColMeta> cols, const TabCol &target) {
-    for (auto &col : cols) {
-      if (target.col_name == col.name && target.tab_name == col.tab_name) {
-        return col;
-      }
-    }
-    throw ColumnNotFoundError(target.col_name);
-  }
 
   Column get_col_offset(Schema sche, const TabCol &target) {
     auto cols = sche.GetColumns();
