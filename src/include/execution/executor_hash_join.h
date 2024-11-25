@@ -15,7 +15,9 @@ namespace easydb {
 struct HashJoinKey {
   Value value_;
 
-  bool operator==(const HashJoinKey &other) const { return value_.CompareEquals(other.value_) == CmpBool::CmpTrue; }
+  bool operator==(const HashJoinKey &other) const { 
+    return value_.CompareEquals(other.value_) == CmpBool::CmpTrue; 
+  }
 };
 
 }  // namespace easydb
@@ -25,7 +27,9 @@ namespace std {
 /** Implements std::hash on HashJoinKey */
 template <>
 struct hash<easydb::HashJoinKey> {
-  std::size_t operator()(const easydb::HashJoinKey &key) const { return easydb::HashUtil::HashValue(&key.value_); }
+  std::size_t operator()(const easydb::HashJoinKey &key) const { 
+    return easydb::HashUtil::HashValue(&key.value_); 
+  }
 };
 
 }  // namespace std
@@ -59,12 +63,9 @@ class HashJoinExecutor : public AbstractExecutor {
 
  public:
   HashJoinExecutor(std::unique_ptr<AbstractExecutor> left_child, std::unique_ptr<AbstractExecutor> right_child,
-                   std::vector<Condition> join_conditions);
+                  std::vector<Condition> join_conditions);
 
   void beginTuple() override;
-
-  // Remove the declaration of nextTuple()
-  // void nextTuple() override;
 
   std::unique_ptr<Tuple> Next() override;
 
@@ -76,7 +77,7 @@ class HashJoinExecutor : public AbstractExecutor {
 
   bool IsEnd() const override { return is_end_; }
 
-  Column get_col_offset(Schema sche, const TabCol &target);
+  Column get_col_offset(const Schema& sche, const TabCol &target);
 
  private:
   void BuildHashTable();
@@ -131,21 +132,13 @@ void HashJoinExecutor::beginTuple() {
   }
 }
 
-// Remove the implementation of nextTuple(), since it's no longer needed
-// If AbstractExecutor requires it, you can provide an empty implementation
-/*
-void HashJoinExecutor::nextTuple() {
-  // No longer needed as iteration is handled within Next()
-}
-*/
-
 std::unique_ptr<Tuple> HashJoinExecutor::Next() {
   while (true) {
     if (is_end_) {
       return nullptr;
     }
 
-    if (match_index_ < current_matches_.size()) {
+    if (match_index_ <= current_matches_.size()) {
       // Return the current match
       auto result_tuple = ConcatenateTuples(current_matches_[match_index_], right_tuple_);
       match_index_++;
@@ -166,50 +159,48 @@ std::unique_ptr<Tuple> HashJoinExecutor::Next() {
   }
 }
 
-  Column HashJoinExecutor::get_col_offset(Schema sche, const TabCol &target) {
-    auto cols = sche.GetColumns();
-    for (auto &col : cols) {
-      if (target.col_name == col.GetName()) {
-        return col;
-      }
+Column HashJoinExecutor::get_col_offset(const Schema& sche, const TabCol &target) {
+  auto cols = sche.GetColumns();
+  for (auto &col : cols) {
+    if (target.col_name == col.GetName()) {
+      return col;
     }
-    throw ColumnNotFoundError(target.col_name);
   }
+  throw ColumnNotFoundError(target.col_name);
+}
 
 void HashJoinExecutor::BuildHashTable() {
   // Build hash table from the left child
   left_child_->beginTuple();
-  
+
   while (!left_child_->IsEnd()) {
     auto left_tuple_ptr = left_child_->Next();
-    
+    left_child_->nextTuple();
+
     if (left_tuple_ptr == nullptr) {
       // Assuming Next() sets IsEnd() when there are no more tuples
       break;
     }
-    
+
     auto left_tuple = *left_tuple_ptr;
 
-    // Get join key from the left tuple
-    for (const auto &cond : join_conditions_) {
-      if (!cond.is_rhs_val && cond.lhs_col.tab_name == left_tab_name_ &&
-          cond.rhs_col.tab_name == right_tab_name_) {
-        auto left_col = get_col_offset(left_child_->schema(), cond.lhs_col);
-        auto left_value = left_tuple.GetValue(&left_child_->schema(), left_col.GetName());
-
-        HashJoinKey key{left_value};
-        hash_table_.emplace(key, left_tuple);
-      } else if (!cond.is_rhs_val && cond.rhs_col.tab_name == left_tab_name_ &&
-                 cond.lhs_col.tab_name == right_tab_name_) {
-        auto left_col = get_col_offset(left_child_->schema(), cond.rhs_col);
-        auto left_value = left_tuple.GetValue(&left_child_->schema(), left_col.GetName());
-
-        HashJoinKey key{left_value};
-        hash_table_.emplace(key, left_tuple);
-      }
+    // Extract the join key based on join conditions
+    // Assuming a single join condition for simplicity
+    if (join_conditions_.empty()) {
+      throw InternalError("No join conditions provided.");
     }
-    
-    // No need to call nextTuple() here
+
+    // For simplicity, use the first join condition
+    const auto &cond = join_conditions_[0];
+    if (cond.is_rhs_val) {
+      throw InternalError("Hash join does not support RHS value conditions.");
+    }
+
+    Column left_col = get_col_offset(left_child_->schema(), cond.lhs_col);
+    Value left_value = left_tuple.GetValue(&left_child_->schema(), left_col.GetName());
+
+    HashJoinKey key{left_value};
+    hash_table_.emplace(key, left_tuple);
   }
 }
 
@@ -218,29 +209,24 @@ void HashJoinExecutor::ProbeHashTable() {
   current_matches_.clear();
   match_index_ = 0;
 
-  // Get join key from the right tuple
-  for (const auto &cond : join_conditions_) {
-    if (!cond.is_rhs_val && cond.lhs_col.tab_name == left_tab_name_ &&
-        cond.rhs_col.tab_name == right_tab_name_) {
-      auto right_col = get_col_offset(right_child_->schema(), cond.rhs_col);
-      auto right_value = right_tuple_.GetValue(&right_child_->schema(), right_col.GetName());
+  // Extract the join key from the right tuple based on join conditions
+  if (join_conditions_.empty()) {
+    throw InternalError("No join conditions provided.");
+  }
 
-      HashJoinKey key{right_value};
-      auto range = hash_table_.equal_range(key);
-      for (auto it = range.first; it != range.second; ++it) {
-        current_matches_.push_back(it->second);
-      }
-    } else if (!cond.is_rhs_val && cond.rhs_col.tab_name == left_tab_name_ &&
-               cond.lhs_col.tab_name == right_tab_name_) {
-      auto right_col = get_col_offset(right_child_->schema(), cond.lhs_col);
-      auto right_value = right_tuple_.GetValue(&right_child_->schema(), right_col.GetName());
+  // For simplicity, use the first join condition
+  const auto &cond = join_conditions_[0];
+  if (cond.is_rhs_val) {
+    throw InternalError("Hash join does not support RHS value conditions.");
+  }
 
-      HashJoinKey key{right_value};
-      auto range = hash_table_.equal_range(key);
-      for (auto it = range.first; it != range.second; ++it) {
-        current_matches_.push_back(it->second);
-      }
-    }
+  Column right_col = get_col_offset(right_child_->schema(), cond.rhs_col);
+  Value right_value = right_tuple_.GetValue(&right_child_->schema(), right_col.GetName());
+
+  HashJoinKey key{right_value};
+  auto range = hash_table_.equal_range(key);
+  for (auto it = range.first; it != range.second; ++it) {
+    current_matches_.push_back(it->second);
   }
 }
 
@@ -249,12 +235,15 @@ Tuple HashJoinExecutor::ConcatenateTuples(const Tuple &left_tuple, const Tuple &
   size_t right_len = right_tuple.GetLength();
   size_t total_len = left_len + right_len;
 
+  // Allocate memory for the concatenated tuple
   char *data_cat = new char[total_len];
   memcpy(data_cat, left_tuple.GetData(), left_len);
   memcpy(data_cat + left_len, right_tuple.GetData(), right_len);
 
+  // Create the concatenated tuple without deleting data_cat
   Tuple result_tuple(total_len, data_cat);
-  delete[] data_cat;
+
+  // Ownership of data_cat is transferred to the Tuple, so do not delete it here
   return result_tuple;
 }
 

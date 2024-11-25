@@ -1,0 +1,12 @@
+create table item (i_id int, i_im_id int, i_name char(24), i_price float, i_data char(50)); 
+create table stock (s_i_id int, s_w_id int, s_quantity int, s_dist_01 char(24), s_dist_02 char(24), s_dist_03 char(24), s_dist_04 char(24), s_dist_05 char(24), s_dist_06 char(24), s_dist_07 char(24), s_dist_08 char(24), s_dist_09 char(24), s_dist_10 char(24), s_ytd float, s_order_cnt int, s_remote_cnt int, s_data char(50)); 
+insert into item values (1, 6539, 'EPjQ', 140.125000, 'HIEtK'); 
+insert into item values (3, 7904, 'Byit', 507.312500, 'qzwfk'); 
+insert into item values (2, 2088, '6BQf', 294.250000, 'FyuyM'); 
+insert into stock values (3, 1, 35, '0oVK', 'pgGX', 'Z7JN', '6D2o', '77xX', 'kf0z', 'cuwy', 'cVac', 'J5v6', 'jBbI', 0.500000, 0, 0, 'JsfN4'); 
+insert into stock values (1, 1, 37, 'ABk7', 'iUng', 'SNaO', 'LArv', 'l9yg', 'Fhpp', 'x6ha', 'UlGc', 'wyjd', 'TUHv', 0.500000, 0, 0, 'rqHB0'); 
+insert into stock values (2, 1, 72, '4jH3', 'PViF', 'KgL1', 'GnlU', 'PfR7','GuZY', 'nPO2', 'aMAe', '6QfV', 'tOiD', 0.500000, 0, 0, '42CIn');
+SET enable_nestloop = true;
+SET enable_sortmerge = true;
+SET enable_hashjoin = false;
+select * from item, stock where s_i_id = i_id order by i_id;
