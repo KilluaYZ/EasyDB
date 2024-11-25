@@ -75,6 +75,8 @@ class Tuple {
 
   Tuple(int size, char *data);
 
+  Tuple(int size, const char *data);
+
   Tuple(const Tuple &other) = default;
 
   Tuple(Tuple &other) = default;

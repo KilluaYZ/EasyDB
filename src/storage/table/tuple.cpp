@@ -104,9 +104,13 @@ Tuple::Tuple(std::vector<char> data) {
 }
 
 Tuple::Tuple(int size, char *data) {
-  data_.clear();
-  data_.assign(data, data + size);
-  data_.emplace_back('\0');
+  this->data_.resize(size);
+  memcpy(this->data_.data(), data, size);
+}
+
+Tuple::Tuple(int size,const char *data) {
+  this->data_.resize(size);
+  memcpy(this->data_.data(), data, size);
 }
 
 auto Tuple::GetValue(const Schema *schema, const uint32_t column_idx) const -> Value {

@@ -178,7 +178,7 @@ execute "load $DATA_SUPPLIER_PATH into supplier;"
 
 # execute "load $DATA_LINEITEM_PATH into lineitem;"
 
-# execute "load $DATA_NATION_PATH into nation;"
+execute "load $DATA_NATION_PATH into nation;"
 
 # execute "load $DATA_ORDERS_PATH into orders;"
 
@@ -219,25 +219,62 @@ create_tables;
 
 load_data;
 
-create_index;
+# create_index;
 
 # 开始执行具体操作
 
-execute "SELECT * FROM supplier where S_SUPPKEY > 9990;"
+print_green "-------- Select Test --------"
 
-# execute "SELECT * FROM supplier where S_SUPPKEY > 9990 AND S_SUPPKEY < 9995;"
+print_green "=> 在float, int, varchar上进行条件选择"
 
-# execute "SELECT S_SUPPKEY, S_NAME, S_NATIONKEY FROM supplier where S_SUPPKEY > 9990 AND S_SUPPKEY < 9995;"
+print_green "==> int上进行条件选择"
+execute "SELECT * FROM supplier where S_SUPPKEY < 10;"
+execute "SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20;"
 
-# execute "SELECT * FROM supplier where S_NATIONKEY=13 AND S_SUPPKEY > 9990;"
+print_green "==> float上进行条件选择"
+execute "SELECT * FROM supplier where S_ACCTBAL < 3000.0;"
+execute "SELECT * FROM supplier where S_ACCTBAL > 1000.5 AND S_SUPPKEY < 2000.1;"
 
-# execute "SELECT * FROM supplier where S_NATIONKEY!=13 AND S_SUPPKEY > 9990;"
+print_green "==> varchar上进行条件选择"
+execute "SELECT * FROM supplier where S_NAME = 'Supplier#000000015';"
+execute "SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20 AND S_NAME != 'Supplier#000000015';"
 
-# execute "SELECT * FROM supplier where S_SUPPKEY > 9990 AND S_SUPPKEY < 9999 AND S_NAME != 'Supplier#000009995';"
+print_green "-------- Projection Test --------"
+print_green "=> select 至少三种不同数据(int, varchar, float)"
+execute "SELECT S_SUPPKEY, S_NAME, C_ACCTBAL FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20;"
+print_green "=> select *"
+execute "SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20;"
 
-# execute "SELECT * FROM orders where O_ORDERDATE > '1998-07-01';"
 
-# execute "SELECT * FROM supplier, nation where S_SUPPKEY > 9990 AND S_NATIONKEY = N_NATIONKEY;"
+# 先测试nestloop
+print_green "-------- NestLoop Test --------"
+
+print_green "=> 设置为NestLoop Join"
+execute "SET enable_nestloop = true;"
+execute "SET enable_sortmerge = false;"
+execute "SET enable_hashjoin = false;"
+
+print_green "=> 单条件等值连接"
+print_green "==> int上进行单条件等值连接"
+execute "SELECT * FROM supplier, nation where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY;"
+
+print_green "==> char上进行单条件等值连接"
+execute "SELECT * FROM supplier, customer where S_PHONE != C_PHONE;"
+
+print_green "==> varchar上进行单条件等值连接"
+execute "SELECT * FROM supplier, customer where S_NAME == C_NAME;"
+
+print_green "=> 多条件等值连接"
+print_green "==> int, varchar上进行多条件等值连接"
+execute "SELECT * FROM supplier, nation, customer where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND S_PHONE != C_PHONE;"
+
+print_green "=> 两表卡氏积连接"
+execute ""
+
+
+print_green "=> 设置为NestLoop Join"
+
+execute "SELECT N_NAME FROM supplier, nation where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY;"
 
 
 print_green "====================================================="
