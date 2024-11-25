@@ -6,7 +6,7 @@ insert into item values (2, 2088, '6BQf', 294.250000, 'FyuyM');
 insert into stock values (3, 1, 35, '0oVK', 'pgGX', 'Z7JN', '6D2o', '77xX', 'kf0z', 'cuwy', 'cVac', 'J5v6', 'jBbI', 0.500000, 0, 0, 'JsfN4'); 
 insert into stock values (1, 1, 37, 'ABk7', 'iUng', 'SNaO', 'LArv', 'l9yg', 'Fhpp', 'x6ha', 'UlGc', 'wyjd', 'TUHv', 0.500000, 0, 0, 'rqHB0'); 
 insert into stock values (2, 1, 72, '4jH3', 'PViF', 'KgL1', 'GnlU', 'PfR7','GuZY', 'nPO2', 'aMAe', '6QfV', 'tOiD', 0.500000, 0, 0, '42CIn');
-SET enable_nestloop = false;
+SET enable_nestloop = true;
 SET enable_sortmerge = false;
 SET enable_hashjoin = false;
 select * from item, stock where s_i_id = i_id order by i_id;
