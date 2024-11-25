@@ -194,9 +194,17 @@ void *client_handler(void *sock_fd) {
         txn_manager->commit(context->txn_, context->log_mgr_);
       }
     }
+
+    // 释放系统资源
+    // SetTransaction maybe allocate a new transaction
+    if (context->txn_ != nullptr) {
+      delete context->txn_;
+    }
+    delete context;
   }
 
   // Clear
+  delete[] data_send;  // release memory.
   std::cout << "Terminating current client_connection..." << std::endl;
   close(fd);           // close a file descriptor.
   pthread_exit(NULL);  // terminate calling thread!
