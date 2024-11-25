@@ -196,15 +196,13 @@ void *client_handler(void *sock_fd) {
     }
 
     // 释放系统资源
-    // SetTransaction maybe allocate a new transaction
-    if (context->txn_ != nullptr) {
-      delete context->txn_;
-    }
     delete context;
   }
 
   // Clear
   delete[] data_send;  // release memory.
+  // SetTransaction maybe allocate some txn
+  txn_manager->release_txn_of_thread(std::this_thread::get_id());
   std::cout << "Terminating current client_connection..." << std::endl;
   close(fd);           // close a file descriptor.
   pthread_exit(NULL);  // terminate calling thread!

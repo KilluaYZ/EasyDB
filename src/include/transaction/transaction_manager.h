@@ -69,6 +69,20 @@ class TransactionManager {
     return res;
   }
 
+  // release txn of the thread in the map
+  void release_txn_of_thread(std::thread::id thread_id) {
+    std::unique_lock<std::mutex> lock(latch_);
+    for (auto it = txn_map.begin(); it != txn_map.end();) {
+      if (it->second->get_thread_id() == thread_id) {
+        delete it->second;
+        it = txn_map.erase(it);
+      } else {
+        ++it;
+      }
+    }
+    lock.unlock();
+  }
+
   static std::unordered_map<txn_id_t, Transaction *> txn_map;  // 全局事务表，存放事务ID与事务对象的映射关系
 
  private:
