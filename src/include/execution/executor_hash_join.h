@@ -3,12 +3,15 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
-
 #include "common/hashutil.h"
 #include "execution/executor_abstract.h"
 #include "storage/table/tuple.h"
-
 #include "common/condition.h"
+#include "common/common.h"
+#include "common/errors.h"
+#include "defs.h"
+#include "type/value.h"
+
 
 namespace easydb {
 
@@ -33,19 +36,6 @@ struct hash<easydb::HashJoinKey> {
 };
 
 }  // namespace std
-
-#pragma once
-
-#include <memory>
-#include <unordered_map>
-#include <vector>
-#include "common/common.h"
-#include "common/errors.h"
-#include "common/hashutil.h"
-#include "defs.h"
-#include "executor_abstract.h"
-#include "storage/table/tuple.h"
-#include "type/value.h"
 
 namespace easydb {
 
@@ -131,23 +121,19 @@ HashJoinExecutor::HashJoinExecutor(std::unique_ptr<AbstractExecutor> left,
 
 void HashJoinExecutor::beginTuple() {
   BuildHashTable();
-  // Initialize right iterator
   right_->beginTuple();
   if (right_->IsEnd()) {
     isend_ = true;
     return;
   }
-  // Initialize match iterators
   do {
     current_probe_tuple_ = *(right_->Next());
     ProbeHashTable();
     if (match_iter_ != match_end_) {
-      // Found matches
       return;
     }
     right_->nextTuple();
   } while (!right_->IsEnd());
-  // No matches found
   isend_ = true;
 }
 
@@ -168,7 +154,6 @@ std::unique_ptr<Tuple> HashJoinExecutor::Next() {
   if (isend_) {
     return nullptr;
   }
-  // Combine the current left and right tuples
   auto left_values = match_iter_->second.GetValueVec(&left_->schema());
   auto right_values = current_probe_tuple_.GetValueVec(&right_->schema());
   left_values.insert(left_values.end(), right_values.begin(), right_values.end());
@@ -181,7 +166,6 @@ void HashJoinExecutor::BuildHashTable() {
   left_->beginTuple();
   while (!left_->IsEnd()) {
     Tuple tuple = *(left_->Next());
-    // Extract join key
     Value key_value = tuple.GetValue(&left_->schema(), left_join_col_.GetName());
     HashJoinKey key{key_value};
     hash_table_.emplace(key, tuple);
@@ -190,7 +174,6 @@ void HashJoinExecutor::BuildHashTable() {
 }
 
 void HashJoinExecutor::ProbeHashTable() {
-  // Probe the hash table with current_probe_tuple_
   Value key_value = current_probe_tuple_.GetValue(&right_->schema(), right_join_col_.GetName());
   HashJoinKey key{key_value};
   auto range = hash_table_.equal_range(key);
