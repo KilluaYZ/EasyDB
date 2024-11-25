@@ -24,7 +24,7 @@ See the Mulan PSL v2 for more details. */
 #include "planner/planner.h"
 #include "recovery/log_recovery.h"
 
-#define SOCK_PORT 8765
+#define SOCK_PORT 8766
 #define MAX_CONN_LIMIT 8
 using namespace easydb;
 

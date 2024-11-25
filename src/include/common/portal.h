@@ -28,6 +28,7 @@ See the Mulan PSL v2 for more details. */
 #include "execution/executor_update.h"
 #include "planner/plan.h"
 #include "execution/executor_hash_join.h"
+#include <chrono>
 
 namespace easydb {
 
@@ -124,7 +125,10 @@ class Portal {
   void run(std::shared_ptr<PortalStmt> portal, QlManager *ql, txn_id_t *txn_id, Context *context) {
     switch (portal->tag) {
       case PORTAL_ONE_SELECT: {
+        auto temp1 = std::chrono::high_resolution_clock::now();
         ql->select_from(std::move(portal->root), std::move(portal->sel_cols), context);
+        auto temp2 = std::chrono::high_resolution_clock::now();
+      std::cout<<"select time usage:"<<(double)std::chrono::duration_cast<std::chrono::microseconds> (temp2 - temp1).count()/1000000<<std::endl<<std::endl;
         break;
       }
 

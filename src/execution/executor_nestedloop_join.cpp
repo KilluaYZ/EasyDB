@@ -15,7 +15,7 @@ NestedLoopJoinExecutor::NestedLoopJoinExecutor(std::unique_ptr<AbstractExecutor>
                                                std::unique_ptr<AbstractExecutor> right, std::vector<Condition> conds) {
   left_ = std::move(left);
   right_ = std::move(right);
-  
+
   left_tab_name_ = left_->getTabName();
   right_tab_name_ = right_->getTabName();
   left_len_ = left_->tupleLen();
@@ -28,13 +28,13 @@ NestedLoopJoinExecutor::NestedLoopJoinExecutor(std::unique_ptr<AbstractExecutor>
 
   auto left_columns = left_->schema().GetColumns();
   auto right_colums = right_->schema().GetColumns();
-  left_columns.insert(left_columns.end(),right_colums.begin(),right_colums.end());
+  left_columns.insert(left_columns.end(), right_colums.begin(), right_colums.end());
   schema_ = Schema(left_columns);
 
   // cols_.insert(cols_.end(), right_cols.begin(), right_cols.end());
   isend = false;
   fed_conds_ = std::move(conds);
-  
+
   if (fed_conds_.size() > 0) {
     need_sort_ = false;
     // get selected connection col's colmeta information
@@ -56,7 +56,7 @@ NestedLoopJoinExecutor::NestedLoopJoinExecutor(std::unique_ptr<AbstractExecutor>
         }
       }
     }
-  
+
     leftSorter_ = std::make_unique<MergeSorter>(left_sel_colu_, left_->schema().GetColumns(), left_len_, false);
   }
 }
@@ -69,8 +69,8 @@ void NestedLoopJoinExecutor::beginTuple() {
     leftSorter_->clearBuffer();
     leftSorter_->initializeMergeListAndConstructTree();
     while (!leftSorter_->IsEnd()) {
-      char *storage_tp =  leftSorter_->getOneRecord();
-      Tuple tp(left_len_,storage_tp);
+      char *storage_tp = leftSorter_->getOneRecord();
+      Tuple tp(left_len_, storage_tp);
       // tp.DeserializeFrom(storage_tp);
       left_buffer_.emplace_back(tp);
     }
@@ -80,15 +80,19 @@ void NestedLoopJoinExecutor::beginTuple() {
       left_buffer_.emplace_back(*(left_->Next()));
     }
   }
-  
+
   for (right_->beginTuple(); !right_->IsEnd(); right_->nextTuple()) {
     // printRecord(*(right_->Next()),right_->cols());
     right_buffer_.emplace_back(*(right_->Next()));
   }
   left_idx_ = 0;
   right_idx_ = 0;
-  if (!isend && need_sort_) {
-    iterate_helper();
+  if (!isend && fed_conds_.size() > 0) {
+    if (need_sort_) {
+      sorted_iterate_helper();
+    } else {
+      iterate_helper();
+    }
   }
   if (isend) {
     return;
@@ -98,8 +102,12 @@ void NestedLoopJoinExecutor::beginTuple() {
 
 void NestedLoopJoinExecutor::nextTuple() {
   iterate_next();
-  if (!isend && need_sort_) {
-    iterate_helper();
+  if (!isend && fed_conds_.size() > 0) {
+    if (need_sort_) {
+      sorted_iterate_helper();
+    } else {
+      iterate_helper();
+    }
   }
   if (isend) {
     return;
@@ -129,20 +137,20 @@ void NestedLoopJoinExecutor::nextTuple() {
 //   return satisfy;
 // }
 
-void NestedLoopJoinExecutor::iterate_helper() {
+void NestedLoopJoinExecutor::sorted_iterate_helper() {
   Value lhs_v, rhs_v;
-  lhs_v = left_buffer_[left_idx_].GetValue(&left_->schema(),left_sel_colu_.GetName());
-  rhs_v = right_buffer_[right_idx_].GetValue(&right_->schema(),right_sel_colu_.GetName());
-  
+  lhs_v = left_buffer_[left_idx_].GetValue(&left_->schema(), left_sel_colu_.GetName());
+  rhs_v = right_buffer_[right_idx_].GetValue(&right_->schema(), right_sel_colu_.GetName());
+
   // lhs_v.get_value_from_record(left_buffer_[left_idx_], left_sel_col_);
   // rhs_v.get_value_from_record(right_buffer_[right_idx_], right_sel_col_);
-  
+
   while (left_idx_ + 1 < left_buffer_.size() && rhs_v > lhs_v) {
     left_idx_++;
-    lhs_v = left_buffer_[left_idx_].GetValue(&schema_,left_sel_colu_.GetName());
+    lhs_v = left_buffer_[left_idx_].GetValue(&schema_, left_sel_colu_.GetName());
     // lhs_v.get_value_from_record(left_buffer_[left_idx_], left_sel_col_);
   }
-  
+
   if (rhs_v == lhs_v) {
     return;
   } else {
@@ -151,7 +159,29 @@ void NestedLoopJoinExecutor::iterate_helper() {
     if (right_idx_ >= right_buffer_.size()) {
       isend = true;
     } else {
-      iterate_helper();
+      sorted_iterate_helper();
+    }
+  }
+}
+
+void NestedLoopJoinExecutor::iterate_helper() {
+  while (true) {
+    Value lhs_v, rhs_v;
+    lhs_v = left_buffer_[left_idx_].GetValue(&left_->schema(), left_sel_colu_.GetName());
+    rhs_v = right_buffer_[right_idx_].GetValue(&right_->schema(), right_sel_colu_.GetName());
+
+    if (rhs_v == lhs_v) {
+      return; // 匹配成功，退出函数
+    } else {
+      left_idx_++;
+      if (left_idx_ >= left_buffer_.size()) {
+        left_idx_ = 0;
+        right_idx_++;
+        if (right_idx_ >= right_buffer_.size()) {
+          isend = true;
+          return; // 结束所有循环
+        }
+      }
     }
   }
 }
@@ -177,9 +207,9 @@ void NestedLoopJoinExecutor::iterate_next() {
 Tuple NestedLoopJoinExecutor::concat_records() {
   auto left_value_vec = left_buffer_[left_idx_].GetValueVec(&left_->schema());
   auto right_value_vec = right_buffer_[right_idx_].GetValueVec(&right_->schema());
-  left_value_vec.insert(left_value_vec.end(),right_value_vec.begin(),right_value_vec.end());
+  left_value_vec.insert(left_value_vec.end(), right_value_vec.begin(), right_value_vec.end());
 
-  return Tuple(left_value_vec,&schema_);
+  return Tuple(left_value_vec, &schema_);
 }
 
 }  // namespace easydb
