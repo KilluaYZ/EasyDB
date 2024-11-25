@@ -85,6 +85,16 @@ class Column {
     return c;
   }
 
+
+  Column(std::string column_name, std::string tab_name, TypeId type)
+    : column_name_(std::move(column_name)),
+      tab_name_(std::move(tab_name)),
+      column_type_(type),
+      length_(TypeSize(type)) {
+  EASYDB_ASSERT(type != TypeId::TYPE_CHAR && type != TypeId::TYPE_VARCHAR,
+                "Wrong constructor for variable-length types.");
+}
+
   /** @return column name */
   auto GetName() const -> std::string { return column_name_; }
 

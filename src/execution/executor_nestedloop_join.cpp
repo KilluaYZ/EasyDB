@@ -137,24 +137,23 @@ void NestedLoopJoinExecutor::sorted_iterate_helper() {
 }
 
 void NestedLoopJoinExecutor::iterate_helper() {
-  Value lhs_v, rhs_v;
-  lhs_v = left_buffer_[left_idx_].GetValue(&left_->schema(), left_sel_colu_.GetName());
-  rhs_v = right_buffer_[right_idx_].GetValue(&right_->schema(), right_sel_colu_.GetName());
+  while (true) {
+    Value lhs_v, rhs_v;
+    lhs_v = left_buffer_[left_idx_].GetValue(&left_->schema(), left_sel_colu_.GetName());
+    rhs_v = right_buffer_[right_idx_].GetValue(&right_->schema(), right_sel_colu_.GetName());
 
-  if (rhs_v == lhs_v) {
-    return;
-  } else {
-    left_idx_++;
-    if (left_idx_ >= left_buffer_.size()) {
-      left_idx_ = 0;
-      right_idx_++;
-      if (right_idx_ >= right_buffer_.size()) {
-        isend = true;
-      } else {
-        iterate_helper();
+    if (rhs_v == lhs_v) {
+      return; // 匹配成功，退出函数
+    } else {
+      left_idx_++;
+      if (left_idx_ >= left_buffer_.size()) {
+        left_idx_ = 0;
+        right_idx_++;
+        if (right_idx_ >= right_buffer_.size()) {
+          isend = true;
+          return; // 结束所有循环
+        }
       }
-    }else{
-      iterate_helper();
     }
   }
 }

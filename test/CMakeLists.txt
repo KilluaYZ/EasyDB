@@ -15,6 +15,8 @@ include_directories(${PROJECT_SOURCE_DIR}/test/include)
 # #########################################
 add_custom_target(build-tests COMMAND ${CMAKE_CTEST_COMMAND} --show-only)
 add_custom_target(check-tests COMMAND ${CMAKE_CTEST_COMMAND} --verbose)
+add_definitions(-w)
+
 
 foreach (easydb_test_source ${EASYDB_TEST_SOURCES})
     get_filename_component(easydb_test_filename ${easydb_test_source} NAME)
