@@ -1,0 +1,31 @@
+| S_SUPPKEY | S_NAME | S_ADDRESS | S_NATIONKEY | S_PHONE | S_ACCTBAL | S_COMMENT |
+| 9991 | Supplier#000009991 | RnP1Z uvwftshFtf | 13 | 23-451-948-8464 | 6785.100098 | . furiously pending accounts b |
+| 9992 | Supplier#000009992 | mngsMzPxdOOQGHAPFUH | 5 | 15-467-813-3355 | 9242.910156 | even dinos wake among the slyly regular ideas. furiously ironic requests wake furiously quickl |
+| 9993 | Supplier#000009993 | vwhUkukD cuAjoCNRj,vw,jSFRY5zzfNLO | 0 | 10-706-284-4813 | 1602.270020 | ctions hang slyly. furiously regular requests cajo |
+| 9994 | Supplier#000009994 | jx0yUkSCRhx6Iuvp19mTyXbrZw15ul | 16 | 26-377-491-1391 | -745.419983 | . ironic, ironic theodolites boost. even, final hockey players sle |
+| 9995 | Supplier#000009995 | Jooxc8G,ai win5mixYBKolLAODh0T | 9 | 19-685-242-4442 | 9664.019531 | luffily final packages wake packages. special notornis sleep furious |
+| 9996 | Supplier#000009996 | a4eOd7SzN5RnrCwyAh5iey | 10 | 20-898-443-4436 | 6209.669922 | s above the blithely even deposits play carefully special requests. blithely ironic depe |
+| 9997 | Supplier#000009997 | Wc0lgaT,CWQYMS | 15 | 25-177-334-7328 | 7011.830078 | ve the furiously ironic platelets. evenly |
+| 9998 | Supplier#000009998 | 1RTcQaCJzbx7GAjIc,tajct,8K | 1 | 11-122-533-7674 | 2801.350098 | e regular excuses. blithely final pinto beans haggle? final requests haggle quickly quickl |
+| 9999 | Supplier#000009999 | mX37oAzqsBPhN1LWdzV p | 9 | 19-773-990-5609 | 231.690002 | ounts cajole fluffily among the quickly ironic requests. special, regular |
+| 10000 | Supplier#000010000 | aTGLEusCiL4F PDBdv665XBJhPyCOB0i | 19 | 29-578-432-2146 | 8968.419922 | ly regular foxes boost slyly. quickly special waters boost carefully ironi |
+| S_SUPPKEY | S_NAME | S_ADDRESS | S_NATIONKEY | S_PHONE | S_ACCTBAL | S_COMMENT | N_NATIONKEY | N_NAME | N_REGIONKEY | N_COMMENT |
+| 9998 | Supplier#000009998 | 1RTcQaCJzbx7GAjIc,tajct,8K | 1 | 11-122-533-7674 | 2801.350098 | e regular excuses. blithely final pinto beans haggle? final requests haggle quickly quickl | 1 | ARGENTINA | 1 | al foxes promise slyly according to the regular accounts. bold requests alon |
+| 9992 | Supplier#000009992 | mngsMzPxdOOQGHAPFUH | 5 | 15-467-813-3355 | 9242.910156 | even dinos wake among the slyly regular ideas. furiously ironic requests wake furiously quickl | 5 | ETHIOPIA | 0 | ven packages wake quickly. regu |
+| 9995 | Supplier#000009995 | Jooxc8G,ai win5mixYBKolLAODh0T | 9 | 19-685-242-4442 | 9664.019531 | luffily final packages wake packages. special notornis sleep furious | 9 | INDONESIA | 2 |  slyly express asymptotes. regular deposits haggle slyly. carefully ironic hockey players sleep blithely. carefull |
+| 9999 | Supplier#000009999 | mX37oAzqsBPhN1LWdzV p | 9 | 19-773-990-5609 | 231.690002 | ounts cajole fluffily among the quickly ironic requests. special, regular | 9 | INDONESIA | 2 |  slyly express asymptotes. regular deposits haggle slyly. carefully ironic hockey players sleep blithely. carefull |
+| 9996 | Supplier#000009996 | a4eOd7SzN5RnrCwyAh5iey | 10 | 20-898-443-4436 | 6209.669922 | s above the blithely even deposits play carefully special requests. blithely ironic depe | 10 | IRAN | 4 | efully alongside of the slyly final dependencies.  |
+| 9991 | Supplier#000009991 | RnP1Z uvwftshFtf | 13 | 23-451-948-8464 | 6785.100098 | . furiously pending accounts b | 13 | JORDAN | 4 | ic deposits are blithely about the carefully regular pa |
+| 9997 | Supplier#000009997 | Wc0lgaT,CWQYMS | 15 | 25-177-334-7328 | 7011.830078 | ve the furiously ironic platelets. evenly | 15 | MOROCCO | 0 | rns. blithely bold courts among the closely regular packages use furiously bold platelets? |
+| 9994 | Supplier#000009994 | jx0yUkSCRhx6Iuvp19mTyXbrZw15ul | 16 | 26-377-491-1391 | -745.419983 | . ironic, ironic theodolites boost. even, final hockey players sle | 16 | MOZAMBIQUE | 0 | s. ironic, unusual asymptotes wake blithely r |
+| 10000 | Supplier#000010000 | aTGLEusCiL4F PDBdv665XBJhPyCOB0i | 19 | 29-578-432-2146 | 8968.419922 | ly regular foxes boost slyly. quickly special waters boost carefully ironi | 19 | ROMANIA | 3 | ular asymptotes are about the furious multipliers. express dependencies nag above the ironically ironic account |
+| N_NAME |
+| ARGENTINA |
+| ETHIOPIA |
+| INDONESIA |
+| INDONESIA |
+| IRAN |
+| JORDAN |
+| MOROCCO |
+| MOZAMBIQUE |
+| ROMANIA |
