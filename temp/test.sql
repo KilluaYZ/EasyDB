@@ -308,6 +308,20 @@ INSERT INTO stock VALUES (49, 1, 10, '2BCu', 'h0BB', 'V3nA', '37cy', 'SU6C', 'Eo
 INSERT INTO stock VALUES (50, 1, 33, '2IFs', 'fLMs', 'xwiL', 'KxKO', 'VBYg', '5DS0', 'I7WC', 'C2Ht', 'pU15', 'GOOq', 0.593, 6, 0, 'VkxdX');
 SET enable_nestloop = true;
 SET enable_sortmerge = false;
-SET enable_hashjoin = false;
+SET enable_hashjoin = true;
 select * from item, stock where s_i_id = i_id;
 select * from item,stock ;
+
+create table user(id int,name char(32));
+create table name_n (n_name char(32));
+INSERT INTO user VALUES (1,'s1mple');
+INSERT INTO user VALUES (2,'niko');
+INSERT INTO user VALUES (3,'zywoo');
+INSERT INTO user VALUES (4,'m0NESY');
+INSERT INTO user VALUES (5,'yangchu');
+INSERT INTO name_n VALUES ('yangchu');
+INSERT INTO name_n VALUES ('yangchu');
+INSERT INTO name_n VALUES ('yangchu');
+INSERT INTO name_n VALUES ('yangchu');
+INSERT INTO name_n VALUES ('yangchu');
+select * from user, name_n where name = n_name;
