@@ -76,8 +76,6 @@ class HashJoinExecutor : public AbstractExecutor {
 
   bool IsEnd() const override { return is_end_; }
 
-  std::string getTabName() const override { return ""; }
-
   Column get_col_offset(Schema sche, const TabCol &target);
 
  private:
@@ -119,15 +117,15 @@ void HashJoinExecutor::beginTuple() {
   // Initialize the right child
   right_child_->beginTuple();
 
+  // Reset any previous state
+  current_matches_.clear();
+  match_index_ = 0;
+
   // Get the first tuple from the right child
-  if (!right_child_->IsEnd()) {
-    auto right_tuple_ptr = right_child_->Next();
-    if (right_tuple_ptr != nullptr) {
-      right_tuple_ = *right_tuple_ptr;
-      ProbeHashTable();
-    } else {
-      is_end_ = true;
-    }
+  auto right_tuple_ptr = right_child_->Next();
+  if (right_tuple_ptr != nullptr) {
+    right_tuple_ = *right_tuple_ptr;
+    ProbeHashTable();
   } else {
     is_end_ = true;
   }
@@ -168,25 +166,28 @@ std::unique_ptr<Tuple> HashJoinExecutor::Next() {
   }
 }
 
-Column HashJoinExecutor::get_col_offset(Schema sche, const TabCol &target) {
-  auto cols = sche.GetColumns();
-  for (auto &col : cols) {
-    if (target.col_name == col.GetName() && target.tab_name == col.GetTabName()) {
-      return col;
+  Column HashJoinExecutor::get_col_offset(Schema sche, const TabCol &target) {
+    auto cols = sche.GetColumns();
+    for (auto &col : cols) {
+      if (target.col_name == col.GetName()) {
+        return col;
+      }
     }
+    throw ColumnNotFoundError(target.col_name);
   }
-  throw ColumnNotFoundError(target.col_name);
-}
 
 void HashJoinExecutor::BuildHashTable() {
   // Build hash table from the left child
   left_child_->beginTuple();
+  
   while (!left_child_->IsEnd()) {
     auto left_tuple_ptr = left_child_->Next();
+    
     if (left_tuple_ptr == nullptr) {
-      left_child_->nextTuple();
-      continue;
+      // Assuming Next() sets IsEnd() when there are no more tuples
+      break;
     }
+    
     auto left_tuple = *left_tuple_ptr;
 
     // Get join key from the left tuple
@@ -207,7 +208,8 @@ void HashJoinExecutor::BuildHashTable() {
         hash_table_.emplace(key, left_tuple);
       }
     }
-    left_child_->nextTuple();
+    
+    // No need to call nextTuple() here
   }
 }
 
