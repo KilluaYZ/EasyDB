@@ -306,8 +306,8 @@ INSERT INTO stock VALUES (47, 1, 64, 'grL9', 'VAwU', '4CaU', 'zdf0', 'lhGO', 't9
 INSERT INTO stock VALUES (48, 1, 71, 'THEq', '24KS', 'bege', 'Xlgm', 'mBjF', 'IEIC', 'CM4F', '4Tlk', 'BC4d', 'An4t', 0.752, 9, 1, 'kd2hn');
 INSERT INTO stock VALUES (49, 1, 10, '2BCu', 'h0BB', 'V3nA', '37cy', 'SU6C', 'Eog3', 'qORM', 'YRl3', 'KBua', 'fa4G', 0.215, 1, 0, 'g59LH');
 INSERT INTO stock VALUES (50, 1, 33, '2IFs', 'fLMs', 'xwiL', 'KxKO', 'VBYg', '5DS0', 'I7WC', 'C2Ht', 'pU15', 'GOOq', 0.593, 6, 0, 'VkxdX');
-SET enable_nestloop = true;
+SET enable_nestloop = false;
 SET enable_sortmerge = false;
-SET enable_hashjoin = false;
-select * from item, stock where s_i_id = i_id;
+SET enable_hashjoin = true;
+select * from item, stock where s_i_id = i_id order by i_id;
 select * from item,stock ;
