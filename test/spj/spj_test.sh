@@ -178,7 +178,7 @@ execute "load $DATA_SUPPLIER_PATH into supplier;"
 
 # execute "load $DATA_LINEITEM_PATH into lineitem;"
 
-execute "load $DATA_NATION_PATH into nation;"
+# execute "load $DATA_NATION_PATH into nation;"
 
 # execute "load $DATA_ORDERS_PATH into orders;"
 
@@ -189,6 +189,14 @@ execute "load $DATA_NATION_PATH into nation;"
 # execute "load $DATA_REGION_PATH into region;"
 
 print_green "导入数据完成"
+}
+
+create_index(){
+print_green "创建索引..."
+
+execute "create index supplier(S_SUPPKEY);"
+
+print_green "创建索引完成"
 }
 
 print_green "====================================================="
@@ -210,6 +218,8 @@ print_green "启动server成功"
 create_tables;
 
 load_data;
+
+create_index;
 
 # 开始执行具体操作
 

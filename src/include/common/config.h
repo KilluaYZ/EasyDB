@@ -65,6 +65,6 @@ static const std::string DB_META_NAME = "db.meta";
 
 static const std::string DB_NAME = "test.db";
 
-    static constexpr int BUFFER_LENGTH = 8192;
+static constexpr int BUFFER_LENGTH = 8192;
 
 }  // namespace easydb
