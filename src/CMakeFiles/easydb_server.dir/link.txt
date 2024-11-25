@@ -1,1 +1,0 @@
-/usr/bin/c++ -rdynamic CMakeFiles/easydb_server.dir/easydb.o -o easydb_server   -L/home/zhouzhigan/DB2024/src  libeasydb.a -leasydb_murmur3 
