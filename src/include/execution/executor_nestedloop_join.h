@@ -115,6 +115,7 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
 
  private:
   // bool predicate();
+  void sorted_iterate_helper();
 
   void iterate_helper();
 
