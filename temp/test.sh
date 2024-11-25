@@ -4,7 +4,7 @@
 build_dir="../build"
 server="$build_dir/bin/easydb_server"
 client="$build_dir/bin/easydb_client"
-port="8780" # 8765 / 8790
+port="8765" # 8765 / 8790
 database="test_db"
 database_path="$build_dir/$database"
 
