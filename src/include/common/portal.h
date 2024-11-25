@@ -27,6 +27,7 @@ See the Mulan PSL v2 for more details. */
 #include "execution/executor_seq_scan.h"
 #include "execution/executor_update.h"
 #include "planner/plan.h"
+#include "execution/executor_hash_join.h"
 
 namespace easydb {
 
@@ -184,8 +185,8 @@ class Portal {
       } else if (x->tag == T_IndexMerge) {
         join = std::make_unique<MergeJoinExecutor>(std::move(left), std::move(right), std::move(x->conds_), true);
       } else if (x->tag == T_HashJoin) {
-        UNIMPLEMENTED("HashJoinExecutor is not implemented yet.");
-        // join = std::make_unique<HashJoinExecutor>(std::move(left), std::move(right), std::move(x->conds_));
+        // UNIMPLEMENTED("HashJoinExecutor is not implemented yet.");
+        join = std::make_unique<HashJoinExecutor>(std::move(left), std::move(right), std::move(x->conds_));
       } else {
         throw InternalError("Unexpected join plan type.");
       }
