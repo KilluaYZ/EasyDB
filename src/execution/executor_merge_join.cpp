@@ -41,13 +41,17 @@ MergeJoinExecutor::MergeJoinExecutor(std::unique_ptr<AbstractExecutor> left, std
       if (cond.lhs_col.tab_name == left_->getTabName() && cond.rhs_col.tab_name == right_->getTabName()) {
         // left_sel_col_ = get_col_offset(left_->cols(), cond.lhs_col);
         // right_sel_col_ = get_col_offset(right_->cols(), cond.rhs_col);
-        left_sel_colu_ = get_col_offset(left_->schema(), cond.lhs_col);
-        right_sel_colu_ = get_col_offset(right_->schema(), cond.rhs_col);
+        // left_sel_colu_ = get_col_offset(left_->schema(), cond.lhs_col);
+        // right_sel_colu_ = get_col_offset(right_->schema(), cond.rhs_col);
+        left_sel_colu_ = left_->schema().GetColumn(cond.lhs_col.col_name);
+        right_sel_colu_ = right_->schema().GetColumn(cond.rhs_col.col_name);
       } else if (cond.rhs_col.tab_name == left_->getTabName() && cond.lhs_col.tab_name == right_->getTabName()) {
         // left_sel_col_ = get_col_offset(left_->cols(), cond.rhs_col);
         // right_sel_col_ = get_col_offset(right_->cols(), cond.lhs_col);
-        left_sel_colu_ = get_col_offset(left_->schema(), cond.rhs_col);
-        right_sel_colu_ = get_col_offset(right_->schema(), cond.lhs_col);
+        left_sel_colu_ = left_->schema().GetColumn(cond.lhs_col.col_name);
+        right_sel_colu_ = right_->schema().GetColumn(cond.rhs_col.col_name);        
+        // left_sel_colu_ = get_col_offset(left_->schema(), cond.rhs_col);
+        // right_sel_colu_ = get_col_offset(right_->schema(), cond.lhs_col);
       }
     }
   }
