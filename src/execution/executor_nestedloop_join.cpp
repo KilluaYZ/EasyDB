@@ -24,24 +24,19 @@ NestedLoopJoinExecutor::NestedLoopJoinExecutor(std::unique_ptr<AbstractExecutor>
   // buffer_record_count = block_size / len_;
   buffer_record_count = block_size / left_len_;
   // cols_ = left_->cols();
-  schema_ = left_->schema();
-  
-  // auto right_cols = right_->cols();
+  // schema_ = left_->schema();
+
+  auto left_columns = left_->schema().GetColumns();
   auto right_colums = right_->schema().GetColumns();
-  // for (auto &col : right_cols) {
-  //   col.offset += left_->tupleLen();
-  // }
-  for (auto &colu : right_colums){
-    colu.AddOffset(schema_.GetInlinedStorageSize());
-  }
-  schema_.Append(right_colums);
-  
+  left_columns.insert(left_columns.end(),right_colums.begin(),right_colums.end());
+  schema_ = Schema(left_columns);
+
   // cols_.insert(cols_.end(), right_cols.begin(), right_cols.end());
   isend = false;
   fed_conds_ = std::move(conds);
   
   if (fed_conds_.size() > 0) {
-    need_sort_ = true;
+    need_sort_ = false;
     // get selected connection col's colmeta information
     for (auto &cond : fed_conds_) {
       // op must be OP_EQ and right hand must also be a col
@@ -74,8 +69,9 @@ void NestedLoopJoinExecutor::beginTuple() {
     leftSorter_->clearBuffer();
     leftSorter_->initializeMergeListAndConstructTree();
     while (!leftSorter_->IsEnd()) {
-      Tuple tp(left_len_, leftSorter_->getOneRecord());
-      // printRecord(tp,left_->cols());
+      char *storage_tp =  leftSorter_->getOneRecord();
+      Tuple tp(left_len_,storage_tp);
+      // tp.DeserializeFrom(storage_tp);
       left_buffer_.emplace_back(tp);
     }
   } else {
@@ -99,85 +95,6 @@ void NestedLoopJoinExecutor::beginTuple() {
   }
   joined_records_ = concat_records();
 }
-
-// void NestedLoopJoinExecutor::printRecord(RmRecord record, std::vector<ColMeta> cols) {
-//   std::string str;
-//   int str_size = 0;
-//   char *data = record.data;
-//   for (auto &col : cols) {
-//     switch (col.type) {
-//       case TYPE_INT:
-//         printf(" %d  ", *(int *)(data + col.offset));
-//         break;
-//       case TYPE_FLOAT:
-//         printf(" %f   ", *(float *)(data + col.offset));
-//         break;
-//       case TYPE_VARCHAR:
-//       case TYPE_CHAR:
-//         str_size = col.len < strlen(data + col.offset) ? col.len : strlen(data + col.offset);
-//         str.assign(data + col.offset, str_size);
-//         str[str_size] = '\0';
-//         printf(" %s  ", str.c_str());
-//         break;
-//       default:
-//         throw InternalError("unsupported data type.");
-//     }
-//   }
-//   printf("\n");
-// }
-
-// void NestedLoopJoinExecutor::printRecord(char *data, std::vector<ColMeta> cols) {
-//   std::string str;
-//   int str_size = 0;
-//   for (auto &col : cols) {
-//     switch (col.type) {
-//       case TYPE_INT:
-//         printf(" %d  ", *(int *)(data + col.offset));
-//         break;
-//       case TYPE_FLOAT:
-//         printf(" %f   ", *(float *)(data + col.offset));
-//         break;
-//       case TYPE_VARCHAR:
-//       case TYPE_CHAR:
-//         str_size = col.len < strlen(data + col.offset) ? col.len : strlen(data + col.offset);
-//         str.assign(data + col.offset, str_size);
-//         str[str_size] = '\0';
-//         printf(" %s  ", str.c_str());
-//         break;
-//       default:
-//         throw InternalError("unsupported data type.");
-//     }
-//   }
-//   printf("\n");
-// }
-
-// void NestedLoopJoinExecutor::printRecord(std::unique_ptr<RmRecord> &Tuple, const std::vector<ColMeta> &cols) {
-//   std::vector<std::string> columns;
-//   for (auto &col : cols) {
-//     std::string col_str;
-//     char *rec_buf = Tuple->data + col.offset;
-//     switch (col.type) {
-//       case TYPE_INT:
-//         col_str = std::to_string(*(int *)rec_buf);
-//         std::cout << col_str << " ";
-//         break;
-//       case TYPE_FLOAT:
-//         col_str = std::to_string(*(float *)rec_buf);
-//         std::cout << col_str << " ";
-//         break;
-//       case TYPE_VARCHAR:
-//       case TYPE_CHAR:
-//         col_str = std::string((char *)rec_buf, col.len);
-//         col_str.resize(strlen(col_str.c_str()));
-//         std::cout << col_str << " ";
-//         break;
-//       default:
-//         throw InternalError("unsupported data type.");
-//     }
-//     columns.push_back(col_str);
-//   }
-//   std::cout << std::endl;
-// }
 
 void NestedLoopJoinExecutor::nextTuple() {
   iterate_next();
@@ -258,14 +175,11 @@ void NestedLoopJoinExecutor::iterate_next() {
 // }
 
 Tuple NestedLoopJoinExecutor::concat_records() {
-  char *data_cat = new char[len_];
-  memcpy(data_cat, left_buffer_[left_idx_].GetData(), left_len_);
-  memcpy(data_cat + left_len_, right_buffer_[right_idx_].GetData(), right_len_);
-  // std::vector<char> vec_tp;
-  // vec_tp.assign(data_cat,data_cat+len_);
-  // vec_tp.emplace_back('\0');
-  // return Tuple();
-  return Tuple(len_,data_cat);
+  auto left_value_vec = left_buffer_[left_idx_].GetValueVec(&left_->schema());
+  auto right_value_vec = right_buffer_[right_idx_].GetValueVec(&right_->schema());
+  left_value_vec.insert(left_value_vec.end(),right_value_vec.begin(),right_value_vec.end());
+
+  return Tuple(left_value_vec,&schema_);
 }
 
 }  // namespace easydb
