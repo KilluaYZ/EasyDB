@@ -307,34 +307,34 @@ execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 1
 # print_green "=> 两表卡氏积连接"
 # execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_SUPPKEY != C_CUSTKEY;"
 
-# print_green "-------- HashJoin Test --------"
+print_green "-------- HashJoin Test --------"
 
-# print_green "=> 设置为Hash Join"
-# execute "SET enable_nestloop = false;"
-# execute "SET enable_sortmerge = false;"
-# execute "SET enable_hashjoin = true;"
+print_green "=> 设置为Hash Join"
+execute "SET enable_nestloop = false;"
+execute "SET enable_sortmerge = false;"
+execute "SET enable_hashjoin = true;"
 
-# print_green "=> 单条件等值连接"
-# print_green "==> int上进行单条件等值连接"
-# execute "SELECT * FROM supplier, nation where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY;"
+print_green "=> 单条件等值连接"
+print_green "==> int上进行单条件等值连接"
+execute "SELECT * FROM supplier, nation where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY;"
 
-# print_green "==> char上进行单条件等值连接"
-# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE = C_PHONE;"
+print_green "==> char上进行单条件等值连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE = C_PHONE;"
 
-# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE != C_PHONE;"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE != C_PHONE;"
 
-# print_green "==> varchar上进行单条件等值连接"
-# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_NAME = C_NAME;"
+print_green "==> varchar上进行单条件等值连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_NAME = C_NAME;"
 
-# print_green "=> 多条件连接"
-# print_green "==> int, varchar上进行多条件连接"
-# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_PHONE != C_PHONE AND S_SUPPKEY != C_CUSTKEY;"
+print_green "=> 多条件连接"
+print_green "==> int, varchar上进行多条件连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_PHONE != C_PHONE AND S_SUPPKEY != C_CUSTKEY;"
 
-# # print_green "=> 三表连接"
-# # execute "SELECT * FROM supplier, customer, nation where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND C_NATIONKEY = N_NATIONKEY;"
+# print_green "=> 三表连接"
+# execute "SELECT * FROM supplier, customer, nation where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND C_NATIONKEY = N_NATIONKEY;"
 
-# print_green "=> 两表卡氏积连接"
-# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10;"
+print_green "=> 两表卡氏积连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10;"
 
 print_green "====================================================="
 print_green "                    SPJ Test End"
