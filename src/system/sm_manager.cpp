@@ -276,6 +276,7 @@ void SmManager::DropTable(const std::string &tab_name, Context *context) {
   // delete record page in buffer
 
   rm_manager_->CloseFile(fhs_[tab_name].get());
+  buffer_pool_manager_->RemoveAllPages(fhs_[tab_name]->GetFd());
   rm_manager_->DestoryFile(tab_name);
   fhs_.erase(tab_name);
   db_.tabs_.erase(tab_name);
@@ -320,11 +321,12 @@ void SmManager::CreateIndex(const std::string &tab_name, const std::vector<std::
 
   // lock manager
   if (context != nullptr) {
-    context->lock_mgr_->lock_shared_on_table(context->txn_, fhs_[tab_name]->GetFd());
+    // context->lock_mgr_->lock_shared_on_table(context->txn_, fhs_[tab_name]->GetFd());
   }
 
   // get colMeta
   std::vector<ColMeta> index_cols;
+  std::vector<uint32_t> key_ids;
   int col_tot_len = 0;
   TabMeta &tab_meta = db_.get_table(tab_name);
   if (tab_meta.is_index(col_names)) {
@@ -333,6 +335,7 @@ void SmManager::CreateIndex(const std::string &tab_name, const std::vector<std::
   for (auto &col_name : col_names) {
     ColMeta colMetaTp = *tab_meta.get_col(col_name);
     index_cols.emplace_back(colMetaTp);
+    key_ids.emplace_back(tab_meta.GetColId(col_name));
     col_tot_len += colMetaTp.len;
   }
 
@@ -340,7 +343,9 @@ void SmManager::CreateIndex(const std::string &tab_name, const std::vector<std::
   IndexMeta index_meta = {.tab_name = tab_name,
                           .col_tot_len = col_tot_len,
                           .col_num = static_cast<int>(col_names.size()),
-                          .cols = index_cols};
+                          .cols = index_cols,
+                          .col_ids = key_ids};
+  auto key_schema = Schema::CopySchema(&tab_meta.schema, key_ids);
 
   // create index
   ix_manager_->CreateIndex(tab_name, index_cols);
@@ -351,27 +356,40 @@ void SmManager::CreateIndex(const std::string &tab_name, const std::vector<std::
   RmScan rmScan(Rfh);
 
   while (!rmScan.IsEnd()) {
-    // auto rid = rmScan.GetRid();
+    auto rid = rmScan.GetRid();
     // auto rec = Rfh->GetRecord(rid, context);
-    // // construct key
-    // char *key = new char[index_meta.col_tot_len];
-    // int offset = 0;
-    // for (int i = 0; i < index_meta.col_num; ++i) {
-    //   memcpy(key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
-    //   offset += index_meta.cols[i].len;
-    // }
+    auto tuple = Rfh->GetTupleValue(rid);
+    auto key_tuple = Rfh->GetKeyTuple(tab_meta.schema, key_schema, key_ids, rid);
+    // construct key
+    char *key = new char[index_meta.col_tot_len];
+    int offset = 0;
+    for (int i = 0; i < index_meta.col_num; ++i) {
+      // memcpy(key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
+      auto len = index_meta.cols[i].len;
+      auto val = key_tuple.GetValue(&key_schema, i);
+      // memcpy(key + offset, val.GetData(), val.GetStorageSize());
+      if (val.GetTypeId() == TYPE_CHAR || val.GetTypeId() == TYPE_VARCHAR) {
+        memcpy(key + offset, val.GetData(), index_meta.cols[i].len);
+      } else {
+        assert(uint32_t(len) == Type(val.GetTypeId()).GetTypeSize(val.GetTypeId()));
+        val.SerializeTo(key + offset);
+      }
+      offset += index_meta.cols[i].len;
+    }
     // // print key
     // std::cout << "key: " << std::string(key, index_meta.col_tot_len) << std::endl;
     // for (int i = 0; i < 4; ++i) {
-    //     std::cout << "0x" << std::hex << std::setw(2) << std::setfill('0') << (int)(unsigned char)key[i] << " ";
+    //   std::cout << "0x" << std::hex << std::setw(2) << std::setfill('0') << (int)(unsigned char)key[i] << " ";
     // }
     // std::cout << std::endl;
     // std::cout << "key(int): " << std::to_string(*(int *)key) << std::endl;
-    // if (context != nullptr) {
-    //   Iih->InsertEntry(key, rid, context->txn_);
-    // } else {
-    //   Iih->InsertEntry(key, rid, nullptr);
-    // }
+    if (context != nullptr) {
+      // Iih->InsertEntry(key, rid, context->txn_);
+      Iih->InsertEntry(key, rid);
+    } else {
+      // Iih->InsertEntry(key, rid, nullptr);
+      Iih->InsertEntry(key, rid);
+    }
     rmScan.Next();
   }
 
@@ -403,6 +421,8 @@ void SmManager::DropIndex(const std::string &tab_name, const std::vector<std::st
   if (ihs_.find(index_name) != ihs_.end()) {
     auto Iih = ihs_.at(index_name).get();
     ix_manager_->CloseIndex(Iih);
+    // To ensure data consistency, remove all pages in buffer pool related to this index
+    buffer_pool_manager_->RemoveAllPages(Iih->GetFd());
     // DbMeta
     ihs_.erase(index_name);
   }

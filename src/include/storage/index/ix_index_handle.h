@@ -224,6 +224,8 @@ class IxIndexHandle {
  public:
   IxIndexHandle(DiskManager *disk_manager, BufferPoolManager *buffer_pool_manager, int fd);
 
+  int GetFd() const { return fd_; }
+
   // for search
   // bool get_value(const char *key, std::vector<RID> *result, Transaction *transaction);
   bool GetValue(const char *key, std::vector<RID> *result);

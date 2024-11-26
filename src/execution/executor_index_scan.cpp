@@ -10,6 +10,10 @@
  */
 
 #include "execution/executor_index_scan.h"
+#include <cassert>
+#include <cstdint>
+#include "type/type.h"
+#include "type/type_id.h"
 
 namespace easydb {
 
@@ -92,29 +96,55 @@ void IndexScanExecutor::beginTuple() {
       case OP_EQ:
         // lower = ih->lower_bound(key);
         // upper = ih->upper_bound(key);
-        memcpy(key_lower + offset, cond.rhs_val.GetData(), len);
-        memcpy(key_upper + offset, cond.rhs_val.GetData(), len);
+        if (cond.rhs_val.GetTypeId() == TYPE_CHAR || cond.rhs_val.GetTypeId() == TYPE_VARCHAR) {
+          memcpy(key_lower + offset, cond.rhs_val.GetData(), len);
+          memcpy(key_upper + offset, cond.rhs_val.GetData(), len);
+        } else {
+          assert(uint32_t(len) == Type(cond.rhs_val.GetTypeId()).GetTypeSize(cond.rhs_val.GetTypeId()));
+          cond.rhs_val.SerializeTo(key_lower + offset);
+          cond.rhs_val.SerializeTo(key_upper + offset);
+        }
         lower = ih->LowerBound(key_lower);
         upper = ih->UpperBound(key_upper);
         break;
       case OP_GE:
         // lower = ih->lower_bound(key);
-        memcpy(key_lower + offset, cond.rhs_val.GetData(), len);
+        if (cond.rhs_val.GetTypeId() == TYPE_CHAR || cond.rhs_val.GetTypeId() == TYPE_VARCHAR) {
+          memcpy(key_lower + offset, cond.rhs_val.GetData(), len);
+        } else {
+          assert(uint32_t(len) == Type(cond.rhs_val.GetTypeId()).GetTypeSize(cond.rhs_val.GetTypeId()));
+          cond.rhs_val.SerializeTo(key_lower + offset);
+        }
         lower = ih->LowerBound(key_lower);
         break;
       case OP_GT:
         // lower = ih->upper_bound(key);
-        memcpy(key_lower + offset, cond.rhs_val.GetData(), len);
+        if (cond.rhs_val.GetTypeId() == TYPE_CHAR || cond.rhs_val.GetTypeId() == TYPE_VARCHAR) {
+          memcpy(key_lower + offset, cond.rhs_val.GetData(), len);
+        } else {
+          assert(uint32_t(len) == Type(cond.rhs_val.GetTypeId()).GetTypeSize(cond.rhs_val.GetTypeId()));
+          cond.rhs_val.SerializeTo(key_lower + offset);
+        }
         lower = ih->UpperBound(key_lower);
         break;
       case OP_LE:
         // upper = ih->upper_bound(key);
-        memcpy(key_upper + offset, cond.rhs_val.GetData(), len);
+        if (cond.rhs_val.GetTypeId() == TYPE_CHAR || cond.rhs_val.GetTypeId() == TYPE_VARCHAR) {
+          memcpy(key_upper + offset, cond.rhs_val.GetData(), len);
+        } else {
+          assert(uint32_t(len) == Type(cond.rhs_val.GetTypeId()).GetTypeSize(cond.rhs_val.GetTypeId()));
+          cond.rhs_val.SerializeTo(key_upper + offset);
+        }
         upper = ih->UpperBound(key_upper);
         break;
       case OP_LT:
         // upper = ih->lower_bound(key);
-        memcpy(key_upper + offset, cond.rhs_val.GetData(), len);
+        if (cond.rhs_val.GetTypeId() == TYPE_CHAR || cond.rhs_val.GetTypeId() == TYPE_VARCHAR) {
+          memcpy(key_upper + offset, cond.rhs_val.GetData(), len);
+        } else {
+          assert(uint32_t(len) == Type(cond.rhs_val.GetTypeId()).GetTypeSize(cond.rhs_val.GetTypeId()));
+          cond.rhs_val.SerializeTo(key_upper + offset);
+        }
         upper = ih->LowerBound(key_upper);
         break;
       default:
@@ -175,25 +205,19 @@ void IndexScanExecutor::nextTuple() {
 // return true only all the conditions were true
 bool IndexScanExecutor::predicate() {
   // std::cout << "IndexScanExecutor predicate" << std::endl;
-  auto record = *this->Next();
+  auto tuple = *this->Next();
   bool satisfy = true;
   // i.e. all conditions are connected with 'and' operator
   for (auto &cond : conds_) {
     // auto lhs_col = get_col(cols_, cond.lhs_col);
     Value lhs_v, rhs_v;
-    // if (lhs_v.get_value_from_record(record, cols_, cond.lhs_col.col_name) == nullptr) {
-    // throw InternalError("target column not found.");
-    // }
-    // if (cond.is_rhs_val) {
-    //   rhs_v = cond.rhs_val;
-    // } else if (rhs_v.get_value_from_record(record, cols_, cond.rhs_col.col_name) == nullptr) {
-    //   throw InternalError("target column not found.");
-    // }
-    lhs_v.DeserializeFrom(record.GetData(), &schema_, cond.lhs_col.col_name);
+    lhs_v = tuple.GetValue(&schema_, cond.lhs_col.col_name);
+    // lhs_v.DeserializeFrom(tuple.GetData(), &schema_, cond.lhs_col.col_name);
     if (cond.is_rhs_val) {
       rhs_v = cond.rhs_val;
     } else {
-      rhs_v.DeserializeFrom(record.GetData(), &schema_, cond.rhs_col.col_name);
+      rhs_v = tuple.GetValue(&schema_, cond.rhs_col.col_name);
+      // rhs_v.DeserializeFrom(tuple.GetData(), &schema_, cond.rhs_col.col_name);
     }
     if (!cond.satisfy(lhs_v, rhs_v)) {
       satisfy = false;
