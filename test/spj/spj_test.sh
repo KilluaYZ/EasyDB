@@ -30,7 +30,7 @@ clean_up(){
     ps -aux | grep easydb | grep $(whoami) | awk '{print $2}' | xargs kill -9 > /dev/null 2>&1
 }
 
-# 退出时关闭进程
+# 退出时调用clean_up函数关闭Server进程
 trap clean_up EXIT;
 
 SCRIPT_PATH=$(readlink -f $0)
@@ -57,7 +57,6 @@ DATA_REGION_PATH=$DATA_PATH/region.tbl
 execute(){
     print_blue "执行命令: $1"
     echo "$1; exit;" | $CLIENT_PATH -p $SERVE_PORT
-    # ps -aux | grep easydb_client | grep $(whoami) | grep -v grep | awk '{print $2}' | xargs kill -9
 }
 
 create_tables(){
@@ -243,7 +242,7 @@ execute "SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20 AND S_NA
 
 print_green "-------- Projection Test --------"
 print_green "=> select 至少三种不同数据(int, varchar, float)"
-execute "SELECT S_SUPPKEY, S_NAME, C_ACCTBAL FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20;"
+execute "SELECT S_SUPPKEY, S_NAME, S_ACCTBAL FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20;"
 print_green "=> select *"
 execute "SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20;"
 
@@ -263,24 +262,79 @@ execute "SELECT * FROM supplier, nation where S_SUPPKEY < 10 AND S_NATIONKEY = N
 print_green "==> char上进行单条件等值连接"
 execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE = C_PHONE;"
 
+print_green "==> varchar上进行单条件等值连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_NAME = C_NAME;"
+
+print_green "=> 单条件不等值连接"
 execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE != C_PHONE;"
 
+print_green "=> 多条件连接"
+print_green "==> int, varchar上进行多条件连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_PHONE != C_PHONE AND S_SUPPKEY != C_CUSTKEY;"
+
+# print_green "=> 三表连接"
+# execute "SELECT * FROM supplier, customer, nation where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND C_NATIONKEY = N_NATIONKEY;"
+
+print_green "=> 两表卡氏积连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10;"
+
+# print_green "-------- SortMerge Test --------"
+
+# print_green "=> 设置为SortMerge Join"
+# execute "SET enable_nestloop = false;"
+# execute "SET enable_sortmerge = true;"
+# execute "SET enable_hashjoin = false;"
+
+# print_green "=> 单条件等值连接"
+# print_green "==> int上进行单条件等值连接"
+# execute "SELECT * FROM supplier, nation where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY;"
+
+# print_green "==> char上进行单条件等值连接"
+# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE = C_PHONE;"
+
+# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE != C_PHONE;"
 
 # print_green "==> varchar上进行单条件等值连接"
-# execute "SELECT * FROM supplier, customer where S_NAME = C_NAME;"
+# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_NAME = C_NAME;"
 
-# print_green "=> 多条件等值连接"
-# print_green "==> int, varchar上进行多条件等值连接"
-# execute "SELECT * FROM supplier, nation, customer where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND S_PHONE = C_PHONE;"
+# print_green "=> 多条件连接"
+# print_green "==> int, varchar上进行多条件连接"
+# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_PHONE != C_PHONE AND S_SUPPKEY != C_CUSTKEY;"
+
+# print_green "=> 三表连接"
+# execute "SELECT * FROM supplier, customer, nation where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND C_NATIONKEY = N_NATIONKEY;"
 
 # print_green "=> 两表卡氏积连接"
-# execute ""
+# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_SUPPKEY != C_CUSTKEY;"
 
+# print_green "-------- HashJoin Test --------"
 
-# print_green "=> 设置为NestLoop Join"
+# print_green "=> 设置为Hash Join"
+# execute "SET enable_nestloop = false;"
+# execute "SET enable_sortmerge = false;"
+# execute "SET enable_hashjoin = true;"
 
-# execute "SELECT N_NAME FROM supplier, nation where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY;"
+# print_green "=> 单条件等值连接"
+# print_green "==> int上进行单条件等值连接"
+# execute "SELECT * FROM supplier, nation where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY;"
 
+# print_green "==> char上进行单条件等值连接"
+# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE = C_PHONE;"
+
+# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE != C_PHONE;"
+
+# print_green "==> varchar上进行单条件等值连接"
+# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_NAME = C_NAME;"
+
+# print_green "=> 多条件连接"
+# print_green "==> int, varchar上进行多条件连接"
+# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_PHONE != C_PHONE AND S_SUPPKEY != C_CUSTKEY;"
+
+# # print_green "=> 三表连接"
+# # execute "SELECT * FROM supplier, customer, nation where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND C_NATIONKEY = N_NATIONKEY;"
+
+# print_green "=> 两表卡氏积连接"
+# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10;"
 
 print_green "====================================================="
 print_green "                    SPJ Test End"

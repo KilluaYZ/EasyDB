@@ -31,6 +31,7 @@ cmake版本：3.28.3
 - 连接算子（如嵌套循环连接、基于排序的等值连接、基于散列的等值连接和基于索引的连接）
 
 ## 3.2 序列扫描（SeqScan）
+
 ### 3.2.1 SeqScan 的功能
 
 SeqScanExecutor 实现了基于顺序扫描的查询操作，其主要功能包括：
@@ -133,6 +134,7 @@ SeqScanExecutor 实现了基于顺序扫描的查询操作，其主要功能包�
 ----
 
 ## 3.4 映射算子
+
 ### 3.4.1 Projection 的功能
 
 `ProjectionExecutor` 实现了投影操作，即对查询结果进行字段选择的功能。其主要功能包括：
@@ -355,7 +357,6 @@ SeqScanExecutor 实现了基于顺序扫描的查询操作，其主要功能包�
 2. **评估条件**：根据条件类型（如等值、不等、范围等），比较左右字段值，判断是否满足条件。
 3. **结果验证**：只有当所有条件均被满足时，才将元组对作为有效的连接结果输出。
 
-
 ## 3.8 归并排序器
 
 ### 3.8.1 概述
@@ -366,14 +367,14 @@ SeqScanExecutor 实现了基于顺序扫描的查询操作，其主要功能包�
 
 `MergeSorter` 类负责基于指定的列（键）对元组进行排序。它维护一个内存中的缓冲区来存储数据的一部分，当缓冲区满时，将已排序的数据写入临时文件。所有块排序完成后，它通过使用“败者树”结构来合并这些已排序的块，该结构能够高效地选择多路归并中的最小值或最大值。核心方法如下：
 
-1. **构造函数:**构造函数使用指定的排序列、元组模式列、元组长度和排序顺序（升序或降序）初始化排序器。它还初始化了缓冲区、文件列表和其他必要的变量。
-2. **writeBuffer(Tuple current_tuple):**该方法将一个元组添加到内存缓冲区中。当缓冲区已满时，进行排序，并将已排序的数据写入临时文件，然后清空缓冲区以准备接收更多的元组。
-3. **clearBuffer():**清空当前缓冲区，排序元组后将其写入临时文件，确保所有数据在合并阶段前都已写入磁盘。
-4. **initializeMergeListAndConstructTree():**初始化归并列表，通过读取磁盘上排序的块并将它们载入内存，构建败者树。败者树用于高效地归并已排序的块。
-5. **IsEnd():**返回 `true` 表示所有记录已输出，归并过程已完成。它检查所有块是否已处理完毕，或者是否没有更多的记录需要归并。
-6. **getOneRecord():**该方法从归并过程中获取下一条记录。它利用败者树来确定从哪个块获取记录，并推进该块的文件指针。当一个块被耗尽时，它会被标记为 `NULL`。
-7. **createLoserTree():**构建败者树，败者树是一个二叉树，用于确定从哪些已排序块中获取下一个记录。树的每个叶节点对应一个块，树通过调整来确保根节点始终保存最小或最大值。
-8. **adjust(int s):**该方法调整败者树，以反映每次从块中取出记录时发生的变化。对应于已获取记录的块的节点会更新为新的“赢家”，确保根节点始终保存最小或最大值。
+1.  **构造函数:** 构造函数使用指定的排序列、元组模式列、元组长度和排序顺序（升序或降序）初始化排序器。它还初始化了缓冲区、文件列表和其他必要的变量。
+2.  **writeBuffer(Tuple current_tuple):** 该方法将一个元组添加到内存缓冲区中。当缓冲区已满时，进行排序，并将已排序的数据写入临时文件，然后清空缓冲区以准备接收更多的元组。
+3.  **clearBuffer():** 清空当前缓冲区，排序元组后将其写入临时文件，确保所有数据在合并阶段前都已写入磁盘。
+4.  **initializeMergeListAndConstructTree():** 初始化归并列表，通过读取磁盘上排序的块并将它们载入内存，构建败者树。败者树用于高效地归并已排序的块。
+5.  **IsEnd():** 返回 `true` 表示所有记录已输出，归并过程已完成。它检查所有块是否已处理完毕，或者是否没有更多的记录需要归并。
+6.  **getOneRecord():** 该方法从归并过程中获取下一条记录。它利用败者树来确定从哪个块获取记录，并推进该块的文件指针。当一个块被耗尽时，它会被标记为 `NULL`。
+7.  **createLoserTree():** 构建败者树，败者树是一个二叉树，用于确定从哪些已排序块中获取下一个记录。树的每个叶节点对应一个块，树通过调整来确保根节点始终保存最小或最大值。
+8.  **adjust(int s):** 该方法调整败者树，以反映每次从块中取出记录时发生的变化。对应于已获取记录的块的节点会更新为新的“赢家”，确保根节点始终保存最小或最大值。
 
 ### 3.8.3 归并排序过程
 
@@ -394,15 +395,19 @@ SeqScanExecutor 实现了基于顺序扫描的查询操作，其主要功能包�
 我们实现了实验要求的所有查询类型。本小节通过介绍各类查询的算子组织方式来阐释我们如何通过上述算子实现了实验要求 的所有查询。由于选择操作和投影操作为SQL查询中必要的操作，我们不再专门介绍。
 
 - 嵌套循环连接 
+  
   - `ProjectionExecutor` <-`NestedLoopJoinExecutor`<-`SeqScanExecutor`
 
 - 基于排序的等值连接  
+  
   - `ProjectionExecutor` <-`MergeJoinExecutor`<-`SeqScanExecutor`
 
--  基于散列的等值连接  
+- 基于散列的等值连接  
+  
   - `ProjectionExecutor` <-`HashJoinExecutor`<-`SeqScanExecutor`
 
--  基于索引的连接 
+- 基于索引的连接 
+  
   - `ProjectionExecutor` <-`NestedLoopJoinExecutor`<-`IndexScanExecutor`
 
 对于不同连接策略的选择，我们自定义了以下字段进行索引策略选择，默认情况下，默认嵌套循环连接>排序连接>HashJoin。
@@ -445,7 +450,6 @@ cd build/bin/
 # 在客户段中输入help;可以查看帮助信息
 # 在客户端中执行SQL语句即可查看到执行的结果，如：
 SELECT * FROM supplier WHERE S_NAME = 'Supplier#000000003';
-
 ```
 
 ![界面展示](images/1.png)
@@ -454,31 +458,228 @@ SELECT * FROM supplier WHERE S_NAME = 'Supplier#000000003';
 
 ## 5.1 测试设计与实现
 
+我们使用SQL语句进行测试，为了能够更方便地进行测试，我们编写了一个测试脚本，该脚本可以自动启动服务端和和护短，导入测试数据，并执行SQL语句，然后输出结果。该脚本放在根目录下的test/spj/spj_test.sh。
 
+### 5.1.1 服务端的启动和关闭
 
+我们的数据库系统是C/S架构的，因此每次在执行SQL语句之前，需要将服务端启动。这里我们使用bash脚本进行启动，将stdout和stderr都重定向到日志文件中，以便后续查看。我们的服务端是在后台运行的，因此需要等待一段时间，以便服务端启动完成。这里我们使用sleep函数等待一段时间，然后检查服务端是否已经启动完成。
+
+```shell
+# 首先启动server
+print_green "启动server"
+$SERVER_PATH -d $DB_PATH -p $SERVE_PORT > $SERVER_LOG_PATH 2>&1  &
+sleep 10
+```
+
+在我们完成测试的所有操作之后，运行在后台的服务端也需要关闭，这里我们使用kill命令关闭服务端进程。
+
+```shell
+clean_up(){
+    # print_red "执行清理操作"
+    ps -aux | grep easydb | grep $(whoami) | awk '{print $2}' | xargs kill -9 > /dev/null 2>&1
+}
+# 退出时调用clean_up函数关闭Server进程
+trap clean_up EXIT;
+```
+
+### 5.1.2 SQL语句的执行
+
+为了能够优雅地在脚本中执行SQL语句，我们将执行SQL语句的命令封装成了一个函数，该函数接受一个参数，即SQL语句。然后我们会启动一个客户端连接到服务端，执行了该SQL语句后关闭该客户端。具体来说，我们使用了execute函数实现该功能。我们将语句从管道中传入到客户端的stdin中，执行完毕后，客户端会自动退出。
+
+```shell
+execute(){
+    print_blue "执行命令: $1"
+    echo "$1; exit;" | $CLIENT_PATH -p $SERVE_PORT
+}
+```
+
+### 5.1.3 测试数据的导入
+
+我们的数据库实现了load命令，该命令能够从文件中读取并导入数据到数据库中。所以，我们可以使用以下的shell命令将测试数据导入到数据库中。
+
+```shell
+execute "load $DATA_SUPPLIER_PATH into supplier;"
+```
+
+### 5.1.4 测试点设置
+
+为了能够更加全面地测试我们的数据库系统，我们需要设置一些测试点。
+
+#### 5.1.4.1 Select相关测试
+
+这部分主要是测试我们select语句的执行情况，包括单点查询和范围查询。我们分别对int，float，varchar三种类型进行选择查询。主要有以下几个测试点：
+
+```shell
+print_green "==> int上进行条件选择"
+execute "SELECT * FROM supplier where S_SUPPKEY < 10;"
+execute "SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20;"
+
+print_green "==> float上进行条件选择"
+execute "SELECT * FROM supplier where S_ACCTBAL < 3000.0;"
+execute "SELECT * FROM supplier where S_ACCTBAL > 1000.5 AND S_SUPPKEY < 2000.1;"
+
+print_green "==> varchar上进行条件选择"
+execute "SELECT * FROM supplier where S_NAME = 'Supplier#000000015';"
+execute "SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20 AND S_NAME != 'Supplier#000000015';"
+```
+
+#### 5.1.4.2 Projection相关测试
+
+这部分主要是测试我们投影功能的实现情况，包括多列投影和*。主要有以下几个测试点：
+
+```shell
+print_green "=> select 至少三种不同数据(int, varchar, float)"
+execute "SELECT S_SUPPKEY, S_NAME, C_ACCTBAL FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20;"
+print_green "=> select *"
+execute "SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20;"
+```
+
+#### 5.1.4.3 Join相关测试
+
+这部分主要是测试我们join功能的实现情况，包括了NestLoop Join，Sort Merge Join和Hash Join以及基于索引的连接。针对以上连接，我们分别进行了以下测试：
+
+1. 单条件等值连接：主要测试了int，char，varchar上的单条件等值连接。
+
+```shell
+print_green "==> int上进行单条件等值连接"
+execute "SELECT * FROM supplier, nation where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY;"
+
+print_green "==> char上进行单条件等值连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE = C_PHONE;"
+
+print_green "==> varchar上进行单条件等值连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_NAME = C_NAME;"
+```
+
+2. 单条件不等值连接：主要测试了char上的单条件不等值连接
+
+```shell
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE != C_PHONE;"
+```
+
+3. 多条件连接：主要测试了int, varchar上的多条件连接。
+
+```shell
+print_green "==> int, varchar上进行多条件连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_PHONE != C_PHONE AND S_SUPPKEY != C_CUSTKEY;"
+```
+
+4. 三表连接：
+
+```shell
+print_green "=> 三表连接"
+execute "SELECT * FROM supplier, customer, nation where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND C_NATIONKEY = N_NATIONKEY;"
+```
+
+5. 两表卡氏积连接：
+
+```shell
+print_green "=> 两表卡氏积连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10;"
+```
 
 ## 5.2 结果展示
 
+### 5.2.1 初始化数据库
+
+1. 服务端启动
+
+![服务端启动](./images/2.png)
+
+2. 表格创建
+
+![表格创建](./images/3.png)
+
+3. 数据导入
+
+![数据导入](./images/4.png)
+
+4. 索引创建
+
+![索引创建](./images/5.png)
+
+### 5.2.2 Select测试
+
+1. int类型
+
+![int类型 select测试1](./images/6.png)
+
+![int类型 select测试2](./images/7.png)
+
+2. float类型
+
+![float类型 select测试1](./images/8.png)
+
+![float类型 select测试2](./images/9.png)
+
+3. varchar类型
+
+![varchar类型 select测试1](./images/10.png)
+
+![varchar类型 select测试2](./images/11.png)
+
+### 5.2.3 Projection测试
+
+![Projection测试1](./images/19.png)
+
+![Projection测试2](./images/20.png)
+
+### 5.2.4 Join测试
+
+Join测试时，虽然我们使用的方式不一样，但是是结果是一样的，所以只展示NestLoop的结果。
+
+1. 单条件等值连接
+
+![int类型 单条件等值连接](./images/12.png)
+
+![char类型 单条件等值连接](./images/13.png)
+
+![varchar类型 单条件等值连接](./images/14.png)
+
+2. 单条件不等值连接
+
+![char类型 单条件不等值连接](./images/15.png)
+
+3. 多条件连接
+
+![int,varchar类型 多条件连接](./images/16.png)
+
+4. 三表连接
+
+![三表连接](./images/17.png)
+
+5. 两表卡氏积连接
+
+![两表卡氏积连接](./images/18.png)
+
 # 6 实验总结
 
-在本次数据库系统实验中，我们团队成功实现了一个高效且功能完备的索引管理模块。通过合理的实验分工，我们确保了每个成员都能在其擅长的领域内发挥最大的潜力。
+在本次实验中，我们成功实现了数据库查询处理器的关键组件，包括多种扫描算子、连接算子和投影操作。通过深入理解和应用数据库系统的迭代器模型，我们构建了一个高效的查询执行框架，能够处理包括顺序扫描、索引扫描、多种连接操作和投影操作在内的复杂查询。
 
-本次实验我们主要进行了以下工作：
+## 6.1 实验成果
 
-1. **B+树索引设计**：我们设计了B+树索引模块，通过合理的封装，实现了IxManager、IxNodeHandle、IxIndexHandle、IxScan等类，支持单点查询和范围查询，确保索引与基表数据的同步，能够进行高效的索引索引管理。
+1. **查询处理器的构建**：我们构建了一个功能齐全的查询处理器，支持多种算子，包括数据操作算子、扫描算子和连接算子。这为数据库系统提供了强大的数据处理能力。
 
-2. **可扩展哈希设计**：通过实现ExtendibleHashIxFileHdr、IxExtendibleHashIndexHandle、IxBucketHandle、IxExtendibleHashPageHdr等类，我们实现了一个可扩展哈希索引结构该索引能够动态调整目录深度并分裂目录和桶来扩展哈希表结构以适应数据量的增长，同时提高哈希冲突的处理能力，确保高效的数据插入、删除和查询操作。
+2. **迭代器模型的应用**：通过采用迭代器模型，我们实现了查询操作的逐元组处理，提高了查询效率和系统的整体性能。
 
-3. **测试方案设计与结果验证**：我们设计了基本的测试方案，通过解析并读入supplier表格、存储数据到数据库，在此基础上，新建索引，并将数据插入到索引中，然后使用dot进行可视化，最后将索引中的某些entry删除，验证了我们实现的索引功能上的正确性。
+3. **多种连接操作的实现**：我们实现了嵌套循环连接、基于排序的等值连接、基于散列的等值连接和基于索引的连接等多种连接操作，这些操作是数据库查询中的核心功能。
 
-当然我们仍旧有很多需要改进的地方：
+4. **投影操作的优化**：我们实现了投影操作，允许用户从查询结果中选择特定的字段，支持字段重命名和聚合操作，提高了查询的灵活性。
 
-1. **代码优化**：虽然我们已经实现了基本的功能，但在代码的优化和重构方面还有提升空间。
+5. **测试方案与结果**：我们设计了全面的测试方案，包括服务端的启动和关闭、SQL语句的执行、测试数据的导入和多个测试点的设置。测试结果表明，我们的系统能够正确执行各种查询操作，并返回预期的结果。
 
-2. **异常处理**：在实验过程中，我们发现系统在处理异常情况时还有待加强。未来可以增加更多的异常处理机制，确保系统的稳定性和健壮性。
+## 6.2 遇到的问题与解决方案
 
-3. **性能测试**：本次实验主要关注了功能实现，对于系统性能的测试和优化还有所欠缺。后续可以通过对比不同配置下的性能表现，进一步优化系统设计。
+1. **性能优化**：在实现过程中，我们遇到了性能瓶颈，特别是在处理大规模数据集时。通过引入多路归并排序算法和优化内存管理，我们显著提高了系统的性能。
 
-4. **用户文档和接口设计**：虽然我们实现了基本的功能，但在用户文档和接口设计方面还有改进空间。可以提供更详细的用户指南和更友好的API接口，提高系统的易用性。
+2. **连接操作的复杂性**：连接操作的实现相对复杂，尤其是在处理多条件连接时。我们通过详细设计连接操作的逻辑和条件过滤机制，成功解决了这一问题。
 
-通过本次实验，我们不仅更加深入地理解了数据库系统的核心概念和关键技术，还提升了团队合作和项目管理的能力。未来，我们计划探索更多的数据库优化技术，如索引优化、查询优化等，进一步加强代码规范，加大测试力度，以期构建一个高效、稳定和易用的数据库系统。经过本次实验，我们对数据库系统有了更深入的理解，也为未来的学习和研究打下了坚实的基础。
+3. **测试自动化**：为了提高测试的效率和准确性，我们编写了自动化测试脚本，减少了人工干预，确保了测试的一致性和可重复性。
+
+## 6.3 实验心得
+
+通过本次实验，我们深入理解了数据库查询处理器的工作原理和实现细节。我们学会了如何设计和实现高效的查询执行计划，以及如何通过测试来验证系统的正确性和性能。此外，我们也体会到了团队合作的重要性，每个成员都在实验中扮演了关键角色，共同推动了项目的进展。
+
+## 6.4 未来工作
+
+尽管我们已经实现了实验的基本要求，但仍有许多工作可以进一步探索和完善。例如，我们可以进一步优化查询执行器的性能，增加对更多类型查询的支持，以及提高系统的可扩展性和容错能力。此外，我们还可以探索如何将机器学习技术应用于查询优化，以进一步提高数据库系统的性能。
