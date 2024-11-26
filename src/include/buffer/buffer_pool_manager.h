@@ -116,6 +116,15 @@ class BufferPoolManager {
   void FlushAllDirtyPages();
 
   /**
+   * @description: Remove all pages in the buffer pool that belong to a specific file.
+   * @param {int} fd file descriptor
+   * @return {void}
+   * @note Used after drop table/index to avoid Data Corruption
+          (fd maybe reused, so residual pages is not true pages from this file)
+   */
+  void RemoveAllPages(int fd);
+
+  /**
    * @brief Recover a known page from disk to the buffer bool.
    * @return {Page*} return recovered frame，otherwise return nullptr
    * @param {PageId} page_id: the page_id of the page to be recovered

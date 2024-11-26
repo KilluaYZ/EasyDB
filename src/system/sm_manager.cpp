@@ -276,6 +276,7 @@ void SmManager::DropTable(const std::string &tab_name, Context *context) {
   // delete record page in buffer
 
   rm_manager_->CloseFile(fhs_[tab_name].get());
+  buffer_pool_manager_->RemoveAllPages(fhs_[tab_name]->GetFd());
   rm_manager_->DestoryFile(tab_name);
   fhs_.erase(tab_name);
   db_.tabs_.erase(tab_name);
@@ -420,6 +421,8 @@ void SmManager::DropIndex(const std::string &tab_name, const std::vector<std::st
   if (ihs_.find(index_name) != ihs_.end()) {
     auto Iih = ihs_.at(index_name).get();
     ix_manager_->CloseIndex(Iih);
+    // To ensure data consistency, remove all pages in buffer pool related to this index
+    buffer_pool_manager_->RemoveAllPages(Iih->GetFd());
     // DbMeta
     ihs_.erase(index_name);
   }
