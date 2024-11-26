@@ -19,18 +19,19 @@ namespace easydb {
  */
 void IxScan::Next() {
   assert(!IsEnd());
-  // IxNodeHandle *node = ih_->FetchNode(iid_.page_no);
-  // assert(node->IsLeafPage());
-  // assert(iid_.slot_no < node->GetSize());
-  // // increment slot no
-  // iid_.slot_no++;
-  // if (iid_.page_no != ih_->file_hdr_->last_leaf_ && iid_.slot_no == node->GetSize()) {
-  //   // go to Next leaf
-  //   iid_.slot_no = 0;
-  //   iid_.page_no = node->GetNextLeaf();
-  // }
-  // // Unpin the page that pinned in FetchNode()
-  // bpm_->UnpinPage(node->GetPageId(), false);
+  IxNodeHandle *node = ih_->FetchNode(iid_.page_id_);
+  assert(node->IsLeafPage());
+  assert(iid_.slot_num_ < static_cast<slot_id_t>(node->GetSize()));
+  // increment slot no
+  iid_.slot_num_++;
+  if (iid_.page_id_ != ih_->file_hdr_->last_leaf_ && iid_.slot_num_ == node->GetSize()) {
+    // go to Next leaf
+    iid_.slot_num_ = 0;
+    iid_.page_id_ = node->GetNextLeaf();
+  }
+  // Unpin the page that pinned in FetchNode()
+  bpm_->UnpinPage(node->GetPageId(), false);
+  delete node;
 }
 
 RID IxScan::GetRid() const { return ih_->GetRid(iid_); }
