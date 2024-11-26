@@ -62,38 +62,18 @@ NestedLoopJoinExecutor::NestedLoopJoinExecutor(std::unique_ptr<AbstractExecutor>
 }
 
 void NestedLoopJoinExecutor::beginTuple() {
-  if (need_sort_) {
-    for (left_->beginTuple(); !left_->IsEnd(); left_->nextTuple()) {
-      leftSorter_->writeBuffer(*(left_->Next()));
-    }
-    leftSorter_->clearBuffer();
-    leftSorter_->initializeMergeListAndConstructTree();
-    while (!leftSorter_->IsEnd()) {
-      char *storage_tp = leftSorter_->getOneRecord();
-      Tuple tp(left_len_, storage_tp);
-      // tp.DeserializeFrom(storage_tp);
-      left_buffer_.emplace_back(tp);
-    }
-  } else {
-    for (left_->beginTuple(); !left_->IsEnd(); left_->nextTuple()) {
-      // printRecord(*(left_->Next()),left_->cols());
-      left_buffer_.emplace_back(*(left_->Next()));
-    }
+  // Load left and right buffers
+  for (left_->beginTuple(); !left_->IsEnd(); left_->nextTuple()) {
+    left_buffer_.emplace_back(*(left_->Next()));
   }
-
   for (right_->beginTuple(); !right_->IsEnd(); right_->nextTuple()) {
-    // printRecord(*(right_->Next()),right_->cols());
     right_buffer_.emplace_back(*(right_->Next()));
   }
+
   left_idx_ = 0;
   right_idx_ = 0;
-  if (!isend && fed_conds_.size() > 0) {
-    if (need_sort_) {
-      sorted_iterate_helper();
-    } else {
-      iterate_helper();
-    }
-  }
+  isend = false;
+  iterate_helper();
   if (isend) {
     return;
   }
@@ -101,14 +81,12 @@ void NestedLoopJoinExecutor::beginTuple() {
 }
 
 void NestedLoopJoinExecutor::nextTuple() {
-  iterate_next();
-  if (!isend && fed_conds_.size() > 0) {
-    if (need_sort_) {
-      sorted_iterate_helper();
-    } else {
-      iterate_helper();
-    }
+  left_idx_++;
+  if (left_idx_ >= left_buffer_.size()) {
+    left_idx_ = 0;
+    right_idx_++;
   }
+  iterate_helper();
   if (isend) {
     return;
   }
@@ -165,25 +143,19 @@ void NestedLoopJoinExecutor::sorted_iterate_helper() {
 }
 
 void NestedLoopJoinExecutor::iterate_helper() {
-  while (true) {
-    Value lhs_v, rhs_v;
-    lhs_v = left_buffer_[left_idx_].GetValue(&left_->schema(), left_sel_colu_.GetName());
-    rhs_v = right_buffer_[right_idx_].GetValue(&right_->schema(), right_sel_colu_.GetName());
-
-    if (rhs_v == lhs_v) {
-      return; // 匹配成功，退出函数
-    } else {
-      left_idx_++;
-      if (left_idx_ >= left_buffer_.size()) {
-        left_idx_ = 0;
-        right_idx_++;
-        if (right_idx_ >= right_buffer_.size()) {
-          isend = true;
-          return; // 结束所有循环
-        }
+  while (right_idx_ < right_buffer_.size()) {
+    while (left_idx_ < left_buffer_.size()) {
+      if (predicate(left_buffer_[left_idx_], right_buffer_[right_idx_])) {
+        // Found a matching pair
+        return;
       }
+      left_idx_++;
     }
+    left_idx_ = 0;
+    right_idx_++;
   }
+  // No matching pair found
+  isend = true;
 }
 
 void NestedLoopJoinExecutor::iterate_next() {
@@ -208,8 +180,70 @@ Tuple NestedLoopJoinExecutor::concat_records() {
   auto left_value_vec = left_buffer_[left_idx_].GetValueVec(&left_->schema());
   auto right_value_vec = right_buffer_[right_idx_].GetValueVec(&right_->schema());
   left_value_vec.insert(left_value_vec.end(), right_value_vec.begin(), right_value_vec.end());
-
   return Tuple(left_value_vec, &schema_);
+}
+
+bool NestedLoopJoinExecutor::predicate(const Tuple &left_tuple, const Tuple &right_tuple) {
+  for (const auto &cond : fed_conds_) {
+    Value lhs_v, rhs_v;
+    // Determine the values based on whether RHS is a column or a value
+    if (!cond.is_rhs_val) {
+      // Both sides are columns
+      if (cond.lhs_col.tab_name == left_tab_name_) {
+        lhs_v = left_tuple.GetValue(&left_->schema(), cond.lhs_col.col_name);
+      } else if (cond.lhs_col.tab_name == right_tab_name_) {
+        lhs_v = right_tuple.GetValue(&right_->schema(), cond.lhs_col.col_name);
+      } else {
+        throw InternalError("Unknown table in condition (lhs)");
+      }
+      if (cond.rhs_col.tab_name == left_tab_name_) {
+        rhs_v = left_tuple.GetValue(&left_->schema(), cond.rhs_col.col_name);
+      } else if (cond.rhs_col.tab_name == right_tab_name_) {
+        rhs_v = right_tuple.GetValue(&right_->schema(), cond.rhs_col.col_name);
+      } else {
+        throw InternalError("Unknown table in condition (rhs)");
+      }
+    } else {
+      // RHS is a value
+      if (cond.lhs_col.tab_name == left_tab_name_) {
+        lhs_v = left_tuple.GetValue(&left_->schema(), cond.lhs_col.col_name);
+      } else if (cond.lhs_col.tab_name == right_tab_name_) {
+        lhs_v = right_tuple.GetValue(&right_->schema(), cond.lhs_col.col_name);
+      } else {
+        throw InternalError("Unknown table in condition (lhs)");
+      }
+      rhs_v = cond.rhs_val;
+    }
+
+    // Evaluate the condition
+    bool condition_satisfied = false;
+    switch (cond.op) {
+      case OP_EQ:
+        condition_satisfied = (lhs_v.CompareEquals(rhs_v) == CmpBool::CmpTrue);
+        break;
+      case OP_NE:
+        condition_satisfied = (lhs_v.CompareNotEquals(rhs_v) == CmpBool::CmpTrue);
+        break;
+      case OP_LT:
+        condition_satisfied = (lhs_v.CompareLessThan(rhs_v) == CmpBool::CmpTrue);
+        break;
+      case OP_GT:
+        condition_satisfied = (lhs_v.CompareGreaterThan(rhs_v) == CmpBool::CmpTrue);
+        break;
+      case OP_LE:
+        condition_satisfied = (lhs_v.CompareLessThanEquals(rhs_v) == CmpBool::CmpTrue);
+        break;
+      case OP_GE:
+        condition_satisfied = (lhs_v.CompareGreaterThanEquals(rhs_v) == CmpBool::CmpTrue);
+        break;
+      default:
+        throw InternalError("Unsupported operator in condition.");
+    }
+    if (!condition_satisfied) {
+      return false;  // Condition not satisfied
+    }
+  }
+  return true;  // All conditions satisfied
 }
 
 }  // namespace easydb
