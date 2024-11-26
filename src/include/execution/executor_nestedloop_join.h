@@ -114,7 +114,8 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
   }
 
  private:
-  // bool predicate();
+  bool predicate(const Tuple &left_tuple, const Tuple &right_tuple);
+
   void sorted_iterate_helper();
 
   void iterate_helper();
