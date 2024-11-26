@@ -42,14 +42,13 @@ MergeJoinExecutor::MergeJoinExecutor(std::unique_ptr<AbstractExecutor> left, std
   }
   int left_tup_len_ = left_->tupleLen();
   if (!use_index_) {
-    // leftSorter_ = std::make_unique<MergeSorter>(left_sel_colu_, left_->schema().GetColumns(), left_->tupleLen(), false);
-    // rightSorter_ =
+    // leftSorter_ = std::make_unique<MergeSorter>(left_sel_colu_, left_->schema().GetColumns(), left_->tupleLen(),
+    // false); rightSorter_ =
     //     std::make_unique<MergeSorter>(right_sel_colu_, right_->schema().GetColumns(), right_->tupleLen(), false);
     uint32_t left_size = left_->schema().GetPhysicalSize();
-    uint32_t right_size =  right_->schema().GetPhysicalSize();
-    leftSorter_ = std::make_unique<MergeSorter>(left_sel_colu_, left_->schema().GetColumns(), left_size , false);
-    rightSorter_ =
-        std::make_unique<MergeSorter>(right_sel_colu_, right_->schema().GetColumns(), right_size, false);
+    uint32_t right_size = right_->schema().GetPhysicalSize();
+    leftSorter_ = std::make_unique<MergeSorter>(left_sel_colu_, left_->schema().GetColumns(), left_size, false);
+    rightSorter_ = std::make_unique<MergeSorter>(right_sel_colu_, right_->schema().GetColumns(), right_size, false);
   }
 }
 
@@ -171,10 +170,12 @@ Tuple MergeJoinExecutor::concat_records() {
     left_value_vec.insert(left_value_vec.end(), right_value_vec.begin(), right_value_vec.end());
     return Tuple(left_value_vec, &schema_);
   } else {
-    Tuple left_tuple_tp = Tuple(left_->tupleLen(), current_left_data_);
+    Tuple left_tuple_tp;
+    left_tuple_tp.DeserializeFrom(current_left_data_);
     auto left_value_vec = left_tuple_tp.GetValueVec(&left_->schema());
 
-    Tuple right_tuple_tp = Tuple(right_->tupleLen(), current_right_data_);
+    Tuple right_tuple_tp;
+    right_tuple_tp.DeserializeFrom(current_right_data_);
     auto right_value_vec = right_tuple_tp.GetValueVec(&right_->schema());
 
     left_value_vec.insert(left_value_vec.end(), right_value_vec.begin(), right_value_vec.end());
