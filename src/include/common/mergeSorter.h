@@ -154,8 +154,9 @@ class MergeSorter {
     if (!IsEnd() && merge_record_list.size() > ls[0]) {
       output_records_count++;
       char *res = (char *)malloc(sizeof(char) * (tuple_len_ + sizeof(int32_t)));
-      memcpy(res, &tuple_len_, sizeof(int32_t));
-      memcpy(res + sizeof(int32_t), merge_record_list[ls[0]], tuple_len_);
+      // memcpy(res, &tuple_len_, sizeof(int32_t));
+      // memcpy(res + sizeof(int32_t), merge_record_list[ls[0]], tuple_len_);
+      memcpy(res, merge_record_list[ls[0]], tuple_len_ + sizeof(int32_t));
       char *record = (char *)malloc(sizeof(char) * (tuple_len_ + sizeof(int32_t)));
       Value tp;
       fd_list[ls[0]].read(record, tuple_len_ + sizeof(int32_t));
