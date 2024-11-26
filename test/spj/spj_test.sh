@@ -220,7 +220,7 @@ create_tables;
 
 load_data;
 
-create_index;
+# create_index;
 
 # 开始执行具体操作
 
@@ -229,7 +229,7 @@ print_green "-------- Select Test --------"
 print_green "=> 在float, int, varchar上进行条件选择"
 
 print_green "==> int上进行条件选择"
-execute "SELECT * FROM supplier where S_SUPPKEY < 10;"
+execute "SELECT * FROM supplier where S_SUPPKEY = 10;"
 execute "SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20;"
 
 print_green "==> float上进行条件选择"
