@@ -174,7 +174,7 @@ print_green "导入数据..."
 
 execute "load $DATA_SUPPLIER_PATH into supplier;"
 
-# execute "load $DATA_CUSTOMER_PATH into customer;"
+execute "load $DATA_CUSTOMER_PATH into customer;"
 
 # execute "load $DATA_LINEITEM_PATH into lineitem;"
 
@@ -195,6 +195,8 @@ create_index(){
 print_green "创建索引..."
 
 execute "create index supplier(S_SUPPKEY);"
+# execute "create index nation(N_NATIONKEY);"
+# execute "create index customer(C_CUSTKEY);"
 
 print_green "创建索引完成"
 }
@@ -219,7 +221,7 @@ create_tables;
 
 load_data;
 
-# create_index;
+create_index;
 
 # 开始执行具体操作
 
@@ -259,22 +261,25 @@ print_green "==> int上进行单条件等值连接"
 execute "SELECT * FROM supplier, nation where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY;"
 
 print_green "==> char上进行单条件等值连接"
-execute "SELECT * FROM supplier, customer where S_PHONE != C_PHONE;"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE = C_PHONE;"
 
-print_green "==> varchar上进行单条件等值连接"
-execute "SELECT * FROM supplier, customer where S_NAME == C_NAME;"
-
-print_green "=> 多条件等值连接"
-print_green "==> int, varchar上进行多条件等值连接"
-execute "SELECT * FROM supplier, nation, customer where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND S_PHONE != C_PHONE;"
-
-print_green "=> 两表卡氏积连接"
-execute ""
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE != C_PHONE;"
 
 
-print_green "=> 设置为NestLoop Join"
+# print_green "==> varchar上进行单条件等值连接"
+# execute "SELECT * FROM supplier, customer where S_NAME = C_NAME;"
 
-execute "SELECT N_NAME FROM supplier, nation where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY;"
+# print_green "=> 多条件等值连接"
+# print_green "==> int, varchar上进行多条件等值连接"
+# execute "SELECT * FROM supplier, nation, customer where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND S_PHONE = C_PHONE;"
+
+# print_green "=> 两表卡氏积连接"
+# execute ""
+
+
+# print_green "=> 设置为NestLoop Join"
+
+# execute "SELECT N_NAME FROM supplier, nation where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY;"
 
 
 print_green "====================================================="
