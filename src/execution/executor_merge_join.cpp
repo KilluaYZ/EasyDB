@@ -16,7 +16,6 @@ MergeJoinExecutor::MergeJoinExecutor(std::unique_ptr<AbstractExecutor> left, std
   left_ = std::move(left);
   right_ = std::move(right);
   len_ = left_->tupleLen() + right_->tupleLen();
-  // cols_ = left_->cols();
 
   use_index_ = use_index;
 
