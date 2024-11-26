@@ -82,13 +82,13 @@ class MergeSorter {
       std::ofstream fd;
       fd.open(fileName, std::ios::out);
       for (auto rec = record_tmp_buffer.begin(); rec != record_tmp_buffer.end(); rec++) {
-        char *data = new char[tuple_len_ + 4];
+        char *data = new char[tuple_len_ + sizeof(int32_t)];
         rec->SerializeTo(data);
         uint32_t size = *reinterpret_cast<const uint32_t *>(data);
         if (tuple_len_ != size) {
           tuple_len_ = size;
         }
-        fd.write(data, size);
+        fd.write(data, tuple_len_ + sizeof(int32_t));
         delete[] data;
       }
       fd.close();
@@ -109,13 +109,13 @@ class MergeSorter {
       fd.open(fileName, std::ios::out);
       fd.flush();
       for (auto rec = record_tmp_buffer.begin(); rec != record_tmp_buffer.end(); rec++) {
-        char *data = new char[tuple_len_ + 4];
+        char *data = new char[tuple_len_ + sizeof(int32_t)];
         rec->SerializeTo(data);
         uint32_t size = *reinterpret_cast<const uint32_t *>(data);
         if (tuple_len_ != size) {
           tuple_len_ = size;
         }
-        fd.write(data, size);
+        fd.write(data, tuple_len_ + sizeof(int32_t));
         delete[] data;
       }
       fd.close();
@@ -129,10 +129,10 @@ class MergeSorter {
     for (auto &file_name : file_paths) {
       std::ifstream fd;
       fd.open(file_name, std::ios::in);
-      char *record = new char[tuple_len_+4];
+      char *record = new char[tuple_len_ + sizeof(int32_t)];
       Value tp;
       Tuple tuple_tp;
-      fd.read(record, tuple_len_ + 4);
+      fd.read(record, tuple_len_ + sizeof(int32_t));
       tuple_tp.DeserializeFrom(record);
       tp = tuple_tp.GetValue(colu_);
       // tp.get_value_from_record(record, col_);
@@ -153,18 +153,18 @@ class MergeSorter {
     // get a records
     if (!IsEnd() && merge_record_list.size() > ls[0]) {
       output_records_count++;
-      char *res = (char *)malloc(sizeof(char) * (tuple_len_ ));
-      memcpy(res, merge_record_list[ls[0]], tuple_len_);
-      char *record = (char *)malloc(sizeof(char) * (tuple_len_ + 4));
+      char *res = (char *)malloc(sizeof(char) * (tuple_len_ + sizeof(int32_t)));
+      memcpy(res, merge_record_list[ls[0]], tuple_len_ + sizeof(int32_t));
+      char *record = (char *)malloc(sizeof(char) * (tuple_len_ + sizeof(int32_t)));
       Value tp;
-      fd_list[ls[0]].read(record, tuple_len_ + 4);
+      fd_list[ls[0]].read(record, tuple_len_ + sizeof(int32_t));
       if (fd_list[ls[0]].fail()) {
         merge_record_list[ls[0]] = NULL;
       } else {
         Tuple tuple_tp;
         tuple_tp.DeserializeFrom(record);
         tp = tuple_tp.GetValue(colu_);
-        memcpy(merge_record_list[ls[0]], tuple_tp.GetData(), tuple_len_);
+        memcpy(merge_record_list[ls[0]], record, tuple_len_ + sizeof(int32_t));
         free(record);
       }
       merge_value_list[ls[0]] = tp;  /// ! attention : tp may be empty

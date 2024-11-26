@@ -59,7 +59,7 @@ void Schema::SetPhysicalSize() {
   physical_size_ = length_;
   for(auto &colu: columns_){
     if(!colu.IsInlined()){
-      physical_size_ += colu.GetStorageSize();
+      physical_size_ += colu.GetStorageSize() + sizeof(uint32_t);
     }
   }
 }
