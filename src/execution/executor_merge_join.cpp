@@ -106,11 +106,16 @@ void MergeJoinExecutor::iterate_helper() {
   }
   Tuple left_tuple;
   left_tuple.DeserializeFrom(current_left_data_);
-  auto left_value_vec = left_tuple.GetValueVec(&left_->schema());
-  // TODO
+  
+  Tuple right_tuple;
+  right_tuple.DeserializeFrom(current_right_data_);
   Value lhs_v, rhs_v;
-  lhs_v = Value::DeserializeFrom(current_left_data_, &left_->schema(), left_sel_colu_.GetName());
-  rhs_v = Value::DeserializeFrom(current_right_data_, &right_->schema(), right_sel_colu_.GetName());
+  
+  lhs_v = left_tuple.GetValue(&left_->schema(), left_sel_colu_.GetName());
+  rhs_v = right_tuple.GetValue(&right_->schema(), right_sel_colu_.GetName());
+
+  // lhs_v = Value::DeserializeFrom(current_left_data_, &left_->schema(), left_sel_colu_.GetName());
+  // rhs_v = Value::DeserializeFrom(current_right_data_, &right_->schema(), right_sel_colu_.GetName());
 
   while (!leftSorter_->IsEnd() && !rightSorter_->IsEnd()) {
     if (lhs_v == rhs_v) {
