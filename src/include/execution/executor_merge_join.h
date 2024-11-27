@@ -65,6 +65,8 @@ class MergeJoinExecutor : public AbstractExecutor {
   std::fstream fd_left;
   std::fstream fd_right;
 
+  bool initialize_flag_{false};
+
  public:
   MergeJoinExecutor(std::unique_ptr<AbstractExecutor> left, std::unique_ptr<AbstractExecutor> right,
                     std::vector<Condition> conds, bool use_index);
@@ -102,6 +104,5 @@ class MergeJoinExecutor : public AbstractExecutor {
   void index_iterate_helper();
 
   Tuple concat_records();
-
 };
 }  // namespace easydb

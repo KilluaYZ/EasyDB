@@ -98,15 +98,18 @@ void MergeJoinExecutor::nextTuple() {
 }
 
 void MergeJoinExecutor::iterate_helper() {
+  if (!initialize_flag_) {
+    current_right_data_ = rightSorter_->getOneRecord();
+    initialize_flag_ = true;
+  }
+
   current_left_data_ = leftSorter_->getOneRecord();
-  current_right_data_ = rightSorter_->getOneRecord();
   if (current_left_data_ == NULL || current_right_data_ == NULL) {
     isend = true;
     return;
   }
   Tuple left_tuple;
   left_tuple.DeserializeFrom(current_left_data_);
-
   Tuple right_tuple;
   right_tuple.DeserializeFrom(current_right_data_);
   Value lhs_v, rhs_v;
@@ -117,16 +120,24 @@ void MergeJoinExecutor::iterate_helper() {
   // lhs_v = Value::DeserializeFrom(current_left_data_, &left_->schema(), left_sel_colu_.GetName());
   // rhs_v = Value::DeserializeFrom(current_right_data_, &right_->schema(), right_sel_colu_.GetName());
 
-  while (!leftSorter_->IsEnd() && !rightSorter_->IsEnd()) {
+  while ((!leftSorter_->IsEnd() && !rightSorter_->IsEnd())) {
     if (lhs_v == rhs_v) {
       break;
     } else if (lhs_v < rhs_v) {
       current_left_data_ = leftSorter_->getOneRecord();
-      lhs_v = Value().DeserializeFrom(current_left_data_, &schema_, left_sel_colu_.GetName());
+      left_tuple.DeserializeFrom(current_left_data_);
+      lhs_v = left_tuple.GetValue(&left_->schema(), left_sel_colu_.GetName());
     } else {
       current_right_data_ = rightSorter_->getOneRecord();
-      rhs_v = Value().DeserializeFrom(current_right_data_, &schema_, right_sel_colu_.GetName());
+      right_tuple.DeserializeFrom(current_right_data_);
+      rhs_v = right_tuple.GetValue(&right_->schema(), right_sel_colu_.GetName());
     }
+  }
+
+  while (lhs_v > rhs_v && !rightSorter_->IsEnd()) {
+    current_right_data_ = rightSorter_->getOneRecord();
+    right_tuple.DeserializeFrom(current_right_data_);
+    rhs_v = right_tuple.GetValue(&right_->schema(), right_sel_colu_.GetName());
   }
 
   if (lhs_v != rhs_v) {
@@ -139,32 +150,41 @@ void MergeJoinExecutor::index_iterate_helper() {
     isend = true;
     return;
   }
+  if (!initialize_flag_) {
+    current_right_tup_ = right_buffer_[right_idx_];
+    // right_->nextTuple();
+    right_idx_++;
+  }
   current_left_tup_ = left_buffer_[left_idx_];
   // left_->nextTuple();
   left_idx_++;
-  current_right_tup_ = right_buffer_[right_idx_];
-  // right_->nextTuple();
-  right_idx_++;
 
   Value lhs_v, rhs_v;
 
-  lhs_v = current_left_tup_.GetValue(&schema_, left_sel_colu_.GetName());
-  rhs_v = current_right_tup_.GetValue(&schema_, right_sel_colu_.GetName());
+  lhs_v = current_left_tup_.GetValue(&left_->schema(), left_sel_colu_.GetName());
+  rhs_v = current_right_tup_.GetValue(&right_->schema(), right_sel_colu_.GetName());
 
   while (left_idx_ < left_buffer_.size() && right_idx_ < right_buffer_.size()) {
     if (lhs_v == rhs_v) {
       break;
     } else if (lhs_v < rhs_v) {
       current_left_tup_ = left_buffer_[left_idx_];
-      lhs_v = current_left_tup_.GetValue(&schema_, left_sel_colu_.GetName());
+      lhs_v = current_left_tup_.GetValue(&left_->schema(), left_sel_colu_.GetName());
       // lhs_v.get_value_from_record(current_left_tup_, left_sel_colu_);
       left_idx_++;
     } else {
       current_right_tup_ = right_buffer_[right_idx_];
-      rhs_v = current_right_tup_.GetValue(&schema_, right_sel_colu_.GetName());
+      rhs_v = current_right_tup_.GetValue(&right_->schema(), right_sel_colu_.GetName());
       // rhs_v.get_value_from_record(current_right_tup_, right_sel_colu_);
       right_idx_++;
     }
+  }
+
+  while (lhs_v > rhs_v && right_idx_ < right_buffer_.size()) {
+    current_right_tup_ = right_buffer_[right_idx_];
+    rhs_v = current_right_tup_.GetValue(&right_->schema(), right_sel_colu_.GetName());
+    // rhs_v.get_value_from_record(current_right_tup_, right_sel_colu_);
+    right_idx_++;
   }
 
   if (lhs_v != rhs_v) {

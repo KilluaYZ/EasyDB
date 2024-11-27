@@ -85,10 +85,7 @@ class MergeSorter {
         char *data = new char[tuple_len_ + sizeof(int32_t)];
         rec->SerializeTo(data);
         uint32_t size = *reinterpret_cast<const uint32_t *>(data);
-        if (tuple_len_ != size) {
-          tuple_len_ = size;
-        }
-        fd.write(data, tuple_len_ + sizeof(int32_t));
+        fd.write(data, size + sizeof(int32_t));
         delete[] data;
       }
       fd.close();
@@ -112,10 +109,7 @@ class MergeSorter {
         char *data = new char[tuple_len_ + sizeof(int32_t)];
         rec->SerializeTo(data);
         uint32_t size = *reinterpret_cast<const uint32_t *>(data);
-        if (tuple_len_ != size) {
-          tuple_len_ = size;
-        }
-        fd.write(data, tuple_len_ + sizeof(int32_t));
+        fd.write(data, size + sizeof(int32_t));
         delete[] data;
       }
       fd.close();
@@ -132,7 +126,9 @@ class MergeSorter {
       char *record = new char[tuple_len_ + sizeof(int32_t)];
       Value tp;
       Tuple tuple_tp;
-      fd.read(record, tuple_len_ + sizeof(int32_t));
+      fd.read(record, sizeof(int32_t));
+      uint32_t size = *reinterpret_cast<const uint32_t *>(record);
+      fd.read(record + sizeof(int32_t), size);
       tuple_tp.DeserializeFrom(record);
       tp = tuple_tp.GetValue(colu_);
       // tp.get_value_from_record(record, col_);
@@ -157,7 +153,9 @@ class MergeSorter {
       memcpy(res, merge_record_list[ls[0]], tuple_len_ + sizeof(int32_t));
       char *record = (char *)malloc(sizeof(char) * (tuple_len_ + sizeof(int32_t)));
       Value tp;
-      fd_list[ls[0]].read(record, tuple_len_ + sizeof(int32_t));
+      fd_list[ls[0]].read(record, sizeof(int32_t));
+      uint32_t size = *reinterpret_cast<const uint32_t *>(record);
+      fd_list[ls[0]].read(record + sizeof(int32_t), size);
       if (fd_list[ls[0]].fail()) {
         merge_record_list[ls[0]] = NULL;
       } else {
