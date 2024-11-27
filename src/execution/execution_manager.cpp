@@ -154,7 +154,7 @@ void QlManager::run_cmd_utility(std::shared_ptr<Plan> plan, txn_id_t *txn_id, Co
   } else if (auto x = std::dynamic_pointer_cast<LoadDataPlan>(plan)) {
     // assert(x->tag == T_LoadData);
     sm_manager_->AsyncLoadData(x->file_name_, x->tab_name_, context);
-    // sm_manager_->load_data(x->file_name_, x->tab_name_, context);
+    // sm_manager_->LoadData(x->file_name_, x->tab_name_, context);
   }
 }
 

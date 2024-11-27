@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include <string>
 #include "catalog/schema.h"
 #include "common/errors.h"
+#include "common/exception.h"
 #include "record/record_printer.h"
 #include "record/rm_defs.h"
 #include "record/rm_scan.h"
@@ -709,7 +710,10 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
   int fd = open(file_name.c_str(), O_RDONLY);
   if (fd == -1) {
     close(fd);
-    throw InternalError("SmManager::load_data: open file failed");
+    auto current = std::filesystem::current_path();
+    auto err_msg =
+        "SmManager::load_data: open file failed, please check file relative to current directory: " + current.string();
+    throw Exception(err_msg);
   }
   size_t file_size = lseek(fd, 0, SEEK_END);
   char *data = (char *)mmap(nullptr, file_size, PROT_READ, MAP_SHARED, fd, 0);
