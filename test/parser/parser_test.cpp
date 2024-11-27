@@ -31,7 +31,8 @@ int main() {
       "",
       "update student set score = score + 1 where score > 5.5;",
       "select * from student;",
-  };
+      "SELECT * FROM supplier, customer, nation where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_NATIONKEY = N_NATIONKEY \
+      AND C_NATIONKEY = N_NATIONKEY; "};
   for (auto &sql : sqls) {
     std::cout << sql << std::endl;
     YY_BUFFER_STATE buf = yy_scan_string(sql.c_str());

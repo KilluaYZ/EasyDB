@@ -53,10 +53,17 @@ DATA_ORDERS_PATH=$DATA_PATH/orders.tbl
 DATA_PART_PATH=$DATA_PATH/part.tbl
 DATA_PARTSUPP_PATH=$DATA_PATH/partsupp.tbl
 DATA_REGION_PATH=$DATA_PATH/region.tbl
-
+DATA_TEST_PATH=$DATA_PATH/test.tbl
 execute(){
     print_blue "执行命令: $1"
-    echo "$1; exit;" | $CLIENT_PATH -p $SERVE_PORT
+    echo -e "$1 \n" >> out.sql 
+    if [ "$2" != "." ]; then
+        echo "$1; exit;" | $CLIENT_PATH -p $SERVE_PORT
+    fi
+}
+
+execute_quiet(){
+    echo "$1; exit;" | $CLIENT_PATH -p $SERVE_PORT > /dev/null 2>&1
 }
 
 create_tables(){
@@ -80,6 +87,7 @@ CREATE TABLE region(\
 );
 EOF
 )
+
 execute "$create_table_region"
 
 create_table_part=$(cat <<EOF
@@ -125,6 +133,7 @@ CREATE TABLE customer(\
 );
 EOF
 )
+
 execute "$create_table_customer"
 
 create_table_orders=$(cat <<EOF
@@ -220,7 +229,7 @@ create_tables;
 
 load_data;
 
-# create_index;
+create_index;
 
 # 开始执行具体操作
 
@@ -272,40 +281,40 @@ print_green "=> 多条件连接"
 print_green "==> int, varchar上进行多条件连接"
 execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_PHONE != C_PHONE AND S_SUPPKEY != C_CUSTKEY;"
 
-# print_green "=> 三表连接"
-# execute "SELECT * FROM supplier, customer, nation where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND C_NATIONKEY = N_NATIONKEY;"
+print_green "=> 三表连接"
+execute "SELECT S_NAME, C_NAME, N_NAME FROM supplier, customer, nation where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND C_NATIONKEY = N_NATIONKEY;" . ;                                                                                              cat $DATA_TEST_PATH; echo -e "\n";
 
 print_green "=> 两表卡氏积连接"
 execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10;"
 
-# print_green "-------- SortMerge Test --------"
+print_green "-------- SortMerge Test --------"
 
-# print_green "=> 设置为SortMerge Join"
-# execute "SET enable_nestloop = false;"
-# execute "SET enable_sortmerge = true;"
-# execute "SET enable_hashjoin = false;"
+print_green "=> 设置为SortMerge Join"
+execute "SET enable_nestloop = false;"
+execute "SET enable_sortmerge = true;"
+execute "SET enable_hashjoin = false;";                                                                                                                                                                                                                                       execute_quiet "SET enable_nestloop = true;";  execute_quiet "SET enable_sortmerge = false;";
 
-# print_green "=> 单条件等值连接"
-# print_green "==> int上进行单条件等值连接"
-# execute "SELECT * FROM supplier, nation where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY;"
+print_green "=> 单条件等值连接"
+print_green "==> int上进行单条件等值连接"
+execute "SELECT * FROM supplier, nation where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY;"
 
-# print_green "==> char上进行单条件等值连接"
-# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE = C_PHONE;"
+print_green "==> char上进行单条件等值连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE = C_PHONE;"
 
-# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE != C_PHONE;"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE != C_PHONE;"
 
-# print_green "==> varchar上进行单条件等值连接"
-# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_NAME = C_NAME;"
+print_green "==> varchar上进行单条件等值连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_NAME = C_NAME;"
 
-# print_green "=> 多条件连接"
-# print_green "==> int, varchar上进行多条件连接"
-# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_PHONE != C_PHONE AND S_SUPPKEY != C_CUSTKEY;"
+print_green "=> 多条件连接"
+print_green "==> int, varchar上进行多条件连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_PHONE != C_PHONE AND S_SUPPKEY != C_CUSTKEY;"
 
-# print_green "=> 三表连接"
-# execute "SELECT * FROM supplier, customer, nation where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND C_NATIONKEY = N_NATIONKEY;"
+print_green "=> 三表连接"
+execute "SELECT S_NAME, C_NAME, N_NAME FROM supplier, customer, nation where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND C_NATIONKEY = N_NATIONKEY;" . ;                                                                                              cat $DATA_TEST_PATH; echo -e "\n";
 
-# print_green "=> 两表卡氏积连接"
-# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_SUPPKEY != C_CUSTKEY;"
+print_green "=> 两表卡氏积连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_SUPPKEY != C_CUSTKEY;"
 
 print_green "-------- HashJoin Test --------"
 
@@ -330,8 +339,8 @@ print_green "=> 多条件连接"
 print_green "==> int, varchar上进行多条件连接"
 execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_PHONE != C_PHONE AND S_SUPPKEY != C_CUSTKEY;"
 
-# print_green "=> 三表连接"
-# execute "SELECT * FROM supplier, customer, nation where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND C_NATIONKEY = N_NATIONKEY;"
+print_green "=> 三表连接"
+execute "SELECT S_NAME, C_NAME, N_NAME FROM supplier, customer, nation where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND C_NATIONKEY = N_NATIONKEY;" . ;                                                                                              cat $DATA_TEST_PATH; echo -e "\n";
 
 print_green "=> 两表卡氏积连接"
 execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10;"
