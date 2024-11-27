@@ -730,18 +730,18 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
     close(fd);
     throw InternalError("SmManager::load_data: invalid CSV file");
   }
-  std::vector<std::string> header;
-  Split(line_start, line_end - line_start, '|', header);
-  // for (int i = 0; i < col_size; ++i) {
-  //   if (header[i] != tab.cols[i].name) {
-  //     munmap(data, file_size);
-  //     close(fd);
-  //     throw InternalError("SmManager::load_data: header not match table schema");
-  //   }
-  // }
+  // std::vector<std::string> header;
+  // Split(line_start, line_end - line_start, '|', header);
+  // // for (int i = 0; i < col_size; ++i) {
+  // //   if (header[i] != tab.cols[i].name) {
+  // //     munmap(data, file_size);
+  // //     close(fd);
+  // //     throw InternalError("SmManager::load_data: header not match table schema");
+  // //   }
+  // // }
+  // line_start = line_end + 1;
 
   // 4. Parse data and batch insert into table
-  line_start = line_end + 1;
   int total_records = 0;
   int page_record_count = 0;
   // int record_size = fh->GetFileHdr().record_size;
