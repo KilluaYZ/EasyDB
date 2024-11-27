@@ -18,10 +18,7 @@ NestedLoopJoinExecutor::NestedLoopJoinExecutor(std::unique_ptr<AbstractExecutor>
 
   left_tab_name_ = left_->getTabName();
   right_tab_name_ = right_->getTabName();
-  // join_tab_name_ = left_tab_name_ + "_" + right_tab_name_ + '\0';
-  // TODO: we use right table name as join table name for now,
-  // we need to change it to adapte to the join condition
-  join_tab_name_ = right_->getTabName();
+  join_tab_name_ = left_tab_name_ + "_" + right_tab_name_;
   left_len_ = left_->tupleLen();
   right_len_ = right_->tupleLen();
   len_ = left_len_ + right_len_;
@@ -158,19 +155,17 @@ bool NestedLoopJoinExecutor::predicate(const Tuple &left_tuple, const Tuple &rig
     // Determine the values based on whether RHS is a column or a value
     if (!cond.is_rhs_val) {
       // Both sides are columns
-      if (cond.lhs_col.tab_name == left_tab_name_) {
+      // If the left or right is a join executor, then the table name will be join_tab_name instead of tab_name in the
+      // condition. We assume that there must be a raw table name from the left or right executor, that means one side
+      // must not be join executor.
+      if (cond.lhs_col.tab_name == left_tab_name_ || cond.rhs_col.tab_name == right_tab_name_) {
         lhs_v = left_tuple.GetValue(&left_->schema(), cond.lhs_col.col_name);
-      } else if (cond.lhs_col.tab_name == right_tab_name_) {
+        rhs_v = right_tuple.GetValue(&right_->schema(), cond.rhs_col.col_name);
+      } else if (cond.lhs_col.tab_name == right_tab_name_ || cond.rhs_col.tab_name == left_tab_name_) {
         lhs_v = right_tuple.GetValue(&right_->schema(), cond.lhs_col.col_name);
+        rhs_v = left_tuple.GetValue(&left_->schema(), cond.rhs_col.col_name);
       } else {
         throw InternalError("Unknown table in condition (lhs)");
-      }
-      if (cond.rhs_col.tab_name == left_tab_name_) {
-        rhs_v = left_tuple.GetValue(&left_->schema(), cond.rhs_col.col_name);
-      } else if (cond.rhs_col.tab_name == right_tab_name_) {
-        rhs_v = right_tuple.GetValue(&right_->schema(), cond.rhs_col.col_name);
-      } else {
-        throw InternalError("Unknown table in condition (rhs)");
       }
     } else {
       // RHS is a value
