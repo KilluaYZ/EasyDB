@@ -165,7 +165,7 @@ bool NestedLoopJoinExecutor::predicate(const Tuple &left_tuple, const Tuple &rig
         lhs_v = right_tuple.GetValue(&right_->schema(), cond.lhs_col.col_name);
         rhs_v = left_tuple.GetValue(&left_->schema(), cond.rhs_col.col_name);
       } else {
-        throw InternalError("Unknown table in condition (lhs)");
+        throw InternalError("Unknown table in condition (lhs or rhs)");
       }
     } else {
       // RHS is a value

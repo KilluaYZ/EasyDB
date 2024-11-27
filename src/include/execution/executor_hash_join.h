@@ -3,8 +3,8 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
-#include "common/condition.h"
 #include "common/common.h"
+#include "common/condition.h"
 #include "common/errors.h"
 #include "common/hashutil.h"
 #include "defs.h"
@@ -102,8 +102,7 @@ class HashJoinExecutor : public AbstractExecutor {
   void NestedLoopNext();
 };
 
-HashJoinExecutor::HashJoinExecutor(std::unique_ptr<AbstractExecutor> left,
-                                   std::unique_ptr<AbstractExecutor> right,
+HashJoinExecutor::HashJoinExecutor(std::unique_ptr<AbstractExecutor> left, std::unique_ptr<AbstractExecutor> right,
                                    std::vector<Condition> conds)
     : left_(std::move(left)),
       right_(std::move(right)),
@@ -252,19 +251,17 @@ bool HashJoinExecutor::predicate(const Tuple &left_tuple, const Tuple &right_tup
     Value lhs_v, rhs_v;
     if (!cond.is_rhs_val) {
       // Both sides are columns
-      if (cond.lhs_col.tab_name == left_tab_name_) {
+      // If the left or right is a join executor, then the table name will be join_tab_name instead of tab_name in the
+      // condition. We assume that there must be a raw table name from the left or right executor, that means one side
+      // must not be join executor.
+      if (cond.lhs_col.tab_name == left_tab_name_ || cond.rhs_col.tab_name == right_tab_name_) {
         lhs_v = left_tuple.GetValue(&left_->schema(), cond.lhs_col.col_name);
-      } else if (cond.lhs_col.tab_name == right_tab_name_) {
-        lhs_v = right_tuple.GetValue(&right_->schema(), cond.lhs_col.col_name);
-      } else {
-        throw InternalError("Unknown table in condition (lhs)");
-      }
-      if (cond.rhs_col.tab_name == left_tab_name_) {
-        rhs_v = left_tuple.GetValue(&left_->schema(), cond.rhs_col.col_name);
-      } else if (cond.rhs_col.tab_name == right_tab_name_) {
         rhs_v = right_tuple.GetValue(&right_->schema(), cond.rhs_col.col_name);
+      } else if (cond.lhs_col.tab_name == right_tab_name_ || cond.rhs_col.tab_name == left_tab_name_) {
+        lhs_v = right_tuple.GetValue(&right_->schema(), cond.lhs_col.col_name);
+        rhs_v = left_tuple.GetValue(&left_->schema(), cond.rhs_col.col_name);
       } else {
-        throw InternalError("Unknown table in condition (rhs)");
+        throw InternalError("Unknown table in condition (lhs or rhs)");
       }
     } else {
       // Right-hand side is a value
