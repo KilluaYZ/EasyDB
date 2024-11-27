@@ -28,6 +28,7 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
   std::unique_ptr<AbstractExecutor> right_;  // 右儿子节点（需要join的表）
   std::string left_tab_name_;                // 表名称
   std::string right_tab_name_;               // 表名称
+  std::string join_tab_name_;                // join后的表名称
   size_t len_;                               // join后获得的每条记录的长度
   // std::vector<ColMeta> cols_;                // join后获得的记录的字段
   Schema schema_;  // scan后生成的记录的字段
@@ -62,6 +63,8 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
  public:
   NestedLoopJoinExecutor(std::unique_ptr<AbstractExecutor> left, std::unique_ptr<AbstractExecutor> right,
                          std::vector<Condition> conds);
+
+  std::string getTabName() const override { return join_tab_name_; }
 
   ColMeta get_col_offset(std::vector<ColMeta> cols, const TabCol &target) {
     for (auto &col : cols) {

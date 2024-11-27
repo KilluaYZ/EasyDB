@@ -18,6 +18,10 @@ NestedLoopJoinExecutor::NestedLoopJoinExecutor(std::unique_ptr<AbstractExecutor>
 
   left_tab_name_ = left_->getTabName();
   right_tab_name_ = right_->getTabName();
+  // join_tab_name_ = left_tab_name_ + "_" + right_tab_name_ + '\0';
+  // TODO: we use right table name as join table name for now,
+  // we need to change it to adapte to the join condition
+  join_tab_name_ = right_->getTabName();
   left_len_ = left_->tupleLen();
   right_len_ = right_->tupleLen();
   len_ = left_len_ + right_len_;
@@ -140,7 +144,6 @@ void NestedLoopJoinExecutor::iterate_next() {
     }
   }
 }
-
 
 Tuple NestedLoopJoinExecutor::concat_records() {
   auto left_value_vec = left_buffer_[left_idx_].GetValueVec(&left_->schema());
