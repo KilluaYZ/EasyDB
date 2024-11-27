@@ -56,6 +56,7 @@ class HashJoinExecutor : public AbstractExecutor {
   std::unique_ptr<AbstractExecutor> right_;
   std::string left_tab_name_;
   std::string right_tab_name_;
+  std::string join_tab_name_;
   size_t len_;
   Schema schema_;
   std::vector<Condition> conds_;
@@ -91,6 +92,7 @@ class HashJoinExecutor : public AbstractExecutor {
 
   size_t tupleLen() const override { return len_; }
   const Schema &schema() const override { return schema_; }
+  std::string getTabName() const override { return join_tab_name_; }
 
   bool IsEnd() const override { return isend_; }
 
@@ -113,6 +115,7 @@ HashJoinExecutor::HashJoinExecutor(std::unique_ptr<AbstractExecutor> left, std::
       right_idx_(0) {
   left_tab_name_ = left_->getTabName();
   right_tab_name_ = right_->getTabName();
+  join_tab_name_ = left_tab_name_ + "_" + right_tab_name_;
 
   // Build the output schema by combining left and right schemas
   auto left_columns = left_->schema().GetColumns();
@@ -126,10 +129,10 @@ HashJoinExecutor::HashJoinExecutor(std::unique_ptr<AbstractExecutor> left, std::
   for (auto &cond : conds_) {
     if (cond.op == OP_EQ && !cond.is_rhs_val) {
       // Both sides are columns
-      if (cond.lhs_col.tab_name == left_tab_name_ && cond.rhs_col.tab_name == right_tab_name_) {
+      if (cond.lhs_col.tab_name == left_tab_name_ || cond.rhs_col.tab_name == right_tab_name_) {
         left_join_cols_.push_back(left_->schema().GetColumn(cond.lhs_col.col_name));
         right_join_cols_.push_back(right_->schema().GetColumn(cond.rhs_col.col_name));
-      } else if (cond.rhs_col.tab_name == left_tab_name_ && cond.lhs_col.tab_name == right_tab_name_) {
+      } else if (cond.rhs_col.tab_name == left_tab_name_ || cond.lhs_col.tab_name == right_tab_name_) {
         left_join_cols_.push_back(left_->schema().GetColumn(cond.rhs_col.col_name));
         right_join_cols_.push_back(right_->schema().GetColumn(cond.lhs_col.col_name));
       }
