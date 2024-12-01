@@ -182,6 +182,9 @@ void IndexScanExecutor::beginTuple() {
     // reset the lower bound to the first record
     scan_->set_lower(lower);
   }
+
+  delete[] key_lower;
+  delete[] key_upper;
 }
 
 void IndexScanExecutor::nextTuple() {
