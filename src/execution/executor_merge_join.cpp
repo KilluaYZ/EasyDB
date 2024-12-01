@@ -46,11 +46,19 @@ MergeJoinExecutor::MergeJoinExecutor(std::unique_ptr<AbstractExecutor> left, std
     // leftSorter_ = std::make_unique<MergeSorter>(left_sel_colu_, left_->schema().GetColumns(), left_->tupleLen(),
     // false); rightSorter_ =
     //     std::make_unique<MergeSorter>(right_sel_colu_, right_->schema().GetColumns(), right_->tupleLen(), false);
-    uint32_t left_size = left_->schema().GetPhysicalSize();
-    uint32_t right_size = right_->schema().GetPhysicalSize();
-    leftSorter_ = std::make_unique<MergeSorter>(left_sel_colu_, left_->schema().GetColumns(), left_size, false);
-    rightSorter_ = std::make_unique<MergeSorter>(right_sel_colu_, right_->schema().GetColumns(), right_size, false);
+    left_size_ = left_->schema().GetPhysicalSize();
+    right_size_ = right_->schema().GetPhysicalSize();
+    leftSorter_ = std::make_unique<MergeSorter>(left_sel_colu_, left_->schema().GetColumns(), left_size_, false);
+    rightSorter_ = std::make_unique<MergeSorter>(right_sel_colu_, right_->schema().GetColumns(), right_size_, false);
   }
+
+  current_left_data_ = new char[left_size_];
+  current_right_data_ = new char[right_size_];
+}
+
+MergeJoinExecutor::~MergeJoinExecutor() {
+  delete[] current_left_data_;
+  delete[] current_right_data_;
 }
 
 void MergeJoinExecutor::beginTuple() {
@@ -98,16 +106,28 @@ void MergeJoinExecutor::nextTuple() {
 }
 
 void MergeJoinExecutor::iterate_helper() {
+  char *tp;
   if (!initialize_flag_) {
-    current_right_data_ = rightSorter_->getOneRecord();
+    tp = rightSorter_->getOneRecord();
+    if (tp != NULL) {
+      memcpy(current_right_data_, tp, right_size_);
+      free(tp);
+    } else {
+      isend = true;
+      return;
+    }
     initialize_flag_ = true;
   }
 
-  current_left_data_ = leftSorter_->getOneRecord();
-  if (current_left_data_ == NULL || current_right_data_ == NULL) {
+  tp = leftSorter_->getOneRecord();
+  if (tp != NULL) {
+    memcpy(current_left_data_, tp, left_size_);
+    free(tp);
+  } else {
     isend = true;
     return;
   }
+
   Tuple left_tuple;
   left_tuple.DeserializeFrom(current_left_data_);
   Tuple right_tuple;
@@ -124,18 +144,24 @@ void MergeJoinExecutor::iterate_helper() {
     if (lhs_v == rhs_v) {
       break;
     } else if (lhs_v < rhs_v) {
-      current_left_data_ = leftSorter_->getOneRecord();
+      tp = leftSorter_->getOneRecord();
+      memcpy(current_left_data_, tp, left_size_);
+      free(tp);
       left_tuple.DeserializeFrom(current_left_data_);
       lhs_v = left_tuple.GetValue(&left_->schema(), left_sel_colu_.GetName());
     } else {
-      current_right_data_ = rightSorter_->getOneRecord();
+      tp = rightSorter_->getOneRecord();
+      memcpy(current_right_data_, tp, right_size_);
+      free(tp);
       right_tuple.DeserializeFrom(current_right_data_);
       rhs_v = right_tuple.GetValue(&right_->schema(), right_sel_colu_.GetName());
     }
   }
 
   while (lhs_v > rhs_v && !rightSorter_->IsEnd()) {
-    current_right_data_ = rightSorter_->getOneRecord();
+    tp = rightSorter_->getOneRecord();
+    memcpy(current_right_data_, tp, right_size_);
+    free(tp);
     right_tuple.DeserializeFrom(current_right_data_);
     rhs_v = right_tuple.GetValue(&right_->schema(), right_sel_colu_.GetName());
   }
@@ -143,8 +169,6 @@ void MergeJoinExecutor::iterate_helper() {
   if (lhs_v != rhs_v) {
     isend = true;
   }
-  free(current_right_data_);
-  free(current_left_data_);
 }
 
 void MergeJoinExecutor::index_iterate_helper() {

@@ -53,6 +53,8 @@ class MergeJoinExecutor : public AbstractExecutor {
   char *current_left_data_;
   char *current_right_data_;
 
+  uint32_t left_size_;
+  uint32_t right_size_;
   // std::vector<RmRecord> left_buffer_;
   // std::vector<RmRecord> right_buffer_;
 
@@ -70,6 +72,8 @@ class MergeJoinExecutor : public AbstractExecutor {
  public:
   MergeJoinExecutor(std::unique_ptr<AbstractExecutor> left, std::unique_ptr<AbstractExecutor> right,
                     std::vector<Condition> conds, bool use_index);
+
+  ~MergeJoinExecutor();
 
   void beginTuple() override;
 

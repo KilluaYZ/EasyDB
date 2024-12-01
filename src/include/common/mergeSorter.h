@@ -71,6 +71,13 @@ class MergeSorter {
         fd.close();
       }
     }
+
+    // delete all allocted memory
+    for (auto &rec : merge_record_list) {
+      if (rec != NULL) {
+        delete[] rec;
+      }
+    }
   }
 
   void writeBuffer(Tuple current_tuple) {
@@ -157,6 +164,7 @@ class MergeSorter {
       uint32_t size = *reinterpret_cast<const uint32_t *>(record);
       fd_list[ls[0]].read(record + sizeof(int32_t), size);
       if (fd_list[ls[0]].fail()) {
+        delete[] merge_record_list[ls[0]];
         merge_record_list[ls[0]] = NULL;
       } else {
         Tuple tuple_tp;
