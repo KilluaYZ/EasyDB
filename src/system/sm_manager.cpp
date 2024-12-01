@@ -392,6 +392,7 @@ void SmManager::CreateIndex(const std::string &tab_name, const std::vector<std::
       // Iih->InsertEntry(key, rid, nullptr);
       Iih->InsertEntry(key, rid);
     }
+    delete[] key;
     rmScan.Next();
   }
 
