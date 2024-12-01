@@ -48,7 +48,7 @@ BufferPoolManager::BufferPoolManager(size_t num_frames, DiskManager *disk_manage
 //   disk_manager_(std::make_unique<DiskManager>(disk_manager)) {
 {
   // Allocate all of the in-memory frames up front.
-  frames_ = new Page[num_frames_ * PAGE_SIZE];
+  frames_ = new Page[num_frames_];
 
   // // The page table should have exactly `num_frames_` slots, corresponding to exactly `num_frames_` frames.
   page_table_.reserve(num_frames_);

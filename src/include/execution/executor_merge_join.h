@@ -50,8 +50,8 @@ class MergeJoinExecutor : public AbstractExecutor {
   Tuple current_left_tup_;
   Tuple current_right_tup_;
 
-  const char *current_left_data_;
-  const char *current_right_data_;
+  char *current_left_data_;
+  char *current_right_data_;
 
   // std::vector<RmRecord> left_buffer_;
   // std::vector<RmRecord> right_buffer_;

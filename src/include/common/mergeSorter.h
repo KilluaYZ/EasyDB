@@ -163,8 +163,8 @@ class MergeSorter {
         tuple_tp.DeserializeFrom(record);
         tp = tuple_tp.GetValue(colu_);
         memcpy(merge_record_list[ls[0]], record, tuple_len_ + sizeof(int32_t));
-        free(record);
       }
+      free(record);
       merge_value_list[ls[0]] = tp;  /// ! attention : tp may be empty
       adjust(ls[0]);
       return res;

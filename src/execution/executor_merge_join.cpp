@@ -143,6 +143,8 @@ void MergeJoinExecutor::iterate_helper() {
   if (lhs_v != rhs_v) {
     isend = true;
   }
+  free(current_right_data_);
+  free(current_left_data_);
 }
 
 void MergeJoinExecutor::index_iterate_helper() {
