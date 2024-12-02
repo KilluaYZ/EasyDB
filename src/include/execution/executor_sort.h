@@ -7,6 +7,7 @@
  */
 
 #pragma once
+#include <memory>
 #include "catalog/column.h"
 #include "common/errors.h"
 #include "common/mergeSorter.h"
@@ -18,7 +19,6 @@
 #include "storage/table/tuple.h"
 #include "system/sm_defs.h"
 #include "system/sm_meta.h"
-#include <memory>
 
 namespace easydb {
 
@@ -30,21 +30,29 @@ class SortExecutor : public AbstractExecutor {
   Column colus_;   // scan后生成的记录的字段
   size_t tuple_num;
   size_t len_;
+  size_t max_physical_len_;
   bool is_desc_;
   bool isend_ = false;
   std::vector<size_t> used_tuple;
-  std::unique_ptr<Tuple> current_tuple;
+  char * current_data_;
+  // std::unique_ptr<Tuple> current_tuple;
 
   std::unique_ptr<MergeSorter> sorter;
 
  public:
   SortExecutor(std::unique_ptr<AbstractExecutor> prev, TabCol sel_cols, bool is_desc);
+  
+  ~SortExecutor();
 
   void beginTuple() override;
 
   void nextTuple() override;
 
-  std::unique_ptr<Tuple> Next() override { return std::move(current_tuple); }
+  std::unique_ptr<Tuple> Next() override { 
+    Tuple tp;
+    tp.DeserializeFrom(current_data_);
+    return std::make_unique<Tuple>(tp); 
+  }
   // std::unique_ptr<RmRecord> Next() override { return std::move(current_tuple); }
 
   RID &rid() override { return _abstract_rid; }
@@ -65,15 +73,15 @@ class SortExecutor : public AbstractExecutor {
 
   void printRecord(char *data, std::vector<ColMeta> cols);
 
-  Column get_colu_offset(const TabCol &target) { 
-    auto cols = schema_.GetColumns();
-    for (auto &col : cols) {
-      if (target.col_name == col.GetName()) {
-        return col;
-      }
-    }
-    throw ColumnNotFoundError(target.col_name);
-   };
+  // Column get_colu_offset(const TabCol &target) {
+  //   auto cols = schema_.GetColumns();
+  //   for (auto &col : cols) {
+  //     if (target.col_name == col.GetName()) {
+  //       return col;
+  //     }
+  //   }
+  //   throw ColumnNotFoundError(target.col_name);
+  //  };
 };
 
 }  // namespace easydb

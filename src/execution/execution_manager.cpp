@@ -18,6 +18,7 @@
 #include "execution/executor_merge_join.h"
 #include "execution/executor_nestedloop_join.h"
 #include "execution/executor_projection.h"
+#include "execution/executor_sort.h"
 #include "execution/executor_seq_scan.h"
 #include "storage/index/ix_manager.h"
 #include "storage/index/ix_scan.h"
