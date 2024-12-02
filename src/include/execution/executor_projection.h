@@ -7,6 +7,7 @@
  */
 
 #pragma once
+#include <functional>
 #include "common/errors.h"
 #include "defs.h"
 #include "execution_manager.h"
@@ -30,6 +31,8 @@ class ProjectionExecutor : public AbstractExecutor {
   Tuple projection_records_;  // temp projection record(added by flerovium)
   Schema schema_;             // scan后生成的记录的字段
 
+  std::unordered_set<std::string> seen_;
+
   bool is_unique_;  // 是否select unique的结果集
 
  public:
@@ -40,7 +43,7 @@ class ProjectionExecutor : public AbstractExecutor {
 
   void nextTuple() override;
 
-  std::unique_ptr<Tuple> Next() override { return std::make_unique<Tuple>(projection_records_); }
+  std::unique_ptr<Tuple> Next() override;
   // std::unique_ptr<RmRecord> Next() override { return std::make_unique<RmRecord>(projection_records_); }
 
   RID &rid() override { return _abstract_rid; }
@@ -65,6 +68,6 @@ class ProjectionExecutor : public AbstractExecutor {
   // RmRecord projectRecord();
   Tuple projectRecord();
 
-  std::string generate_new_name(TabCol col);
+  std::string generate_new_name(const TabCol &col);
 };
 }  // namespace easydb
