@@ -12,7 +12,8 @@
 
 namespace easydb {
 
-ProjectionExecutor::ProjectionExecutor(std::unique_ptr<AbstractExecutor> prev, const std::vector<TabCol> &sel_cols) {
+ProjectionExecutor::ProjectionExecutor(std::unique_ptr<AbstractExecutor> prev, const std::vector<TabCol> &sel_cols,
+                                       bool is_unique) {
   prev_ = std::move(prev);
 
   size_t curr_offset = 0;
@@ -36,6 +37,7 @@ ProjectionExecutor::ProjectionExecutor(std::unique_ptr<AbstractExecutor> prev, c
   }
   schema_ = prev_schema.CopySchema(&prev_schema, sel_ids_);
   len_ = curr_offset;
+  is_unique_ = is_unique;
 }
 
 void ProjectionExecutor::beginTuple() {
@@ -49,6 +51,7 @@ void ProjectionExecutor::nextTuple() {
   prev_->nextTuple();
   if (!IsEnd()) {
     projection_records_ = projectRecord();
+    // TODO: unique check
   }
 }
 

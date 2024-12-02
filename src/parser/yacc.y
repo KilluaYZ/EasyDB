@@ -23,7 +23,7 @@ using namespace ast;
 // keywords
 %token SHOW TABLES CREATE TABLE DROP DESC INSERT INTO VALUES DELETE FROM ASC ORDER BY AS COUNT MAX MIN SUM GROUP HAVING IN
 WHERE UPDATE SET SELECT INT CHAR VARCHAR FLOAT DATETIME NOT_NULL INDEX AND JOIN EXIT HELP TXN_BEGIN TXN_COMMIT TXN_ABORT TXN_ROLLBACK ORDER_BY 
-ENABLE_NESTLOOP ENABLE_SORTMERGE ENABLE_HASHJOIN
+ENABLE_NESTLOOP ENABLE_SORTMERGE ENABLE_HASHJOIN UNIQUE
 STATIC_CHECKPOINT LOAD OUTPUT_FILE
 
 // non-keywords
@@ -184,6 +184,14 @@ dml:
     |   UPDATE tbName SET setClauses optWhereClause
     {
         $$ = std::make_shared<UpdateStmt>($2, $4, $5);
+    }
+    |   SELECT UNIQUE selector FROM tableList optWhereClause group_by_clause_opt having_clause_opt opt_order_clause
+    {
+        $$ = std::make_shared<SelectStmt>($3, $5, $6, $7, $8, $9, true);
+    }
+    |   SELECT UNIQUE selector optWhereClause FROM tableList group_by_clause_opt having_clause_opt opt_order_clause
+    {
+        $$ = std::make_shared<SelectStmt>($3, $6, $4, $7, $8, $9, true);
     }
     |   SELECT selector FROM tableList optWhereClause group_by_clause_opt having_clause_opt opt_order_clause
     {

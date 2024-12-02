@@ -23,15 +23,18 @@ class ProjectionExecutor : public AbstractExecutor {
   std::unique_ptr<AbstractExecutor> prev_;  // 投影节点的儿子节点
   // std::string tab_name_;
   // std::vector<ColMeta> cols_;               // 需要投影的字段
-  size_t len_;                              // 字段总长度
-  std::vector<uint32_t> sel_ids_;            // 投影字段对应的id(位置)
+  size_t len_;                     // 字段总长度
+  std::vector<uint32_t> sel_ids_;  // 投影字段对应的id(位置)
 
   // RmRecord projection_records_;             // temp projection record(added by flerovium)
-  Tuple projection_records_;             // temp projection record(added by flerovium)
-  Schema schema_;                       // scan后生成的记录的字段
+  Tuple projection_records_;  // temp projection record(added by flerovium)
+  Schema schema_;             // scan后生成的记录的字段
+
+  bool is_unique_;  // 是否select unique的结果集
 
  public:
-  ProjectionExecutor(std::unique_ptr<AbstractExecutor> prev, const std::vector<TabCol> &sel_cols);
+  ProjectionExecutor(std::unique_ptr<AbstractExecutor> prev, const std::vector<TabCol> &sel_cols,
+                     bool is_unique = false);
 
   void beginTuple() override;
 

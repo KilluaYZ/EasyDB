@@ -83,6 +83,7 @@ arith_op "+"|"-"|"*"|"/"
 "FLOAT" { return FLOAT; }
 "DATETIME" { return DATETIME; }
 "NOT NULL" { return NOT_NULL; }
+"UNIQUE" { return UNIQUE; }
 "INDEX" { return INDEX; }
 "AND" { return AND; }
 "JOIN" {return JOIN;}

@@ -108,14 +108,19 @@ class JoinPlan : public Plan {
 
 class ProjectionPlan : public Plan {
  public:
-  ProjectionPlan(PlanTag tag, std::shared_ptr<Plan> subplan, std::vector<TabCol> sel_cols) {
+  ProjectionPlan(PlanTag tag, std::shared_ptr<Plan> subplan, std::vector<TabCol> sel_cols, bool is_unique=false) {
     Plan::tag = tag;
     subplan_ = std::move(subplan);
     sel_cols_ = std::move(sel_cols);
+    is_unique_ = is_unique;
   }
   ~ProjectionPlan() {}
+  void SetUnique(bool is_unique) {
+    is_unique_ = is_unique;
+  }
   std::shared_ptr<Plan> subplan_;
   std::vector<TabCol> sel_cols_;
+  bool is_unique_;
 };
 
 class SortPlan : public Plan {
@@ -153,13 +158,14 @@ class AggregationPlan : public Plan {
 class DMLPlan : public Plan {
  public:
   DMLPlan(PlanTag tag, std::shared_ptr<Plan> subplan, std::string tab_name, std::vector<Value> values,
-          std::vector<Condition> conds, std::vector<SetClause> set_clauses) {
+          std::vector<Condition> conds, std::vector<SetClause> set_clauses, bool unique = false) {
     Plan::tag = tag;
     subplan_ = std::move(subplan);
     tab_name_ = std::move(tab_name);
     values_ = std::move(values);
     conds_ = std::move(conds);
     set_clauses_ = std::move(set_clauses);
+    unique_ = unique;
   }
   DMLPlan(std::shared_ptr<void> &ptr) {
     auto derived_ptr = std::static_pointer_cast<DMLPlan>(ptr);
@@ -174,6 +180,7 @@ class DMLPlan : public Plan {
     values_ = derived_ptr->values_;
     conds_ = derived_ptr->conds_;
     set_clauses_ = derived_ptr->set_clauses_;
+    unique_ = derived_ptr->unique_;
   }
   ~DMLPlan() {}
   std::shared_ptr<Plan> subplan_;
@@ -181,6 +188,7 @@ class DMLPlan : public Plan {
   std::vector<Value> values_;
   std::vector<Condition> conds_;
   std::vector<SetClause> set_clauses_;
+  bool unique_;  // unique select
 };
 
 // ddl语句, 包括create/drop table; create/drop index;

@@ -18,7 +18,9 @@ See the Mulan PSL v2 for more details. */
 #include "execution/execution_sort.h"
 #include "execution/executor_abstract.h"
 // #include "execution/executor_aggregation.h"
+#include <chrono>
 #include "execution/executor_delete.h"
+#include "execution/executor_hash_join.h"
 #include "execution/executor_index_scan.h"
 #include "execution/executor_insert.h"
 #include "execution/executor_merge_join.h"
@@ -27,8 +29,7 @@ See the Mulan PSL v2 for more details. */
 #include "execution/executor_seq_scan.h"
 #include "execution/executor_update.h"
 #include "planner/plan.h"
-#include "execution/executor_hash_join.h"
-#include <chrono>
+
 
 namespace easydb {
 
@@ -80,6 +81,7 @@ class Portal {
       switch (x->tag) {
         case T_select: {
           std::shared_ptr<ProjectionPlan> p = std::dynamic_pointer_cast<ProjectionPlan>(x->subplan_);
+          p->SetUnique(x->unique_);
           std::unique_ptr<AbstractExecutor> root = convert_plan_executor(p, context);
           return std::make_shared<PortalStmt>(PORTAL_ONE_SELECT, std::move(p->sel_cols_), std::move(root), plan);
         }
@@ -128,7 +130,10 @@ class Portal {
         auto temp1 = std::chrono::high_resolution_clock::now();
         ql->select_from(std::move(portal->root), std::move(portal->sel_cols), context);
         auto temp2 = std::chrono::high_resolution_clock::now();
-      std::cout<<"select time usage:"<<(double)std::chrono::duration_cast<std::chrono::microseconds> (temp2 - temp1).count()/1000000<<std::endl<<std::endl;
+        std::cout << "select time usage:"
+                  << (double)std::chrono::duration_cast<std::chrono::microseconds>(temp2 - temp1).count() / 1000000
+                  << std::endl
+                  << std::endl;
         break;
       }
 
@@ -161,7 +166,8 @@ class Portal {
       // // NOT NULL
       // std::unique_ptr<AbstractExecutor> root = convert_plan_executor(x->subplan_, context);
       // return std::make_unique<ProjectionExecutor>(std::move(root), x->sel_cols_);
-      return std::make_unique<ProjectionExecutor>(convert_plan_executor(x->subplan_, context), x->sel_cols_);
+      return std::make_unique<ProjectionExecutor>(convert_plan_executor(x->subplan_, context), x->sel_cols_,
+                                                  x->is_unique_);
     } else if (auto x = std::dynamic_pointer_cast<ScanPlan>(plan)) {
       // deal subquery
       for (auto &cond : x->conds_) {

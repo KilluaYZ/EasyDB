@@ -246,12 +246,13 @@ struct SelectStmt : public TreeNode {
   bool has_sort;
   bool has_group;
   bool has_having;
+  bool is_unique;
 
   std::shared_ptr<OrderBy> order;
   std::shared_ptr<GroupBy> group;
   std::vector<std::shared_ptr<BinaryExpr>> having;
 
-  SelectStmt() : has_sort(false), has_group(false), has_having(false), order(nullptr), group(nullptr) {}
+  SelectStmt() : has_sort(false), has_group(false), has_having(false), is_unique(false), order(nullptr), group(nullptr) {}
   SelectStmt(std::shared_ptr<void> &ptr) {
     auto selectStmtPtr = std::static_pointer_cast<SelectStmt>(ptr);
     if (selectStmtPtr) {
@@ -262,6 +263,7 @@ struct SelectStmt : public TreeNode {
       this->has_sort = selectStmtPtr->has_sort;
       this->has_group = selectStmtPtr->has_group;
       this->has_having = selectStmtPtr->has_having;
+      this->is_unique = selectStmtPtr->is_unique;
       this->order = selectStmtPtr->order;
       this->group = selectStmtPtr->group;
       this->having = selectStmtPtr->having;
@@ -269,7 +271,8 @@ struct SelectStmt : public TreeNode {
   }
   SelectStmt(std::vector<std::shared_ptr<Col>> cols_, std::vector<std::string> tabs_,
              std::vector<std::shared_ptr<BinaryExpr>> conds_, std::shared_ptr<GroupBy> group_,
-             std::vector<std::shared_ptr<BinaryExpr>> having_, std::shared_ptr<OrderBy> order_)
+             std::vector<std::shared_ptr<BinaryExpr>> having_, std::shared_ptr<OrderBy> order_,
+             bool is_unique_=false)
       : cols(std::move(cols_)),
         tabs(std::move(tabs_)),
         conds(std::move(conds_)),
@@ -279,6 +282,7 @@ struct SelectStmt : public TreeNode {
     has_sort = (bool)order;
     has_group = (bool)group;
     has_having = having.size();
+    is_unique = is_unique_;
   }
   SelectStmt &operator=(const std::shared_ptr<SelectStmt> &rhs) {
     if (this != rhs.get()) {
@@ -289,6 +293,7 @@ struct SelectStmt : public TreeNode {
       this->has_sort = rhs->has_sort;
       this->has_group = rhs->has_group;
       this->has_having = rhs->has_having;
+      this->is_unique = rhs->is_unique;
       this->order = rhs->order;
       this->group = rhs->group;
       this->having = rhs->having;
