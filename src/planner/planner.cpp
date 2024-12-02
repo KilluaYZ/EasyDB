@@ -216,9 +216,9 @@ std::shared_ptr<Plan> Planner::make_one_rel(std::shared_ptr<Query> query, Contex
     std::vector<std::string> joined_tables(tables.size());
     auto it = conds.begin();
     while (it != conds.end()) {
-      std::shared_ptr<Plan> left, right;
-      left = pop_scan(scantbl, it->lhs_col.tab_name, joined_tables, table_scan_executors);
-      right = pop_scan(scantbl, it->rhs_col.tab_name, joined_tables, table_scan_executors);
+      std::shared_ptr<ScanPlan> left, right;
+      left = std::dynamic_pointer_cast<ScanPlan>(pop_scan(scantbl, it->lhs_col.tab_name, joined_tables, table_scan_executors));
+      right = std::dynamic_pointer_cast<ScanPlan>(pop_scan(scantbl, it->rhs_col.tab_name, joined_tables, table_scan_executors));
       std::vector<Condition> join_conds{*it};
       // 建立join
       //  判断使用哪种join方式
@@ -237,10 +237,11 @@ std::shared_ptr<Plan> Planner::make_one_rel(std::shared_ptr<Query> query, Contex
           // 强行将scan替换为indexscan，前面会由于涉及到多个表而没办法定义为index_scan
           std::vector<Condition> noconds;
           // TODO: Note that we need the original condition!
+
           left =
-              std::make_shared<ScanPlan>(T_IndexScan, sm_manager_, it->lhs_col.tab_name, noconds, index_col_name_left);
+              std::make_shared<ScanPlan>(T_IndexScan, sm_manager_, it->lhs_col.tab_name, left->get_conds(), index_col_name_left);
           right =
-              std::make_shared<ScanPlan>(T_IndexScan, sm_manager_, it->rhs_col.tab_name, noconds, index_col_name_right);
+              std::make_shared<ScanPlan>(T_IndexScan, sm_manager_, it->rhs_col.tab_name, right->get_conds(), index_col_name_right);
 
           table_join_executors =
               std::make_shared<JoinPlan>(T_IndexMerge, std::move(left), std::move(right), join_conds);

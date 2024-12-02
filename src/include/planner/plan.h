@@ -61,6 +61,9 @@ class Plan {
  public:
   PlanTag tag;
   virtual ~Plan() = default;
+  std::vector<Condition> get_conds(){
+    throw std::runtime_error("not supported!");
+  }
 };
 
 class ScanPlan : public Plan {
@@ -77,6 +80,15 @@ class ScanPlan : public Plan {
     index_col_names_ = index_col_names;
   }
   ~ScanPlan() {}
+
+  // bool is_index_scan(){
+  //   return tag == T_IndexScan;
+  // }
+
+  std::vector<Condition> get_conds() {
+    return fed_conds_;
+  }
+
   // 以下变量同ScanExecutor中的变量
   std::string tab_name_;
   std::vector<ColMeta> cols_;
