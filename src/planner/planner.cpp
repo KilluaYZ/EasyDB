@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/common.h"
 #include "common/errors.h"
 #include "common/macros.h"
+#include "planner/plan.h"
 // #include "execution/executor_delete.h"
 // #include "execution/executor_index_scan.h"
 // #include "execution/executor_insert.h"
@@ -235,6 +236,7 @@ std::shared_ptr<Plan> Planner::make_one_rel(std::shared_ptr<Query> query, Contex
         if (left_index_exist && right_index_exist) {  // join列存在索引
           // 强行将scan替换为indexscan，前面会由于涉及到多个表而没办法定义为index_scan
           std::vector<Condition> noconds;
+          // TODO: Note that we need the original condition!
           left =
               std::make_shared<ScanPlan>(T_IndexScan, sm_manager_, it->lhs_col.tab_name, noconds, index_col_name_left);
           right =
