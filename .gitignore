@@ -37,6 +37,7 @@ build/
 *~
 tmp/
 temp/
+scripts/
 # Prerequisites
 *.d
 

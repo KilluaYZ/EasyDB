@@ -12,6 +12,7 @@
 #include "execution/executor_index_scan.h"
 #include <cassert>
 #include <cstdint>
+#include <vector>
 #include "type/type.h"
 #include "type/type_id.h"
 
@@ -37,6 +38,7 @@ IndexScanExecutor::IndexScanExecutor(SmManager *sm_manager, std::string tab_name
       {OP_EQ, OP_EQ}, {OP_NE, OP_NE}, {OP_LT, OP_GT}, {OP_GT, OP_LT}, {OP_LE, OP_GE}, {OP_GE, OP_LE},
   };
 
+  std::vector<std::string> cond_cols;
   for (auto &cond : conds_) {
     if (cond.lhs_col.tab_name != tab_name_) {
       // lhs is on other table, now rhs must be on this table
@@ -45,8 +47,14 @@ IndexScanExecutor::IndexScanExecutor(SmManager *sm_manager, std::string tab_name
       std::swap(cond.lhs_col, cond.rhs_col);
       cond.op = swap_op.at(cond.op);
     }
+    cond_cols.emplace_back(cond.lhs_col.col_name);
   }
-  fed_conds_ = conds_;
+  // Now we just check columns of conditions must be the same as the index.
+  // Actually, parts of columns can use the index.
+  // TODO: support more complex conditions
+  if (tab_.is_index(cond_cols)) {
+    fed_conds_ = conds_;
+  }
 
   // // lock table
   // if (context_ != nullptr) {

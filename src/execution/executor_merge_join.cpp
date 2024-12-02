@@ -43,9 +43,6 @@ MergeJoinExecutor::MergeJoinExecutor(std::unique_ptr<AbstractExecutor> left, std
   }
   int left_tup_len_ = left_->tupleLen();
   if (!use_index_) {
-    // leftSorter_ = std::make_unique<MergeSorter>(left_sel_colu_, left_->schema().GetColumns(), left_->tupleLen(),
-    // false); rightSorter_ =
-    //     std::make_unique<MergeSorter>(right_sel_colu_, right_->schema().GetColumns(), right_->tupleLen(), false);
     left_size_ = left_->schema().GetPhysicalSize();
     right_size_ = right_->schema().GetPhysicalSize();
     leftSorter_ = std::make_unique<MergeSorter>(left_sel_colu_, left_->schema().GetColumns(), left_size_, false);
@@ -75,7 +72,6 @@ void MergeJoinExecutor::beginTuple() {
     right_idx_ = 0;
 
   } else {
-    // sleep(1);
     for (left_->beginTuple(); !left_->IsEnd(); left_->nextTuple()) {
       leftSorter_->writeBuffer(*(left_->Next()));
     }
@@ -98,7 +94,6 @@ void MergeJoinExecutor::nextTuple() {
   } else {
     iterate_helper();
   }
-  // }while(!isend && !predicate());
   if (isend) {
     return;
   }
@@ -136,9 +131,6 @@ void MergeJoinExecutor::iterate_helper() {
 
   lhs_v = left_tuple.GetValue(&left_->schema(), left_sel_colu_.GetName());
   rhs_v = right_tuple.GetValue(&right_->schema(), right_sel_colu_.GetName());
-
-  // lhs_v = Value::DeserializeFrom(current_left_data_, &left_->schema(), left_sel_colu_.GetName());
-  // rhs_v = Value::DeserializeFrom(current_right_data_, &right_->schema(), right_sel_colu_.GetName());
 
   while ((!leftSorter_->IsEnd() && !rightSorter_->IsEnd())) {
     if (lhs_v == rhs_v) {
@@ -178,11 +170,9 @@ void MergeJoinExecutor::index_iterate_helper() {
   }
   if (!initialize_flag_) {
     current_right_tup_ = right_buffer_[right_idx_];
-    // right_->nextTuple();
     right_idx_++;
   }
   current_left_tup_ = left_buffer_[left_idx_];
-  // left_->nextTuple();
   left_idx_++;
 
   Value lhs_v, rhs_v;
@@ -196,12 +186,10 @@ void MergeJoinExecutor::index_iterate_helper() {
     } else if (lhs_v < rhs_v) {
       current_left_tup_ = left_buffer_[left_idx_];
       lhs_v = current_left_tup_.GetValue(&left_->schema(), left_sel_colu_.GetName());
-      // lhs_v.get_value_from_record(current_left_tup_, left_sel_colu_);
       left_idx_++;
     } else {
       current_right_tup_ = right_buffer_[right_idx_];
       rhs_v = current_right_tup_.GetValue(&right_->schema(), right_sel_colu_.GetName());
-      // rhs_v.get_value_from_record(current_right_tup_, right_sel_colu_);
       right_idx_++;
     }
   }
@@ -209,7 +197,6 @@ void MergeJoinExecutor::index_iterate_helper() {
   while (lhs_v > rhs_v && right_idx_ < right_buffer_.size()) {
     current_right_tup_ = right_buffer_[right_idx_];
     rhs_v = current_right_tup_.GetValue(&right_->schema(), right_sel_colu_.GetName());
-    // rhs_v.get_value_from_record(current_right_tup_, right_sel_colu_);
     right_idx_++;
   }
 

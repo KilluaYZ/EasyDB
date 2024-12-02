@@ -34,7 +34,7 @@ class IndexScanExecutor : public AbstractExecutor {
   // std::vector<ColMeta> cols_;         // 需要读取的字段
   Schema schema_;                     // scan后生成的记录的字段
   size_t len_;                        // 选取出来的一条记录的长度
-  std::vector<Condition> fed_conds_;  // 扫描条件，和conds_字段相同
+  std::vector<Condition> fed_conds_;  // 扫描条件，不一定和conds_字段相同(取决于索引的选择)
 
   std::vector<std::string> index_col_names_;  // index scan涉及到的索引包含的字段
   IndexMeta index_meta_;                      // index scan涉及到的索引元数据

@@ -2,7 +2,7 @@ add_library(
     easydb_execution
     OBJECT
     execution_manager.cpp
-    execution_sort.cpp
+    executor_sort.cpp
     executor_delete.cpp
     executor_index_scan.cpp
     executor_insert.cpp
