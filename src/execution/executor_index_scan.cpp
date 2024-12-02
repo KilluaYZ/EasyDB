@@ -48,19 +48,19 @@ IndexScanExecutor::IndexScanExecutor(SmManager *sm_manager, std::string tab_name
   }
   fed_conds_ = conds_;
 
-  // lock table
-  if (context_ != nullptr) {
-    // context_->lock_mgr_->lock_shared_on_table(context_->txn_, fh_->GetFd());
-    context_->lock_mgr_->lock_IS_on_table(context_->txn_, fh_->GetFd());
-    // // IS lock only works for unique index (one column)
-    // if (index_meta_.col_num == 1) {
-    //     context_->lock_mgr_->lock_IS_on_table(context_->txn_, fh_->GetFd());
-    //     std::cout << "IndexScanExecutor lock_IS_on_table" << std::endl;
-    // } else {
-    //     context_->lock_mgr_->lock_shared_on_table(context_->txn_, fh_->GetFd());
-    //     std::cout << "IndexScanExecutor lock_shared_on_table" << std::endl;
-    // }
-  }
+  // // lock table
+  // if (context_ != nullptr) {
+  //   // context_->lock_mgr_->lock_shared_on_table(context_->txn_, fh_->GetFd());
+  //   context_->lock_mgr_->lock_IS_on_table(context_->txn_, fh_->GetFd());
+  //   // // IS lock only works for unique index (one column)
+  //   // if (index_meta_.col_num == 1) {
+  //   //     context_->lock_mgr_->lock_IS_on_table(context_->txn_, fh_->GetFd());
+  //   //     std::cout << "IndexScanExecutor lock_IS_on_table" << std::endl;
+  //   // } else {
+  //   //     context_->lock_mgr_->lock_shared_on_table(context_->txn_, fh_->GetFd());
+  //   //     std::cout << "IndexScanExecutor lock_shared_on_table" << std::endl;
+  //   // }
+  // }
 }
 
 void IndexScanExecutor::beginTuple() {
@@ -167,21 +167,21 @@ void IndexScanExecutor::beginTuple() {
     scan_->Next();
   }
 
-  // Lock the gap between lower and upper bounds
-  if (context_ != nullptr) {
-    // The reason do before check IsEnd() is that we need to lock the gap of next key
-    // when the current key is the last one in the index or the lower=upper.
-    auto iid = scan_->GetIid();
-    context_->lock_mgr_->lock_gap_on_index(context_->txn_, iid, fh_->GetFd());
-    // lock the gap of next key
-    while (!IsEnd()) {
-      scan_->Next();
-      iid = scan_->GetIid();
-      context_->lock_mgr_->lock_gap_on_index(context_->txn_, iid, fh_->GetFd());
-    }
-    // reset the lower bound to the first record
-    scan_->set_lower(lower);
-  }
+  // // Lock the gap between lower and upper bounds
+  // if (context_ != nullptr) {
+  //   // The reason do before check IsEnd() is that we need to lock the gap of next key
+  //   // when the current key is the last one in the index or the lower=upper.
+  //   auto iid = scan_->GetIid();
+  //   context_->lock_mgr_->lock_gap_on_index(context_->txn_, iid, fh_->GetFd());
+  //   // lock the gap of next key
+  //   while (!IsEnd()) {
+  //     scan_->Next();
+  //     iid = scan_->GetIid();
+  //     context_->lock_mgr_->lock_gap_on_index(context_->txn_, iid, fh_->GetFd());
+  //   }
+  //   // reset the lower bound to the first record
+  //   scan_->set_lower(lower);
+  // }
 
   delete[] key_lower;
   delete[] key_upper;

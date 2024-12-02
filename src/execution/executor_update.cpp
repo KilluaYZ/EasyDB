@@ -24,10 +24,10 @@ UpdateExecutor::UpdateExecutor(SmManager *sm_manager, const std::string &tab_nam
   rids_ = rids;
   context_ = context;
 
-  // lock table
-  if (context_ != nullptr) {
-    context_->lock_mgr_->lock_IX_on_table(context_->txn_, fh_->GetFd());
-  }
+  // // lock table
+  // if (context_ != nullptr) {
+  //   context_->lock_mgr_->lock_IX_on_table(context_->txn_, fh_->GetFd());
+  // }
 }
 
 std::unique_ptr<Tuple> UpdateExecutor::Next() {

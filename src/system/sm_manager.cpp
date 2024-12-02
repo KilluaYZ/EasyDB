@@ -244,10 +244,10 @@ void SmManager::CreateTable(const std::string &tab_name, const std::vector<ColDe
   // fhs_[tab_name] = rm_manager_->open_file(tab_name);
   fhs_.emplace(tab_name, rm_manager_->OpenFile(tab_name));
 
-  // lock manager
-  if (context != nullptr) {
-    // context->lock_mgr_->lock_exclusive_on_table(context->txn_, fhs_[tab_name]->GetFd());
-  }
+  // // lock manager
+  // if (context != nullptr) {
+  //   // context->lock_mgr_->lock_exclusive_on_table(context->txn_, fhs_[tab_name]->GetFd());
+  // }
 
   FlushMeta();
 }
@@ -262,10 +262,10 @@ void SmManager::DropTable(const std::string &tab_name, Context *context) {
     throw TableNotFoundError(tab_name);
   }
 
-  // lock manager
-  if (context != nullptr) {
-    context->lock_mgr_->lock_exclusive_on_table(context->txn_, fhs_[tab_name]->GetFd());
-  }
+  // // lock manager
+  // if (context != nullptr) {
+  //   context->lock_mgr_->lock_exclusive_on_table(context->txn_, fhs_[tab_name]->GetFd());
+  // }
 
   // remove record file and index file(if exist)
   TabMeta &tab = db_.get_table(tab_name);
@@ -321,10 +321,10 @@ void SmManager::CreateIndex(const std::string &tab_name, const std::vector<std::
     throw TableNotFoundError(tab_name);
   }
 
-  // lock manager
-  if (context != nullptr) {
-    // context->lock_mgr_->lock_shared_on_table(context->txn_, fhs_[tab_name]->GetFd());
-  }
+  // // lock manager
+  // if (context != nullptr) {
+  //   // context->lock_mgr_->lock_shared_on_table(context->txn_, fhs_[tab_name]->GetFd());
+  // }
 
   // get colMeta
   std::vector<ColMeta> index_cols;
@@ -414,10 +414,10 @@ void SmManager::DropIndex(const std::string &tab_name, const std::vector<std::st
     throw IndexEntryNotFoundError();
   }
 
-  // lock manager
-  if (context != nullptr) {
-    context->lock_mgr_->lock_shared_on_table(context->txn_, fhs_[tab_name]->GetFd());
-  }
+  // // lock manager
+  // if (context != nullptr) {
+  //   context->lock_mgr_->lock_shared_on_table(context->txn_, fhs_[tab_name]->GetFd());
+  // }
 
   auto index_name = ix_manager_->GetIndexName(tab_name, col_names);
   // close index and remove from ihs_
