@@ -237,7 +237,6 @@ std::shared_ptr<Plan> Planner::make_one_rel(std::shared_ptr<Query> query, Contex
         bool right_index_exist = get_index_cols_swap(it->rhs_col.tab_name, join_conds, index_col_name_right);
         if (left_index_exist && right_index_exist) {  // join列存在索引
           // 强行将scan替换为indexscan，前面会由于涉及到多个表而没办法定义为index_scan
-          std::vector<Condition> noconds;
           // Note that we need the original condition!
           left = std::make_shared<ScanPlan>(T_IndexScan, sm_manager_, it->lhs_col.tab_name, left->get_conds(),
                                             index_col_name_left);
