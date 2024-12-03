@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "catalog/schema.h"
 #include "common/errors.h"
 #include "common/exception.h"
+#include "common/macros.h"
 #include "record/record_printer.h"
 #include "record/rm_defs.h"
 #include "record/rm_scan.h"
@@ -385,12 +386,16 @@ void SmManager::CreateIndex(const std::string &tab_name, const std::vector<std::
     // }
     // std::cout << std::endl;
     // std::cout << "key(int): " << std::to_string(*(int *)key) << std::endl;
+    int pos = -1;
     if (context != nullptr) {
       // Iih->InsertEntry(key, rid, context->txn_);
-      Iih->InsertEntry(key, rid);
+      pos = Iih->InsertEntry(key, rid);
     } else {
       // Iih->InsertEntry(key, rid, nullptr);
-      Iih->InsertEntry(key, rid);
+      pos = Iih->InsertEntry(key, rid);
+    }
+    if (pos == -1) {
+      throw Exception("Insert index entry failed(duplicate key). Is the index unique?");
     }
     delete[] key;
     rmScan.Next();
