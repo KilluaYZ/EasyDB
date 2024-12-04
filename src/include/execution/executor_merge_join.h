@@ -68,6 +68,9 @@ class MergeJoinExecutor : public AbstractExecutor {
 
   int left_idx_;
   int right_idx_;
+  Value last_left_val_;
+  Value last_right_val_;
+  int last_right_idx_;
 
   std::fstream fd_left;
   std::fstream fd_right;

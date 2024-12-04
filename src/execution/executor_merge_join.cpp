@@ -45,7 +45,7 @@ MergeJoinExecutor::MergeJoinExecutor(std::unique_ptr<AbstractExecutor> left, std
       }
     }
   }
-  
+
   if (!use_index_) {
     left_size_ = left_->schema().GetPhysicalSize();
     right_size_ = right_->schema().GetPhysicalSize();
@@ -88,16 +88,39 @@ void MergeJoinExecutor::beginTuple() {
 
     leftSorter_->initializeMergeListAndConstructTree();
     rightSorter_->initializeMergeListAndConstructTree();
+
+    char *tp;
+    Tuple tuple_tp;
+    while (!leftSorter_->IsEnd()) {
+      tp = leftSorter_->getOneRecord();
+      memcpy(current_left_data_, tp, left_size_);
+      free(tp);
+      tuple_tp.DeserializeFrom(current_left_data_);
+      left_buffer_.emplace_back(tuple_tp);
+    }
+
+    while (!rightSorter_->IsEnd()) {
+      tp = rightSorter_->getOneRecord();
+      memcpy(current_right_data_, tp, right_size_);
+      free(tp);
+      tuple_tp.DeserializeFrom(current_right_data_);
+      right_buffer_.emplace_back(tuple_tp);
+    }
+
+    left_idx_ = 0;
+    right_idx_ = 0;
   }
   nextTuple();
 }
 
 void MergeJoinExecutor::nextTuple() {
-  if (use_index_) {
-    index_iterate_helper();
-  } else {
-    iterate_helper();
-  }
+  // if (use_index_) {
+  //   index_iterate_helper();
+  // } else {
+  //   iterate_helper();
+  // }
+  index_iterate_helper();
+
   if (isend) {
     return;
   }
@@ -172,17 +195,45 @@ void MergeJoinExecutor::index_iterate_helper() {
     isend = true;
     return;
   }
-  if (!initialize_flag_) {
-    current_right_tup_ = right_buffer_[right_idx_];
-    right_idx_++;
-  }
-  current_left_tup_ = left_buffer_[left_idx_];
-  left_idx_++;
 
   Value lhs_v, rhs_v;
 
-  lhs_v = current_left_tup_.GetValue(&left_->schema(), left_sel_colu_.GetName());
-  rhs_v = current_right_tup_.GetValue(&right_->schema(), right_sel_colu_.GetName());
+  if (!initialize_flag_) {
+    current_right_tup_ = right_buffer_[right_idx_];
+    rhs_v = current_right_tup_.GetValue(&right_->schema(), right_sel_colu_.GetName());
+    last_right_val_ = rhs_v;
+    last_right_idx_ = right_idx_;
+    right_idx_++;
+
+    current_left_tup_ = left_buffer_[left_idx_];
+    lhs_v = current_left_tup_.GetValue(&left_->schema(), left_sel_colu_.GetName());
+    last_left_val_ = lhs_v;
+    left_idx_++;
+
+    initialize_flag_ = true;
+  } else {
+    rhs_v = current_right_tup_.GetValue(&right_->schema(), right_sel_colu_.GetName());
+    Value next_right_v = right_buffer_[right_idx_].GetValue(&right_->schema(), right_sel_colu_.GetName());
+
+    if (rhs_v != next_right_v) {
+      current_left_tup_ = left_buffer_[left_idx_];
+      left_idx_++;
+
+      lhs_v = current_left_tup_.GetValue(&left_->schema(), left_sel_colu_.GetName());
+      if (last_left_val_.GetTypeId() != TYPE_EMPTY && last_left_val_ == lhs_v) {
+        right_idx_ = last_right_idx_;
+        current_right_tup_ = right_buffer_[right_idx_];
+        rhs_v = current_right_tup_.GetValue(&right_->schema(), right_sel_colu_.GetName());
+        right_idx_++;
+      }
+      last_left_val_ = lhs_v;
+    } else {
+      lhs_v = current_left_tup_.GetValue(&left_->schema(), left_sel_colu_.GetName());
+      current_right_tup_ = right_buffer_[right_idx_];
+      right_idx_++;
+      rhs_v = current_right_tup_.GetValue(&right_->schema(), right_sel_colu_.GetName());
+    }
+  }
 
   while (left_idx_ < left_buffer_.size() && right_idx_ < right_buffer_.size()) {
     if (lhs_v == rhs_v) {
@@ -190,10 +241,15 @@ void MergeJoinExecutor::index_iterate_helper() {
     } else if (lhs_v < rhs_v) {
       current_left_tup_ = left_buffer_[left_idx_];
       lhs_v = current_left_tup_.GetValue(&left_->schema(), left_sel_colu_.GetName());
+      last_left_val_ = lhs_v;
       left_idx_++;
     } else {
       current_right_tup_ = right_buffer_[right_idx_];
       rhs_v = current_right_tup_.GetValue(&right_->schema(), right_sel_colu_.GetName());
+      if (last_right_val_ != rhs_v) {
+        last_right_val_ = rhs_v;
+        last_right_idx_ = right_idx_;
+      }
       right_idx_++;
     }
   }
@@ -201,6 +257,10 @@ void MergeJoinExecutor::index_iterate_helper() {
   while (lhs_v > rhs_v && right_idx_ < right_buffer_.size()) {
     current_right_tup_ = right_buffer_[right_idx_];
     rhs_v = current_right_tup_.GetValue(&right_->schema(), right_sel_colu_.GetName());
+    if (last_right_val_ != rhs_v) {
+      last_right_val_ = rhs_v;
+      last_right_idx_ = right_idx_;
+    }
     right_idx_++;
   }
 
@@ -210,24 +270,24 @@ void MergeJoinExecutor::index_iterate_helper() {
 }
 
 Tuple MergeJoinExecutor::concat_records() {
-  if (use_index_) {
-    auto left_value_vec = current_left_tup_.GetValueVec(&left_->schema());
-    auto right_value_vec = current_right_tup_.GetValueVec(&right_->schema());
-    left_value_vec.insert(left_value_vec.end(), right_value_vec.begin(), right_value_vec.end());
-    return Tuple(left_value_vec, &schema_);
-  } else {
-    Tuple left_tuple_tp;
-    left_tuple_tp.DeserializeFrom(current_left_data_);
-    auto left_value_vec = left_tuple_tp.GetValueVec(&left_->schema());
+  // if (use_index_) {
+  auto left_value_vec = current_left_tup_.GetValueVec(&left_->schema());
+  auto right_value_vec = current_right_tup_.GetValueVec(&right_->schema());
+  left_value_vec.insert(left_value_vec.end(), right_value_vec.begin(), right_value_vec.end());
+  return Tuple(left_value_vec, &schema_);
+  // } else {
+  //   Tuple left_tuple_tp;
+  //   left_tuple_tp.DeserializeFrom(current_left_data_);
+  //   auto left_value_vec = left_tuple_tp.GetValueVec(&left_->schema());
 
-    Tuple right_tuple_tp;
-    right_tuple_tp.DeserializeFrom(current_right_data_);
-    auto right_value_vec = right_tuple_tp.GetValueVec(&right_->schema());
+  //   Tuple right_tuple_tp;
+  //   right_tuple_tp.DeserializeFrom(current_right_data_);
+  //   auto right_value_vec = right_tuple_tp.GetValueVec(&right_->schema());
 
-    left_value_vec.insert(left_value_vec.end(), right_value_vec.begin(), right_value_vec.end());
+  //   left_value_vec.insert(left_value_vec.end(), right_value_vec.begin(), right_value_vec.end());
 
-    return Tuple(left_value_vec, &schema_);
-  }
+  //   return Tuple(left_value_vec, &schema_);
+  // }
 }
 
 }  // namespace easydb
