@@ -56,7 +56,7 @@ auto Schema::GetPhysicalSize() const -> uint32_t {
 }
 
 void Schema::SetPhysicalSize() {
-  physical_size_ = length_;
+  physical_size_ = length_ + sizeof(uint32_t);
   for(auto &colu: columns_){
     if(!colu.IsInlined()){
       physical_size_ += colu.GetStorageSize() + sizeof(uint32_t);

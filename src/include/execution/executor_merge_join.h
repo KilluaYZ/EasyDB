@@ -26,6 +26,11 @@ class MergeJoinExecutor : public AbstractExecutor {
  private:
   std::unique_ptr<AbstractExecutor> left_;   // 左儿子节点（需要join的表）
   std::unique_ptr<AbstractExecutor> right_;  // 右儿子节点（需要join的表）
+
+  std::string left_tab_name_;                // 表名称
+  std::string right_tab_name_;               // 表名称
+  std::string join_tab_name_;                // join后的表名称
+
   size_t len_;                               // join后获得的每条记录的长度
   Schema schema_;                            // scan后生成的记录的字段
 
@@ -75,6 +80,8 @@ class MergeJoinExecutor : public AbstractExecutor {
 
   ~MergeJoinExecutor();
 
+  std::string getTabName() const override { return join_tab_name_; }
+  
   void beginTuple() override;
 
   void nextTuple() override;

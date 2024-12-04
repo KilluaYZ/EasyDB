@@ -20,6 +20,10 @@ MergeJoinExecutor::MergeJoinExecutor(std::unique_ptr<AbstractExecutor> left, std
 
   use_index_ = use_index;
 
+  left_tab_name_ = left_->getTabName();
+  right_tab_name_ = right_->getTabName();
+  join_tab_name_ = left_tab_name_ + "_" + right_tab_name_;
+
   auto left_columns = left_->schema().GetColumns();
   auto right_colums = right_->schema().GetColumns();
   left_columns.insert(left_columns.end(), right_colums.begin(), right_colums.end());
@@ -32,16 +36,16 @@ MergeJoinExecutor::MergeJoinExecutor(std::unique_ptr<AbstractExecutor> left, std
   for (auto &cond : fed_conds_) {
     // op must be OP_EQ and right hand must also be a col
     if (cond.op == OP_EQ && !cond.is_rhs_val) {
-      if (cond.lhs_col.tab_name == left_->getTabName() && cond.rhs_col.tab_name == right_->getTabName()) {
+      if (cond.lhs_col.tab_name == left_->getTabName() || cond.rhs_col.tab_name == right_->getTabName()) {
         left_sel_colu_ = left_->schema().GetColumn(cond.lhs_col.col_name);
         right_sel_colu_ = right_->schema().GetColumn(cond.rhs_col.col_name);
-      } else if (cond.rhs_col.tab_name == left_->getTabName() && cond.lhs_col.tab_name == right_->getTabName()) {
+      } else if (cond.rhs_col.tab_name == left_->getTabName() || cond.lhs_col.tab_name == right_->getTabName()) {
         left_sel_colu_ = left_->schema().GetColumn(cond.lhs_col.col_name);
         right_sel_colu_ = right_->schema().GetColumn(cond.rhs_col.col_name);
       }
     }
   }
-  int left_tup_len_ = left_->tupleLen();
+  
   if (!use_index_) {
     left_size_ = left_->schema().GetPhysicalSize();
     right_size_ = right_->schema().GetPhysicalSize();
