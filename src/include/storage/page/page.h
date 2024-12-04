@@ -67,8 +67,8 @@ class Page {
   ~Page() = default;
 
   /** @return the actual data contained within this page */
-  // inline auto GetData() -> char * { return data_.data(); }
-  inline auto GetData() -> char * { return data_; }
+  inline auto GetData() -> char * { return data_.data(); }
+  // inline auto GetData() -> char * { return data_; }
 
   /** @return the page id of this page */
   inline auto GetPageId() const -> PageId { return page_id_; }
@@ -115,8 +115,9 @@ class Page {
    * Zeroes out the data that is held within the frame and sets all fields to default values.
    */
   inline void ResetMemory() {
-    // std::fill(data_.begin(), data_.end(), 0);
-    memset(data_, 0, PAGE_SIZE);
+    data_.resize(PAGE_SIZE);
+    std::fill(data_.begin(), data_.end(), 0);
+    // memset(data_, 0, PAGE_SIZE);
     page_id_.page_no = INVALID_PAGE_ID;
     pin_count_.store(0, std::memory_order_release);
     is_dirty_.store(false, std::memory_order_release);
@@ -129,8 +130,8 @@ class Page {
    *
    * Note that friend classes should make sure not increase the size of this data field.
    */
-  // std::vector<char> data_;
-  char data_[PAGE_SIZE];
+  std::vector<char> data_;
+  // char data_[PAGE_SIZE];
 
   /** @brief The ID of this page. */
   PageId page_id_;
