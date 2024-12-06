@@ -55,7 +55,7 @@ DATA_PARTSUPP_PATH=$DATA_PATH/partsupp.tbl
 DATA_REGION_PATH=$DATA_PATH/region.tbl
 DATA_TEST_PATH=$DATA_PATH/test.tbl
 execute(){
-    print_blue "执行命令: $1"
+    print_blue "执行命令:"
     echo -e "$1 \n" >> out.sql 
     if [ "$2" != "." ]; then
         echo "$1; exit;" | $CLIENT_PATH -p $SERVE_PORT
@@ -176,6 +176,7 @@ EOF
 execute "$create_table_lineitem"
 }
 
+
 load_data(){
 # 导入数据
 print_green "导入数据..."
@@ -209,66 +210,8 @@ execute "create index supplier(S_SUPPKEY);"
 print_green "创建索引完成"
 }
 
-join_test(){
-
-print_green "=> 单条件等值连接"
-print_green "==> int上进行单条件等值连接"
-execute "SELECT * FROM supplier, nation where S_NATIONKEY = N_NATIONKEY;"
-
-execute "SELECT * FROM supplier, nation where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY;"
-
-print_green "==> char上进行单条件等值连接"
-execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE = C_PHONE;"
-
-print_green "==> varchar上进行单条件等值连接"
-execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_NAME = C_NAME;"
-
-# print_green "=> 单条件不等值连接"
-# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE != C_PHONE;"
-
-# print_green "=> 多条件连接"
-# print_green "==> int, varchar上进行多条件连接"
-# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_PHONE != C_PHONE AND S_SUPPKEY != C_CUSTKEY;"
-
-print_green "=> 三表连接"
-execute "SELECT S_NAME, C_NAME, N_NAME FROM supplier, customer, nation where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND C_NATIONKEY = N_NATIONKEY;"
-# execute "SELECT S_NAME, C_NAME, N_NAME FROM supplier, customer, nation where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND C_NATIONKEY = N_NATIONKEY;" . ;                                                                                              cat $DATA_TEST_PATH; echo -e "\n";
-
-print_green "=> 两表卡氏积连接"
-execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10;"
-
-}
-
-projection_test(){
-    print_green "-------- Projection Test --------"
-    print_green "=> select 至少三种不同数据(int, varchar, float)"
-    execute "SELECT S_SUPPKEY, S_NAME, S_ACCTBAL FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20;"
-    print_green "=> select *"
-    execute "SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20;"
-}
-
-select_test(){
-    print_green "-------- Select Test --------"
-
-    print_green "=> 在float, int, varchar上进行条件选择"
-
-    print_green "==> int上进行条件选择"
-    # execute "SELECT * FROM supplier where S_SUPPKEY = 10;"
-    # execute "SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20;"
-    # execute "SELECT * FROM nation order by N_REGIONKEY;"
-    # execute "SELECT * FROM nation where N_NATIONKEY > 10 order by N_REGIONKEY;"
-
-    # print_green "==> float上进行条件选择"
-    # execute "SELECT * FROM supplier where S_ACCTBAL < 3000.0;"
-    # execute "SELECT * FROM supplier where S_ACCTBAL > 1000.5 AND S_SUPPKEY < 2000.1;"
-
-    # print_green "==> varchar上进行条件选择"
-    # execute "SELECT * FROM supplier where S_NAME = 'Supplier#000000015';"
-    # execute "SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20 AND S_NAME != 'Supplier#000000015';"
-}
-
 print_green "====================================================="
-print_green "                    SPJ Test Start"
+print_green "                    Query Parse Test Start"
 print_green "====================================================="
 print_white "ROOT_PATH: $ROOT_PATH"
 # 检查db目录是否存在，是的话将其删掉
@@ -283,24 +226,94 @@ $SERVER_PATH -d $DB_PATH -p $SERVE_PORT > $SERVER_LOG_PATH 2>&1  &
 sleep 3;
 print_green "启动server成功"
 
-create_tables;
+print_green "------------- 小数据集 --------------"
+print_green "=> Create Table";
 
-load_data;
+# 创建表
+create_table_student=$(cat <<EOF
+CREATE TABLE student(\
+    s_id INTEGER NOT NULL,\
+    s_name VARCHAR(25) NOT NULL,\
+    s_age INTEGER NOT NULL,\
+    s_birthday DATETIME\
+);
+EOF
+)
+execute "$create_table_student"
 
-create_index;
+create_table_teacher=$(cat <<EOF
+CREATE TABLE teacher(\
+    t_id INTEGER NOT NULL,\
+    t_name VARCHAR(25) NOT NULL,\
+    t_age INTEGER NOT NULL,\
+    t_birthday DATETIME\
+);
+EOF
+)
+execute "$create_table_teacher"
 
-# select_test;
+create_table_course=$(cat <<EOF
+CREATE TABLE course(\
+    c_id INTEGER NOT NULL,\
+    c_name VARCHAR(25) NOT NULL,\
+    c_teacher INTEGER\
+);
+EOF
+)
+execute "$create_table_course"
 
-# projection_test;
+create_table_student_course=$(cat <<EOF
+CREATE TABLE sc(\
+    sc_sid INTEGER NOT NULL,\
+    sc_cid INTEGER NOT NULL\
+);
+EOF
+)
+execute "$create_table_student_course"
 
-# print_green "-------- NestLoop Test --------"
+# execute "show tables;"
 
-# print_green "=> 设置为NestLoop Join"
-# execute "SET enable_nestloop = true;"
-# execute "SET enable_sortmerge = false;"
-# execute "SET enable_hashjoin = false;"
+print_green "=> Insert"
 
-# join_test;
+execute "INSERT INTO student values(5, 'aaa', 21, '1996-01-23');"
+execute "INSERT INTO student values(1, 'bbb', 25, '2001-02-03');"
+execute "INSERT INTO student values(4, 'ccc', 30, '2002-01-23');"
+execute "INSERT INTO student values(2, 'ddd', 22, '1994-08-12');"
+execute "INSERT INTO student values(3, 'eee', 35, '2000-01-23');"
+execute "INSERT INTO student values(3, 'eee', 35, '2000-01-23');"
+execute "INSERT INTO student values(6, 'fff', 35, '1999-01-23');"
+
+
+execute "INSERT INTO teacher values(1, 'aaa', 35, '1999-01-23');"
+execute "INSERT INTO teacher values(2, 'ddd', 49, '1979-01-23');"
+execute "INSERT INTO teacher values(3, 'bbb', 50, '1959-01-23');"
+execute "INSERT INTO teacher values(4, 'ccc', 33, '1993-01-23');"
+
+execute "INSERT INTO course values(1, 'math', 1);"
+execute "INSERT INTO course values(2, 'english', 2);"
+execute "INSERT INTO course values(3, 'dbms', 3);"
+
+execute "INSERT INTO sc values(1, 1);"
+execute "INSERT INTO sc values(2, 1);"
+execute "INSERT INTO sc values(3, 1);"
+execute "INSERT INTO sc values(4, 1);"
+execute "INSERT INTO sc values(5, 1);"
+execute "INSERT INTO sc values(1, 2);"
+execute "INSERT INTO sc values(3, 2);"
+execute "INSERT INTO sc values(5, 2);"
+execute "INSERT INTO sc values(2, 3);"
+execute "INSERT INTO sc values(4, 3);"
+execute "INSERT INTO sc values(5, 3);"
+execute "INSERT INTO sc values(6, 3);"
+
+
+print_green "-------- NestLoop Test --------"
+
+print_green "=> 设置为NestLoop Join"
+execute "SET enable_nestloop = true;"
+execute "SET enable_sortmerge = false;"
+execute "SET enable_hashjoin = false;"
+execute "SELECT s_name, c_name FROM student, course, sc where s_id = sc_sid AND sc_cid = c_id;"
 
 
 print_green "-------- SortMerge Test --------"
@@ -310,37 +323,54 @@ execute "SET enable_nestloop = false;"
 execute "SET enable_sortmerge = true;"
 execute "SET enable_hashjoin = false;";
 
-join_test;
+execute "SELECT s_name, c_name FROM student, course, sc where s_id = sc_sid AND sc_cid = c_id;"
 
-# print_green "-------- HashJoin Test --------"
+# print_green "=> Select"
 
-# print_green "=> 设置为Hash Join"
-# execute "SET enable_nestloop = false;"
-# execute "SET enable_sortmerge = false;"
-# execute "SET enable_hashjoin = true;"
+# execute "SELECT * FROM student;"
 
-# join_test;
+# print_green "==> order"
+# execute "SELECT * FROM student order by s_age;"
 
-# print_green "-------- Insert Delete Test --------"
+# print_green "==> unique"
+# execute "SELECT UNIQUE * FROM student;"
 
-# print_green "=> insert"
-# execute "INSERT into nation values(25, 'RUC', 2, 'a school');"
-# execute "SELECT * from nation where N_NATIONKEY = 25;"
+# print_green "==> condition"
+# execute "SELECT * FROM student where s_age = 35;"
 
-# print_green "=>delete"
-# execute "delete from nation where N_NATIONKEY = 25;"
-# execute "SELECT * from nation where N_NATIONKEY = 25;"
+# print_green "===> condition order"
+# execute "SELECT * FROM student where s_age = 35 order by s_birthday;"
+
+# print_green "===> condition unique"
+# execute "SELECT UNIQUE * FROM student where s_age = 35;"
+
+# print_green "===> nested"
+# execute "SELECT * FROM student where s_age in (SELECT t_age from teacher);"
+
+# print_green "===> group"
+# execute "SELECT s_age, COUNT(*) FROM student group by s_age;"
 
 
 
-# print_green "=>drop"
+# print_green "=> Drop Table"
 # execute "show tables;"
-# execute "drop table nation;"
+# execute "drop table student;"
+# execute "drop table teacher;"
 # execute "show tables;"
 
-# execute "SELECT * from nation where N_NATIONKEY = 25;"
+# print_green "------------- 大数据集 --------------"
+
+# create_tables;
+
+# create_index;
+
+# load_data;
+
+# execute "SELECT UNIQUE S_NATIONKEY FROM supplier; "
+
+# execute "SELECT UNIQUE S_NATIONKEY FROM supplier order by S_NATIONKEY; "
 
 
 print_green "====================================================="
-print_green "                    SPJ Test End"
+print_green "                    Query Parse Test End"
 print_green "====================================================="
