@@ -67,7 +67,7 @@ draw_ast(){
 }
 
 execute(){
-    print_blue "执行命令:"
+    print_blue "执行命令: $1"
     echo -e "$1 \n" >> out.sql 
     # if [ "$2" != "." ]; then
     draw_ast "$1";
@@ -189,6 +189,55 @@ EOF
 execute "$create_table_lineitem"
 }
 
+
+join_test(){
+
+print_green "=> 单条件等值连接"
+print_green "==> int上进行单条件等值连接"
+execute "SELECT * FROM supplier, nation where S_NATIONKEY = N_NATIONKEY;"
+
+execute "SELECT * FROM supplier, nation where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY;"
+
+print_green "==> char上进行单条件等值连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE = C_PHONE;"
+
+print_green "==> varchar上进行单条件等值连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_NAME = C_NAME;"
+
+print_green "=> 单条件不等值连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE != C_PHONE;"
+
+print_green "=> 多条件连接"
+print_green "==> int, varchar上进行多条件连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_PHONE != C_PHONE AND S_SUPPKEY != C_CUSTKEY;"
+
+print_green "=> 三表连接"
+execute "SELECT S_NAME, C_NAME, N_NAME FROM supplier, customer, nation where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND C_NATIONKEY = N_NATIONKEY;"
+
+print_green "=> 两表卡氏积连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10;"
+
+}
+
+select_test(){
+    print_green "-------- Select Test --------"
+
+    print_green "=> 在float, int, varchar上进行条件选择"
+
+    print_green "==> int上进行条件选择"
+    execute "SELECT * FROM supplier where S_SUPPKEY = 10;"
+    execute "SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20;"
+    execute "SELECT * FROM nation order by N_REGIONKEY;"
+    execute "SELECT * FROM nation where N_NATIONKEY > 10 order by N_REGIONKEY;"
+
+    print_green "==> float上进行条件选择"
+    execute "SELECT * FROM supplier where S_ACCTBAL < 3000.0;"
+    execute "SELECT * FROM supplier where S_ACCTBAL > 1000.5 AND S_SUPPKEY < 2000.1;"
+
+    print_green "==> varchar上进行条件选择"
+    execute "SELECT * FROM supplier where S_NAME = 'Supplier#000000015';"
+    execute "SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20 AND S_NAME != 'Supplier#000000015';"
+}
 
 load_data(){
 # 导入数据
@@ -370,18 +419,22 @@ execute "drop table student;"
 execute "drop table teacher;"
 execute "show tables;"
 
-# print_green "------------- 大数据集 --------------"
+# print_green "=> syntax error"
+# execute "select * from student where s_id = ;"
+# execute "insert student values() ;"
 
-# create_tables;
+print_green "------------- 大数据集 --------------"
 
-# create_index;
+create_tables;
 
-# load_data;
+load_data;
 
-# execute "SELECT UNIQUE S_NATIONKEY FROM supplier; "
+select_test;
 
-# execute "SELECT UNIQUE S_NATIONKEY FROM supplier order by S_NATIONKEY; "
-
+execute "SET enable_nestloop = true;"
+execute "SET enable_sortmerge = false;"
+execute "SET enable_hashjoin = false;";
+join_test;
 
 print_green "====================================================="
 print_green "                    Query Parse Test End"

@@ -865,9 +865,9 @@ draw_ast(){
 }
 ```
 
-### 5.1.5 测试点设置
+### 5.1.5 小数据集测试点设置
 
-为了能够更加全面地测试我们的数据库系统，我们需要设置一些测试点。
+为了能够更加全面地测试我们的数据库系统，我们需要设置一些测试点。为了方便验证增删改查的正确性，我们在小数据集上设计了以下测试点。
 
 1. Create Table相关测试
 
@@ -1011,7 +1011,173 @@ draw_ast(){
     execute "show tables;"
     ```
 
-## 5.2 结果展示
+6. 语法错误提示相关测试
+
+    这部分主要是测试当用户输入了一个语法错误的SQL语句时，我们的系统能否提示语法错误。
+    这里我们设计了以下两个测试点：
+
+    ```shell 
+    print_green "=> syntax error"
+    execute "select * from student where s_id = ;"
+    execute "insert student values() ;"
+    ```
+
+### 5.1.6 大数据集测试点设置
+
+为了对我们数据库的进行更加全面的测试，我们使用了TPC-H数据集进行测试，测试的内容主要是创建表格、创建索引、Select、Join等。
+我们设置了以下几个测试点：
+
+
+1. Create Table相关测试
+
+    这部分主要测试create语句的解析和执行情况，测试的表格中有INT，CHAR，DATETIME类型的字段。
+
+    ```shell
+    create_table_nation=$(cat <<EOF
+    CREATE TABLE nation(\
+        N_NATIONKEY INTEGER NOT NULL,\
+        N_NAME CHAR(25) NOT NULL,\
+        N_REGIONKEY INTEGER NOT NULL,\
+        N_COMMENT VARCHAR(152)\
+    );
+    EOF
+    )
+    execute "$create_table_nation"
+
+    create_table_region=$(cat <<EOF
+    CREATE TABLE region(\
+        R_REGIONKEY INTEGER NOT NULL,\
+        R_NAME CHAR(25) NOT NULL,\
+        R_COMMENT VARCHAR(152)\
+    );
+    EOF
+    )
+
+    execute "$create_table_region"
+
+    create_table_part=$(cat <<EOF
+    CREATE TABLE part(\
+        P_PARTKEY INTEGER NOT NULL,\
+        P_NAME VARCHAR(55) NOT NULL,\
+        P_MFGR CHAR(25) NOT NULL,\
+        P_BRAND CHAR(10) NOT NULL,\
+        P_TYPE VARCHAR(25) NOT NULL,\
+        P_SIZE INTEGER NOT NULL,\
+        P_CONTAINER CHAR(10) NOT NULL,\
+        P_RETAILPRICE FLOAT NOT NULL,\
+        P_COMMENT VARCHAR(23) NOT NULL\
+    );
+    EOF
+    )
+    execute "$create_table_part"
+
+    create_table_supplier=$(cat <<EOF
+    CREATE TABLE supplier(\
+        S_SUPPKEY INTEGER NOT NULL,\
+        S_NAME CHAR(25) NOT NULL,\
+        S_ADDRESS VARCHAR(40) NOT NULL,\
+        S_NATIONKEY INTEGER NOT NULL,\
+        S_PHONE CHAR(15) NOT NULL,\
+        S_ACCTBAL FLOAT NOT NULL,\
+        S_COMMENT VARCHAR(101) NOT NULL\
+    );
+    EOF
+    )
+    execute "$create_table_supplier"
+
+    create_table_customer=$(cat <<EOF
+    CREATE TABLE customer(\
+        C_CUSTKEY INTEGER NOT NULL,\
+        C_NAME VARCHAR(25) NOT NULL,\
+        C_ADDRESS VARCHAR(40) NOT NULL,\
+        C_NATIONKEY INTEGER NOT NULL,\
+        C_PHONE CHAR(15) NOT NULL,\
+        C_ACCTBAL FLOAT NOT NULL,\
+        C_MKTSEGMENT CHAR(10) NOT NULL,\
+        C_COMMENT VARCHAR(117) NOT NULL\
+    );
+    EOF
+    )
+
+    execute "$create_table_customer"
+
+    create_table_orders=$(cat <<EOF
+    CREATE TABLE orders(\
+        O_ORDERKEY INTEGER NOT NULL,\
+        O_CUSTKEY INTEGER NOT NULL,\
+        O_ORDERSTATUS CHAR(1) NOT NULL,\
+        O_TOTALPRICE FLOAT NOT NULL,\
+        O_ORDERDATE DATETIME NOT NULL,\
+        O_ORDERPRIORITY CHAR(15) NOT NULL,\
+        O_CLERK CHAR(15) NOT NULL,\
+        O_SHIPPRIORITY INTEGER NOT NULL,\
+        O_COMMENT VARCHAR(79) NOT NULL\
+    );
+    EOF
+    )
+    execute "$create_table_orders"
+
+    create_table_lineitem=$(cat <<EOF
+    CREATE TABLE lineitem(\
+        L_ORDERKEY INTEGER NOT NULL,\
+        L_PARTKEY INTEGER NOT NULL,\
+        L_SUPPKEY INTEGER NOT NULL,\
+        L_LINENUMBER INTEGER NOT NULL,\
+        L_QUANTITY FLOAT NOT NULL,\
+        L_EXTENDEDPRICE FLOAT NOT NULL,\
+        L_DISCOUNT FLOAT NOT NULL,\
+        L_TAX FLOAT NOT NULL,\
+        L_RETURNFLAG CHAR(1) NOT NULL,\
+        L_LINESTATUS CHAR(1) NOT NULL,\
+        L_SHIPDATE DATETIME NOT NULL,\
+        L_COMMITDATE DATETIME NOT NULL,\
+        L_RECEIPTDATE DATETIME NOT NULL,\
+        L_SHIPINSTRUCT CHAR(25) NOT NULL,\
+        L_SHIPMODE CHAR(10) NOT NULL,\
+        L_COMMENT VARCHAR(44) NOT NULL\
+    );
+    EOF
+    )
+    execute "$create_table_lineitem"
+    ```
+
+2. Select相关测试
+
+    这部分主要测试select语句的解析和执行情况，测试涉及到等值，不等值，复杂条件的查询。
+    设计的测试点如下：
+
+    ```shell
+    print_green "-------- Select Test --------"
+    execute "SELECT * FROM supplier where S_SUPPKEY = 10;"
+    execute "SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20;"
+    ```
+
+3. Join相关测试
+
+    这部分主要测试Join语句的解析和执行情况，测试涉及到等值，不等值，多表连接。
+    设计的测试点如下：
+
+    ```shell
+    print_green "=> 单条件等值连接"
+    print_green "==> 单条件等值连接"
+
+    execute "SELECT * FROM supplier, nation where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY;"
+
+    print_green "=> 单条件不等值连接"
+    execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE != C_PHONE;"
+
+    print_green "=> 多条件连接"
+    print_green "==> int, varchar上进行多条件连接"
+    execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_PHONE != C_PHONE AND S_SUPPKEY != C_CUSTKEY;"
+
+    print_green "=> 三表连接"
+    execute "SELECT S_NAME, C_NAME, N_NAME FROM supplier, customer, nation where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND C_NATIONKEY = N_NATIONKEY;"
+
+    print_green "=> 两表卡氏积连接"
+    execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10;"
+    ```
+
+## 5.2 小数据集结果展示
 
 ### 5.2.1 初始化数据库
 
@@ -1064,7 +1230,7 @@ draw_ast(){
    
 - SQL：
     ```sql
-   CREATE TABLE course(
+    CREATE TABLE course(
         c_id INTEGER NOT NULL,
         c_name VARCHAR(25) NOT NULL,
         c_teacher INTEGER
@@ -1219,7 +1385,7 @@ Delete语句的AST相似度比较高，因此我们只展示删除`student`表�
     ```
 - AST：
   
-    ![](./images/SQL36.png)
+    ![](./images/SQL38.png)
 
 - 结果：
 
@@ -1241,13 +1407,322 @@ DROP用于删除一个表，这里我们以删除`student`和`teacher`为例
   
     ![](./images/SQL41.png)
     
-  ![](./images/SQL42.png)
+    ![](./images/SQL42.png)
   
 - 结果：
 
     ![](./images/16.png)
 
     可以看到，在我们执行`DROP`操作之前，数据库中存在着`student`、`teacher`、`course`、`sc`四个表，执行了两次`DROP`操作之后，数据库中仅剩`course`、`sc`两个表。
+
+### 5.2.7 语法错误提示相关测试
+
+1. **测试语句1**
+- SQL：
+    ```sql
+    SELECT * FROM student WHERE s_id = ;
+    ```
+
+- 结果：
+
+    ![](./images/17.png)
+
+2. **测试语句2**
+- SQL：
+    ```sql
+    INSERT student VALUES() ;
+    ```
+
+- 结果：
+
+    ![](./images/18.png)
+
+从上面的结果我们可以看出，当遇到语法错误时，我们的parser
+能够准确地判断出错误的行号和列号，以及可能的出错原因。
+
+
+## 5.3 大数据集测试点展示
+
+### 5.3.1 Create Table相关测试
+
+1. **创建nation表**
+   
+- SQL：
+    ```sql
+    CREATE TABLE nation(
+        N_NATIONKEY INTEGER NOT NULL,
+        N_NAME CHAR(25) NOT NULL,
+        N_REGIONKEY INTEGER NOT NULL,
+        N_COMMENT VARCHAR(152)
+    );
+    ```
+
+- AST：
+    
+    ![](./images/SQL44.png)
+
+- 结果：
+
+    ![](./images/19.png)
+
+2. **创建region表**
+   
+- SQL：
+    ```sql
+    CREATE TABLE region(
+        R_REGIONKEY INTEGER NOT NULL,
+        R_NAME CHAR(25) NOT NULL,
+        R_COMMENT VARCHAR(152)
+    );
+    ```
+
+- AST：
+    
+    ![](./images/SQL45.png)
+
+- 结果：
+
+    ![](./images/20.png)
+
+3. **创建part表**
+   
+- SQL：
+    ```sql
+    CREATE TABLE part(
+        P_PARTKEY INTEGER NOT NULL,
+        P_NAME VARCHAR(55) NOT NULL,
+        P_MFGR CHAR(25) NOT NULL,
+        P_BRAND CHAR(10) NOT NULL,
+        P_TYPE VARCHAR(25) NOT NULL,
+        P_SIZE INTEGER NOT NULL,
+        P_CONTAINER CHAR(10) NOT NULL,
+        P_RETAILPRICE FLOAT NOT NULL,
+        P_COMMENT VARCHAR(23) NOT NULL
+    );
+    ```
+
+- AST：
+    
+    ![](./images/SQL46.png)
+
+- 结果：
+
+    ![](./images/21.png)
+
+4. **创建supplier表**
+   
+- SQL：
+    ```sql
+    CREATE TABLE supplier(
+        S_SUPPKEY INTEGER NOT NULL,
+        S_NAME CHAR(25) NOT NULL,
+        S_ADDRESS VARCHAR(40) NOT NULL,
+        S_NATIONKEY INTEGER NOT NULL,
+        S_PHONE CHAR(15) NOT NULL,
+        S_ACCTBAL FLOAT NOT NULL,
+        S_COMMENT VARCHAR(101) NOT NULL
+    );
+    ```
+
+- AST：
+    
+    ![](./images/SQL47.png)
+
+- 结果：
+
+    ![](./images/22.png)
+
+5. **创建customer表**
+   
+- SQL：
+    ```sql
+    CREATE TABLE customer(
+        C_CUSTKEY INTEGER NOT NULL,
+        C_NAME VARCHAR(25) NOT NULL,
+        C_ADDRESS VARCHAR(40) NOT NULL,
+        C_NATIONKEY INTEGER NOT NULL,
+        C_PHONE CHAR(15) NOT NULL,
+        C_ACCTBAL FLOAT NOT NULL,
+        C_MKTSEGMENT CHAR(10) NOT NULL,
+        C_COMMENT VARCHAR(117) NOT NULL
+    );
+    ```
+
+- AST：
+    
+    ![](./images/SQL48.png)
+
+- 结果：
+
+    ![](./images/23.png)
+
+6. **创建orders表**
+   
+- SQL：
+    ```sql
+    CREATE TABLE orders(
+        O_ORDERKEY INTEGER NOT NULL,
+        O_CUSTKEY INTEGER NOT NULL,
+        O_ORDERSTATUS CHAR(1) NOT NULL,
+        O_TOTALPRICE FLOAT NOT NULL,
+        O_ORDERDATE DATETIME NOT NULL,
+        O_ORDERPRIORITY CHAR(15) NOT NULL,
+        O_CLERK CHAR(15) NOT NULL,
+        O_SHIPPRIORITY INTEGER NOT NULL,
+        O_COMMENT VARCHAR(79) NOT NULL
+    );
+    ```
+
+- AST：
+    
+    ![](./images/SQL49.png)
+
+- 结果：
+
+    ![](./images/24.png)
+
+7. **创建lineitem表**
+   
+- SQL：
+    ```sql
+    CREATE TABLE lineitem(
+        L_ORDERKEY INTEGER NOT NULL,
+        L_PARTKEY INTEGER NOT NULL,
+        L_SUPPKEY INTEGER NOT NULL,
+        L_LINENUMBER INTEGER NOT NULL,
+        L_QUANTITY FLOAT NOT NULL,
+        L_EXTENDEDPRICE FLOAT NOT NULL,
+        L_DISCOUNT FLOAT NOT NULL,
+        L_TAX FLOAT NOT NULL,
+        L_RETURNFLAG CHAR(1) NOT NULL,
+        L_LINESTATUS CHAR(1) NOT NULL,
+        L_SHIPDATE DATETIME NOT NULL,
+        L_COMMITDATE DATETIME NOT NULL,
+        L_RECEIPTDATE DATETIME NOT NULL,
+        L_SHIPINSTRUCT CHAR(25) NOT NULL,
+        L_SHIPMODE CHAR(10) NOT NULL,
+        L_COMMENT VARCHAR(44) NOT NULL
+    );
+    ```
+
+- AST：
+    
+    ![](./images/SQL50.png)
+
+- 结果：
+
+    ![](./images/25.png)
+
+
+### 5.3.2 Select相关测试
+
+1. **等值选择**
+   
+- SQL：
+    ```sql
+    SELECT * FROM supplier where S_SUPPKEY = 10;
+    ```
+
+- AST：
+    
+    ![](./images/SQL54.png)
+
+- 结果：
+
+    ![](./images/26.png)
+
+2. **不等值选择**
+   
+- SQL：
+    ```sql
+    SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20;
+    ```
+
+- AST：
+    
+    ![](./images/SQL55.png)
+
+- 结果：
+
+    ![](./images/27.png)
+
+### 5.3.3 Join相关测试
+
+1. **单条件等值连接**
+   
+- SQL：
+    ```sql
+    SELECT * FROM supplier, nation where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY;
+    ```
+
+- AST：
+    
+    ![](./images/SQL65.png)
+
+- 结果：
+
+    ![](./images/28.png)
+
+2. **单条件不等值连接**
+   
+- SQL：
+    ```sql
+    SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE != C_PHONE;
+    ```
+
+- AST：
+    
+    ![](./images/SQL69.png)
+
+- 结果：
+
+    ![](./images/29.png)
+
+
+3. **多条件连接**
+   
+- SQL：
+    ```sql
+    SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_PHONE != C_PHONE AND S_SUPPKEY != C_CUSTKEY;
+    ```
+
+- AST：
+    
+    ![](./images/SQL70.png)
+
+- 结果：
+
+    ![](./images/30.png)
+
+4. **三表连接**
+   
+- SQL：
+    ```sql
+    SELECT S_NAME, C_NAME, N_NAME FROM supplier, customer, nation where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND C_NATIONKEY = N_NATIONKEY;
+    ```
+
+- AST：
+    
+    ![](./images/SQL71.png)
+
+- 结果：
+
+    ![](./images/31.png)
+
+5. **两表卡氏积连接**
+   
+- SQL：
+    ```sql
+    SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10;
+    ```
+
+- AST：
+    
+    ![](./images/SQL72.png)
+
+- 结果：
+
+    ![](./images/32.png)
 
 # 6 实验总结
 
