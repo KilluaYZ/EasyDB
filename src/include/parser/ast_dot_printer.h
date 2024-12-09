@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -48,6 +49,20 @@ class TreeDotPrinter {
     int _node_id = node_cnt++;
     *outfile << get_name_by_id(_node_id) << "[label=\"" << label << "\"]" << std::endl;
     return _node_id;
+  }
+
+  void print_orderby(std::shared_ptr<OrderBy> order_by, int parent) {
+    if (!order_by) return;
+    int _node_id = alloc_node("Order_By");
+    print_edge(_node_id, parent);
+    print_val(order_by->cols->col_name, _node_id);
+    std::string OrderDir = "ASC";
+    if (order_by->orderby_dir == OrderBy_DESC) {
+      OrderDir = "DESC";
+    } else if (order_by->orderby_dir == OrderBy_DEFAULT) {
+      OrderDir = "DEFAULT";
+    }
+    print_val(OrderDir, _node_id);
   }
 
   std::string get_name_by_id(int _node_id) {
@@ -88,8 +103,8 @@ class TreeDotPrinter {
 
   std::string op2str(SvCompOp op) {
     std::map<SvCompOp, std::string> m{
-        {SV_OP_EQ, "=="}, {SV_OP_NE, "!="}, {SV_OP_LT, "<"},  {SV_OP_GT, ">"},
-        {SV_OP_LE, "<="}, {SV_OP_GE, ">="}, {SV_OP_IN, "IN"},
+        {SV_OP_EQ, "=="},   {SV_OP_NE, "!="},   {SV_OP_LT, "\\<"}, {SV_OP_GT, "\\>"},
+        {SV_OP_LE, "\\<="}, {SV_OP_GE, "\\>="}, {SV_OP_IN, "IN"},
     };
     return m.at(op);
   }
@@ -174,7 +189,7 @@ class TreeDotPrinter {
       // std::cout << "COL" << std::endl;
       int _node_id = alloc_node("COL");
       print_edge(_node_id, parent);
-      print_val(x->tab_name, _node_id);
+      // print_val(x->tab_name, _node_id);
       print_val(x->col_name, _node_id);
     } else if (auto x = std::dynamic_pointer_cast<TypeLen>(node)) {
       // std::cout << "TYPE_LEN" << std::endl;
@@ -248,9 +263,15 @@ class TreeDotPrinter {
       // std::cout << "SELECT" << std::endl;
       int _node_id = alloc_node("SELECT");
       print_edge(_node_id, parent);
+      if (x->is_unique) {
+        print_val("UNIQUE", _node_id);
+      }
       print_node_list(x->cols, _node_id);
       print_val_list(x->tabs, _node_id);
       print_node_list(x->conds, _node_id);
+      if (x->order) {
+        print_orderby(x->order, _node_id);
+      }
     } else if (auto x = std::dynamic_pointer_cast<SetStmt>(node)) {
       // std::cout << "SET_STMT\n";
       int _node_id = alloc_node("SET_STMT");

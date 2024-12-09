@@ -54,12 +54,25 @@ DATA_PART_PATH=$DATA_PATH/part.tbl
 DATA_PARTSUPP_PATH=$DATA_PATH/partsupp.tbl
 DATA_REGION_PATH=$DATA_PATH/region.tbl
 DATA_TEST_PATH=$DATA_PATH/test.tbl
+DOT_ROOT=$SCRIPT_DIR/dots
+SQL_DOT_NUM=0
+
+draw_ast(){
+    DOT_OUT_PATH=$DOT_ROOT/SQL$SQL_DOT_NUM.dot
+    SVG_OUT_PATH=$DOT_ROOT/SQL$SQL_DOT_NUM.png
+    SQL_DOT_NUM=$((SQL_DOT_NUM + 1))
+    # echo "$1"
+    $ROOT_PATH/build/test/parser_ast_printer -s "$1" -o $DOT_OUT_PATH 
+    dot -T png $DOT_OUT_PATH -o $SVG_OUT_PATH 
+}
+
 execute(){
     print_blue "执行命令:"
     echo -e "$1 \n" >> out.sql 
-    if [ "$2" != "." ]; then
-        echo "$1; exit;" | $CLIENT_PATH -p $SERVE_PORT
-    fi
+    # if [ "$2" != "." ]; then
+    draw_ast "$1";
+    # fi
+    echo "$1; exit;" | $CLIENT_PATH -p $SERVE_PORT
 }
 
 execute_quiet(){
@@ -219,6 +232,12 @@ if [ -d "$DB_PATH" ]; then
     rm -rf $DB_PATH;
 fi
 
+if [ -d "$DOT_ROOT" ]; then 
+    rm -rf $DOT_ROOT;
+fi
+
+mkdir -p $DOT_ROOT
+
 # 首先启动server
 print_green "启动server"
 $SERVER_PATH -d $DB_PATH -p $SERVE_PORT > $SERVER_LOG_PATH 2>&1  &
@@ -283,7 +302,6 @@ execute "INSERT INTO student values(3, 'eee', 35, '2000-01-23');"
 execute "INSERT INTO student values(3, 'eee', 35, '2000-01-23');"
 execute "INSERT INTO student values(6, 'fff', 35, '1999-01-23');"
 
-
 execute "INSERT INTO teacher values(1, 'aaa', 35, '1999-01-23');"
 execute "INSERT INTO teacher values(2, 'ddd', 49, '1979-01-23');"
 execute "INSERT INTO teacher values(3, 'bbb', 50, '1959-01-23');"
@@ -306,43 +324,34 @@ execute "INSERT INTO sc values(4, 3);"
 execute "INSERT INTO sc values(5, 3);"
 execute "INSERT INTO sc values(6, 3);"
 
+print_green "=> Select"
 
-print_green "-------- NestLoop Test --------"
+# 测试SELCT语句基本用法
+execute "SELECT s_id, s_name, s_age, s_birthday FROM student;"
 
-print_green "=> 设置为NestLoop Join"
-execute "SET enable_nestloop = true;"
-execute "SET enable_sortmerge = false;"
-execute "SET enable_hashjoin = false;"
-execute "SELECT s_name, c_name FROM student, course, sc where s_id = sc_sid AND sc_cid = c_id;"
+print_green "==> order"
+# 测试SELCT语句带order by操作
+execute "SELECT s_id, s_name, s_age, s_birthday FROM student order by s_age;"
 
+print_green "==> unique"
+# 测试SELCT语句带unique操作
+execute "SELECT UNIQUE s_id, s_name, s_age, s_birthday FROM student;"
 
-print_green "-------- SortMerge Test --------"
+print_green "==> condition"
+# 测试SELCT语句带条件
+execute "SELECT s_id, s_name, s_age, s_birthday FROM student where s_age = 35;"
 
-print_green "=> 设置为SortMerge Join"
-execute "SET enable_nestloop = false;"
-execute "SET enable_sortmerge = true;"
-execute "SET enable_hashjoin = false;";
+print_green "===> condition order"
+# 测试SELCT语句带条件和order by
+execute "SELECT s_id, s_name, s_age, s_birthday FROM student where s_age = 35 order by s_birthday;"
 
-execute "SELECT s_name, c_name FROM student, course, sc where s_id = sc_sid AND sc_cid = c_id;"
+print_green "===> condition unique"
+# 测试SELCT语句带条件和unique
+execute "SELECT UNIQUE s_id, s_name, s_age, s_birthday FROM student where s_age = 35;"
 
-# print_green "=> Select"
-
-# execute "SELECT * FROM student;"
-
-# print_green "==> order"
-# execute "SELECT * FROM student order by s_age;"
-
-# print_green "==> unique"
-# execute "SELECT UNIQUE * FROM student;"
-
-# print_green "==> condition"
-# execute "SELECT * FROM student where s_age = 35;"
-
-# print_green "===> condition order"
-# execute "SELECT * FROM student where s_age = 35 order by s_birthday;"
-
-# print_green "===> condition unique"
-# execute "SELECT UNIQUE * FROM student where s_age = 35;"
+# 测试SELECT语句带join
+print_green "===> join"
+execute "SELECT s_id, s_name, s_age, s_birthday, c_name FROM student, course, sc WHERE s_id = sc_sid AND c_id = sc_cid;"
 
 # print_green "===> nested"
 # execute "SELECT * FROM student where s_age in (SELECT t_age from teacher);"
@@ -350,13 +359,16 @@ execute "SELECT s_name, c_name FROM student, course, sc where s_id = sc_sid AND 
 # print_green "===> group"
 # execute "SELECT s_age, COUNT(*) FROM student group by s_age;"
 
+print_green "=> Delete"
+execute "select * from student where s_id = 6;"
+execute "delete from student where s_id = 6;"
+execute "select * from student where s_id = 6;"
 
-
-# print_green "=> Drop Table"
-# execute "show tables;"
-# execute "drop table student;"
-# execute "drop table teacher;"
-# execute "show tables;"
+print_green "=> Drop Table"
+execute "show tables;"
+execute "drop table student;"
+execute "drop table teacher;"
+execute "show tables;"
 
 # print_green "------------- 大数据集 --------------"
 
