@@ -290,7 +290,8 @@ IxIndexHandle::IxIndexHandle(DiskManager *disk_manager, BufferPoolManager *buffe
  * 注意：用了FindLeafPage之后一定要unlatch叶结点，否则下次latch该结点会堵塞！
  * @note TOCHECK: find_first, then root_is_latched
  */
-std::pair<IxNodeHandle *, bool> IxIndexHandle::FindLeafPage(const char *key, Operation operation, bool find_first) {
+std::pair<IxNodeHandle *, bool> IxIndexHandle::FindLeafPage(const char *key, Operation operation,
+                                                            Transaction *transaction, bool find_first) {
   // Todo:
   // 1. 获取根节点
   // 2. 从根节点开始不断向下查找目标key
@@ -329,7 +330,7 @@ std::pair<IxNodeHandle *, bool> IxIndexHandle::FindLeafPage(const char *key, Ope
  * @param transaction 事务指针
  * @return bool 返回目标键值对是否存在
  */
-bool IxIndexHandle::GetValue(const char *key, std::vector<RID> *result) {
+bool IxIndexHandle::GetValue(const char *key, std::vector<RID> *result, Transaction *transaction) {
   // Todo:
   // 1. 获取目标key值所在的叶子结点
   // 2. 在叶子节点中查找目标key值的位置，并读取key对应的rid
@@ -341,7 +342,7 @@ bool IxIndexHandle::GetValue(const char *key, std::vector<RID> *result) {
   std::scoped_lock lock{root_latch_};
 
   // 1. Find the leaf node containing the target key
-  auto [leaf_node, root_is_latched] = FindLeafPage(key, Operation::FIND);
+  auto [leaf_node, root_is_latched] = FindLeafPage(key, Operation::FIND, transaction);
 
   if (leaf_node == nullptr) {
     return false;
@@ -435,7 +436,8 @@ IxNodeHandle *IxIndexHandle::Split(IxNodeHandle *node) {
  * @note TOCHECK: 注意！个人修改，外面无需 unpin
  * @note new_root 没有unpin, 且 old root(old_node) 会被调用者 unpin(FetchNode/find_leaf_page)
  */
-void IxIndexHandle::InsertIntoParent(IxNodeHandle *old_node, const char *key, IxNodeHandle *new_node) {
+void IxIndexHandle::InsertIntoParent(IxNodeHandle *old_node, const char *key, IxNodeHandle *new_node,
+                                     Transaction *transaction) {
   // Todo:
   // 1. 分裂前的结点（原结点, old_node）是否为根结点，如果为根结点需要分配新的root
   // 2. 获取原结点（old_node）的父亲结点
@@ -484,7 +486,7 @@ void IxIndexHandle::InsertIntoParent(IxNodeHandle *old_node, const char *key, Ix
   if (parent_node->GetSize() >= parent_node->GetMaxSize()) {
     IxNodeHandle *new_sibling = Split(parent_node);
     char *middle_key = new_sibling->GetKey(0);
-    InsertIntoParent(parent_node, middle_key, new_sibling);
+    InsertIntoParent(parent_node, middle_key, new_sibling, transaction);
     // unpin for Split: TOCHECK
     buffer_pool_manager_->UnpinPage(new_sibling->GetPageId(), true);
     delete new_sibling;
@@ -502,7 +504,7 @@ void IxIndexHandle::InsertIntoParent(IxNodeHandle *old_node, const char *key, Ix
  * @return page_id_t 插入到的叶结点的page_no
  * @note 若插入成功，则返回插入到的叶结点的page_no；若插入失败(重复的key)，则返回-1
  */
-page_id_t IxIndexHandle::InsertEntry(const char *key, const RID &value) {
+page_id_t IxIndexHandle::InsertEntry(const char *key, const RID &value, Transaction *transaction) {
   // Todo:
   // 1. 查找key值应该插入到哪个叶子节点
   // 2. 在该叶子节点中插入键值对
@@ -513,7 +515,7 @@ page_id_t IxIndexHandle::InsertEntry(const char *key, const RID &value) {
   std::scoped_lock lock{root_latch_};
 
   // 1. Find the leaf node where the key should be inserted
-  auto [leaf_node, root_is_latched] = FindLeafPage(key, Operation::INSERT);
+  auto [leaf_node, root_is_latched] = FindLeafPage(key, Operation::INSERT, transaction);
 
   if (leaf_node == nullptr) {
     throw InternalError("IxIndexHandle::insert_entry Error: Leaf node not found");
@@ -543,7 +545,7 @@ page_id_t IxIndexHandle::InsertEntry(const char *key, const RID &value) {
     char *middle_key = new_sibling->GetKey(0);
 
     // Insert the middle key into the parent node
-    InsertIntoParent(leaf_node, middle_key, new_sibling);
+    InsertIntoParent(leaf_node, middle_key, new_sibling, transaction);
 
     // Unpin the new sibling pinned in 'Split'
     buffer_pool_manager_->UnpinPage(new_sibling->GetPageId(), true);
@@ -568,7 +570,7 @@ page_id_t IxIndexHandle::InsertEntry(const char *key, const RID &value) {
  * @note TODO: 并发删除
  * @note TOCHECK: unpin_page before CoalesceOrRedistribute
  */
-bool IxIndexHandle::DeleteEntry(const char *key) {
+bool IxIndexHandle::DeleteEntry(const char *key, Transaction *transaction) {
   // Todo:
   // 1. 获取该键值对所在的叶子结点
   // 2. 在该叶子结点中删除键值对
@@ -579,7 +581,7 @@ bool IxIndexHandle::DeleteEntry(const char *key) {
   std::scoped_lock lock{root_latch_};
 
   // 1. Find the leaf node where the key should be deleted
-  auto [leaf_node, root_is_latched] = FindLeafPage(key, Operation::DELETE);
+  auto [leaf_node, root_is_latched] = FindLeafPage(key, Operation::DELETE, transaction);
   auto leaf_pageId = leaf_node->GetPageId();
 
   if (leaf_node == nullptr) {
@@ -599,7 +601,7 @@ bool IxIndexHandle::DeleteEntry(const char *key) {
 
   // 3. Coalesce or Redistribute the nodes if necessary
   // Memory leak prevention: We rely on CoalesceOrRedistribute to unpin and delete the node if return false
-  bool should_delete_node = CoalesceOrRedistribute(leaf_node, &root_is_latched);
+  bool should_delete_node = CoalesceOrRedistribute(leaf_node, transaction, &root_is_latched);
 
   // TODO: 4. Handle concurrent deletion and node removal if necessary
   if (should_delete_node) {
@@ -630,7 +632,7 @@ bool IxIndexHandle::DeleteEntry(const char *key) {
  * @note Memory leak prevention: This function will unpin and delete the node if return false
  * @note TOOPT: 1.2 如果传入del的位置(0 or size-1)，可以避免不必要的matain_parent操作
  */
-bool IxIndexHandle::CoalesceOrRedistribute(IxNodeHandle *node, bool *root_is_latched) {
+bool IxIndexHandle::CoalesceOrRedistribute(IxNodeHandle *node, Transaction *transaction, bool *root_is_latched) {
   // Todo:
   // 1. 判断node结点是否为根节点
   //    1.1 如果是根节点，需要调用AdjustRoot() 函数来进行处理，返回根节点是否需要被删除
@@ -686,7 +688,7 @@ bool IxIndexHandle::CoalesceOrRedistribute(IxNodeHandle *node, bool *root_is_lat
     delete_node = true;
 
     // 5. Otherwise, Coalesce the nodes
-    bool del_parent = Coalesce(&sibling_node, &node, &parent_node, node_index, root_is_latched);
+    bool del_parent = Coalesce(&sibling_node, &node, &parent_node, node_index, transaction, root_is_latched);
 
     // If Coalesce() returns true, it means the parent node also needs to be deleted
     // This can be reached by deleting a key in the parent node,
@@ -833,7 +835,7 @@ void IxIndexHandle::Redistribute(IxNodeHandle *neighbor_node, IxNodeHandle *node
  * @note Delete the parent node if return false. Delete the neighbor_node no matter what. Cannot delete node here.
  */
 bool IxIndexHandle::Coalesce(IxNodeHandle **neighbor_node, IxNodeHandle **node, IxNodeHandle **parent, int index,
-                             bool *root_is_latched) {
+                             Transaction *transaction, bool *root_is_latched) {
   // Todo:
   // 1. 用index判断neighbor_node是否为node的前驱结点，若不是则交换两个结点，让neighbor_node作为左结点，node作为右结点
   // 2. 把node结点的键值对移动到neighbor_node中，并更新node结点孩子结点的父节点信息（调用maintain_child函数）
@@ -883,7 +885,7 @@ bool IxIndexHandle::Coalesce(IxNodeHandle **neighbor_node, IxNodeHandle **node, 
 
   // Check if the parent node needs to be deleted
   // Memory leak prevention: belowing function will unpin and delete the parent if return false
-  return CoalesceOrRedistribute(*parent, root_is_latched);
+  return CoalesceOrRedistribute(*parent, transaction, root_is_latched);
 }
 
 /**
@@ -921,7 +923,7 @@ Iid IxIndexHandle::LowerBound(const char *key) {
   // std::scoped_lock latch{root_latch_};
 
   // 1. Find the leaf page containing the target key
-  auto [leaf_node, root_is_latched] = FindLeafPage(key, Operation::FIND);
+  auto [leaf_node, root_is_latched] = FindLeafPage(key, Operation::FIND, nullptr);
 
   if (leaf_node == nullptr) {
     throw InternalError("IxIndexHandle::LowerBound Error: Leaf node not found");
@@ -964,7 +966,7 @@ Iid IxIndexHandle::UpperBound(const char *key) {
   // std::scoped_lock latch{root_latch_};
 
   // 1. Find the leaf page containing the target key
-  auto [leaf_node, root_is_latched] = FindLeafPage(key, Operation::FIND);
+  auto [leaf_node, root_is_latched] = FindLeafPage(key, Operation::FIND, nullptr);
 
   if (leaf_node == nullptr) {
     throw InternalError("IxIndexHandle::UpperBound Error: Leaf node not found");

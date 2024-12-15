@@ -17,6 +17,7 @@
 #include "bitmap.h"
 #include "buffer/buffer_pool_manager.h"
 #include "common/config.h"
+#include "common/context.h"
 #include "common/rid.h"
 #include "rm_defs.h"
 #include "storage/disk/disk_manager.h"
@@ -172,11 +173,20 @@ class RmFileHandle {
   auto InsertTuple(const TupleMeta &meta, const Tuple &tuple) -> std::optional<RID>;
 
   /**
+   * Insert a tuple into the table for rollback.
+   * @param meta tuple meta
+   * @param tuple tuple to insert
+   * @param rid the rid of the inserted tuple
+   * @return true if the insert is successful
+   */
+  auto InsertTuple(RID rid, const TupleMeta &meta, const Tuple &tuple) -> bool;
+
+  /**
    * Delete a tuple from the table.
    * @param rid rid of the tuple to delete
    * @return true if the delete is successful
    */
-  auto DeleteTuple(RID rid) -> bool;
+  auto DeleteTuple(RID rid, Context *context) -> bool;
 
   /**
    * Update a tuple in place.
@@ -208,7 +218,7 @@ class RmFileHandle {
    * @param rid rid of the tuple to read
    * @return the tuple
    */
-  auto GetTupleValue(const RID &rid) -> std::unique_ptr<Tuple> ;
+  auto GetTupleValue(const RID &rid, Context *context) -> std::unique_ptr<Tuple>;
 
   /**
    * Read a tuple meta from the table. Note: if you want to get tuple and meta together, use `GetTuple` instead

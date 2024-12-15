@@ -21,6 +21,7 @@
 #include "buffer/buffer_pool_manager.h"
 #include "common/errors.h"
 #include "common/rid.h"
+#include "transaction/transaction.h"
 
 namespace easydb {
 
@@ -227,36 +228,29 @@ class IxIndexHandle {
   int GetFd() const { return fd_; }
 
   // for search
-  // bool get_value(const char *key, std::vector<RID> *result, Transaction *transaction);
-  bool GetValue(const char *key, std::vector<RID> *result);
+  bool GetValue(const char *key, std::vector<RID> *result, Transaction *transaction);
 
-  //   std::pair<IxNodeHandle *, bool> find_leaf_page(const char *key, Operation operation, Transaction *transaction,
-  //                                                  bool find_first = false);
-  std::pair<IxNodeHandle *, bool> FindLeafPage(const char *key, Operation operation, bool find_first = false);
+  std::pair<IxNodeHandle *, bool> FindLeafPage(const char *key, Operation operation, Transaction *transaction,
+                                               bool find_first = false);
 
   // for insert
-  //   page_id_t insert_entry(const char *key, const RID &value, Transaction *transaction);
-  page_id_t InsertEntry(const char *key, const RID &value);
+  page_id_t InsertEntry(const char *key, const RID &value, Transaction *transaction);
 
   IxNodeHandle *Split(IxNodeHandle *node);
 
-  //   void InsertIntoParent(IxNodeHandle *old_node, const char *key, IxNodeHandle *new_node, Transaction
-  //   *transaction);
-  void InsertIntoParent(IxNodeHandle *old_node, const char *key, IxNodeHandle *new_node);
+  void InsertIntoParent(IxNodeHandle *old_node, const char *key, IxNodeHandle *new_node, Transaction *transaction);
 
   // for delete
-  //   bool delete_entry(const char *key, Transaction *transaction);
-  bool DeleteEntry(const char *key);
+  bool DeleteEntry(const char *key, Transaction *transaction);
 
-  //   bool CoalesceOrRedistribute(IxNodeHandle *node, Transaction *transaction = nullptr,
-  bool CoalesceOrRedistribute(IxNodeHandle *node, bool *root_is_latched = nullptr);
+  bool CoalesceOrRedistribute(IxNodeHandle *node, Transaction *transaction = nullptr, bool *root_is_latched = nullptr);
+
   bool AdjustRoot(IxNodeHandle *old_root_node);
 
   void Redistribute(IxNodeHandle *neighbor_node, IxNodeHandle *node, IxNodeHandle *parent, int index);
 
-  // Transaction *transaction, bool *root_is_latched);
   bool Coalesce(IxNodeHandle **neighbor_node, IxNodeHandle **node, IxNodeHandle **parent, int index,
-                bool *root_is_latched);
+                Transaction *transaction, bool *root_is_latched);
 
   bool Erase();
 

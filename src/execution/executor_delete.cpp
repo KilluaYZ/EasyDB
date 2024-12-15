@@ -38,8 +38,8 @@ std::unique_ptr<Tuple> DeleteExecutor::Next() {
     RID rid = rids_[i];
 
     // get records
-    // auto rec = fh_->GetTupleValue(rid, context_);
-    auto rec = fh_->GetTupleValue(rid);
+    auto rec = fh_->GetTupleValue(rid, context_);
+    // auto rec = fh_->GetTupleValue(rid);
 
     // delete corresponding index
     for (auto index : tab_.indexes) {
@@ -50,7 +50,7 @@ std::unique_ptr<Tuple> DeleteExecutor::Next() {
       int offset = 0;
       for (int i = 0; i < index.col_num; ++i) {
         auto val = key_tuple.GetValue(&key_schema, i);
-        memcpy(key + offset, val.GetData(), val.GetStorageSize());
+        ix_memcpy(key + offset, val, index.cols[i].len);
         offset += index.cols[i].len;
       }
       //   // Wait for GAP lock first
@@ -58,13 +58,11 @@ std::unique_ptr<Tuple> DeleteExecutor::Next() {
       //     Iid lower = ih->LowerBound(key);
       //     context_->lock_mgr_->handle_index_gap_wait_die(context_->txn_, lower, fh_->GetFd());
       //   }
-      //   ih->DeleteEntry(key, context_->txn_);
-      ih->DeleteEntry(key);
+      ih->DeleteEntry(key, context_->txn_);
     }
 
     // delete records
-    // fh_->delete_record(rid, context_);
-    fh_->DeleteTuple(rid);
+    fh_->DeleteTuple(rid, context_);
 
     // // Log the delete operation
     // DeleteLogRecord del_log_rec(context_->txn_->get_transaction_id(), *rec, rid, tab_name_);
@@ -74,9 +72,9 @@ std::unique_ptr<Tuple> DeleteExecutor::Next() {
     // // set lsn in page header
     // fh_->SetPageLSN(rid.GetPageId(), lsn);
 
-    // // Update context_ for rollback
-    // WriteRecord *write_record = new WriteRecord(WType::DELETE_TUPLE, tab_name_, rid, *rec);
-    // context_->txn_->append_write_record(write_record);
+    // Update context_ for rollback
+    WriteRecord *write_record = new WriteRecord(WType::DELETE_TUPLE, tab_name_, rid, *rec);
+    context_->txn_->AppendWriteRecord(write_record);
 
     sm_manager_->UpdateTableCount(tab_name_, -1);
   }

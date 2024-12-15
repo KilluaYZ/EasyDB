@@ -24,6 +24,7 @@ See the Mulan PSL v2 for more details. */
 #include "record/rm_defs.h"
 #include "record/rm_scan.h"
 #include "storage/index/ix_defs.h"
+#include "storage/table/tuple.h"
 #include "system/sm_meta.h"
 #include "type/type_id.h"
 
@@ -361,7 +362,7 @@ void SmManager::CreateIndex(const std::string &tab_name, const std::vector<std::
   while (!rmScan.IsEnd()) {
     auto rid = rmScan.GetRid();
     // auto rec = Rfh->GetRecord(rid, context);
-    auto tuple = Rfh->GetTupleValue(rid);
+    auto tuple = Rfh->GetTupleValue(rid, context);
     auto key_tuple = Rfh->GetKeyTuple(tab_meta.schema, key_schema, key_ids, rid);
     // construct key
     char *key = new char[index_meta.col_tot_len];
@@ -388,11 +389,9 @@ void SmManager::CreateIndex(const std::string &tab_name, const std::vector<std::
     // std::cout << "key(int): " << std::to_string(*(int *)key) << std::endl;
     int pos = -1;
     if (context != nullptr) {
-      // Iih->InsertEntry(key, rid, context->txn_);
-      pos = Iih->InsertEntry(key, rid);
+      Iih->InsertEntry(key, rid, context->txn_);
     } else {
-      // Iih->InsertEntry(key, rid, nullptr);
-      pos = Iih->InsertEntry(key, rid);
+      Iih->InsertEntry(key, rid, nullptr);
     }
     if (pos == -1) {
       throw Exception("Insert index entry failed(duplicate key). Is the index unique?");
@@ -474,10 +473,10 @@ void SmManager::Rollback(WriteRecord *write_record, Context *context) {
       RollbackInsert(write_record->GetTableName(), write_record->GetRid(), context);
       break;
     case WType::DELETE_TUPLE:
-      RollbackDelete(write_record->GetTableName(), write_record->GetRid(), write_record->GetRecord(), context);
+      RollbackDelete(write_record->GetTableName(), write_record->GetRid(), write_record->GetTuple(), context);
       break;
     case WType::UPDATE_TUPLE:
-      RollbackUpdate(write_record->GetTableName(), write_record->GetRid(), write_record->GetRecord(), context);
+      RollbackUpdate(write_record->GetTableName(), write_record->GetRid(), write_record->GetTuple(), context);
       break;
     default:
       throw InternalError("SmManager::rollback: Invalid write type");
@@ -494,23 +493,29 @@ void SmManager::Rollback(WriteRecord *write_record, Context *context) {
  * @todo DeleteLogRecord
  */
 void SmManager::RollbackInsert(const std::string &table_name, RID &rid, Context *context) {
-  // auto fh = fhs_.at(table_name).get();
+  auto fh = fhs_.at(table_name).get();
   // auto record = fh->GetRecord(rid, context);
-  // // Delete from index
-  // for (auto &index : db_.get_table(table_name).indexes) {
-  //   auto index_name = ix_manager_->GetIndexName(table_name, index.cols);
-  //   auto Iih = ihs_.at(index_name).get();
-  //   char *key = new char[index.col_tot_len];
-  //   int offset = 0;
-  //   for (int i = 0; i < index.col_num; ++i) {
-  //     memcpy(key + offset, record->data + index.cols[i].offset, index.cols[i].len);
-  //     offset += index.cols[i].len;
-  //   }
-  //   Iih->DeleteEntry(key, context->txn_);
-  //   delete[] key;
-  // }
-  // // Delete from table
-  // fh->DeleteTuple(rid, context);
+  auto rec = fh->GetTupleValue(rid, context);
+
+  // Delete from index
+  auto tab = db_.get_table(table_name);
+  for (auto &index : tab.indexes) {
+    auto index_name = ix_manager_->GetIndexName(table_name, index.cols);
+    auto ih = ihs_.at(index_name).get();
+    auto key_schema = Schema::CopySchema(&tab.schema, index.col_ids);
+    auto key_tuple = fh->GetKeyTuple(tab.schema, key_schema, index.col_ids, rid);
+    char *key = new char[index.col_tot_len];
+    int offset = 0;
+    for (int i = 0; i < index.col_num; ++i) {
+      auto val = key_tuple.GetValue(&key_schema, i);
+      ix_memcpy(key + offset, val, index.cols[i].len);
+      offset += index.cols[i].len;
+    }
+    ih->DeleteEntry(key, context->txn_);
+    delete[] key;
+  }
+  // Delete from table
+  fh->DeleteTuple(rid, context);
 
   // // TODO: DeleteLogRecord(CLR)
   // DeleteLogRecord del_log_rec(context->txn_->get_transaction_id(), *record, rid, table_name);
@@ -534,39 +539,44 @@ void SmManager::RollbackInsert(const std::string &table_name, RID &rid, Context 
  * @param context The context object for the current transaction.
  * @todo InsertLogRecord
  */
-void SmManager::RollbackDelete(const std::string &table_name, RID &rid, RmRecord &record, Context *context) {
-  // // insert the record back into the record file
-  // auto fh = fhs_.at(table_name).get();
-  // fh->InsertTuple(rid, record.data);
+void SmManager::RollbackDelete(const std::string &table_name, RID &rid, Tuple &tuple, Context *context) {
+  // insert the record back into the record file
+  auto fh = fhs_.at(table_name).get();
+  fh->InsertTuple(rid, TupleMeta{0, false}, tuple);
 
-  // // // TODO: InsertLogRecord(CLR)
-  // // InsertLogRecord insert_log_rec(context->txn_->get_transaction_id(), record, rid, table_name);
-  // // insert_log_rec.prev_lsn_ = context->txn_->get_prev_lsn();
-  // // lsn_t lsn = context->log_mgr_->add_log_to_buffer(&insert_log_rec);
-  // // context->txn_->set_prev_lsn(lsn);
-  // // // set lsn in page header
-  // // fh->set_page_lsn(rid.page_no, lsn);
+  // // TODO: InsertLogRecord(CLR)
+  // InsertLogRecord insert_log_rec(context->txn_->get_transaction_id(), record, rid, table_name);
+  // insert_log_rec.prev_lsn_ = context->txn_->get_prev_lsn();
+  // lsn_t lsn = context->log_mgr_->add_log_to_buffer(&insert_log_rec);
+  // context->txn_->set_prev_lsn(lsn);
+  // // set lsn in page header
+  // fh->set_page_lsn(rid.page_no, lsn);
 
-  // // Set lsn(abort lsn) in page header(not CLR lsn)
-  // fh->SetPageLSN(rid.GetPageId(), context->txn_->get_prev_lsn());
+  // Set lsn(abort lsn) in page header(not CLR lsn)
+  fh->SetPageLSN(rid.GetPageId(), context->txn_->get_prev_lsn());
 
-  // // insert the index entry back into the index file
-  // for (auto &index : db_.get_table(table_name).indexes) {
-  //   auto index_name = ix_manager_->GetIndexName(table_name, index.cols);
-  //   auto Iih = ihs_.at(index_name).get();
-  //   char *key = new char[index.col_tot_len];
-  //   int offset = 0;
-  //   for (int i = 0; i < index.col_num; ++i) {
-  //     memcpy(key + offset, record.data + index.cols[i].offset, index.cols[i].len);
-  //     offset += index.cols[i].len;
-  //   }
-  //   auto is_insert = Iih->InsertEntry(key, rid, context->txn_);
-  //   if (is_insert == -1) {
-  //     // should not happen because this is logged
-  //     throw InternalError("SmManager::rollback_delete: index entry not found");
-  //   }
-  //   delete[] key;
-  // }
+  // insert the index entry back into the index file
+  auto tab = db_.get_table(table_name);
+  for (auto index : tab.indexes) {
+    auto ih = ihs_.at(ix_manager_->GetIndexName(table_name, index.cols)).get();
+    auto key_schema = Schema::CopySchema(&tab.schema, index.col_ids);
+    auto key_tuple = fh->GetKeyTuple(tab.schema, key_schema, index.col_ids, rid);
+    char *key = new char[index.col_tot_len];
+    int offset = 0;
+    for (int i = 0; i < index.col_num; ++i) {
+      auto val = key_tuple.GetValue(&key_schema, i);
+      ix_memcpy(key + offset, val, index.cols[i].len);
+      offset += index.cols[i].len;
+    }
+    auto is_insert = ih->InsertEntry(key, rid, context->txn_);
+    delete[] key;
+
+    if (is_insert == -1) {
+      // should not happen because this is logged
+      throw InternalError("SmManager::rollback_delete: index entry not found");
+    }
+    delete[] key;
+  }
 }
 
 /**
@@ -575,60 +585,65 @@ void SmManager::RollbackDelete(const std::string &table_name, RID &rid, RmRecord
  *
  * @param table_name The name of the table where the record was updated.
  * @param rid The Rid of the updated record.
- * @param record The updated record.
+ * @param tuple The updated record.
  * @param context The context object for the current transaction.
  * @todo UpdateLogRecord
  */
-void SmManager::RollbackUpdate(const std::string &table_name, RID &rid, RmRecord &record, Context *context) {
-  // auto fh = fhs_.at(table_name).get();
-  // // get the new record
-  // auto new_record = fh->get_record(rid, context);
+void SmManager::RollbackUpdate(const std::string &table_name, RID &rid, Tuple &tuple, Context *context) {
+  auto fh = fhs_.at(table_name).get();
+  auto tab = db_.get_table(table_name);
+  // get the new record
+  auto new_tuple = fh->GetTupleValue(rid, context);
+  auto new_values = new_tuple->GetValueVec(&tab.schema);
+  auto values = tuple.GetValueVec(&tab.schema);
 
-  // // // TODO: UpdateLogRecord(CLR)
-  // // // Log: before update value because the object of new_record(a ptr) will be changed in 'update_record'
-  // // UpdateLogRecord update_log_rec(context->txn_->get_transaction_id(), *new_record, record, rid, table_name);
+  // // TODO: UpdateLogRecord(CLR)
+  // // Log: before update value because the object of new_record(a ptr) will be changed in 'update_record'
+  // UpdateLogRecord update_log_rec(context->txn_->get_transaction_id(), *new_record, record, rid, table_name);
 
-  // // update the record to the old record
-  // fh->update_record(rid, record.data, context);
+  // update the record to the old record
+  // fh->UpdateTupleInPlace(TupleMeta{0, false}, tuple, rid, context);
+  fh->UpdateTupleInPlace(TupleMeta{0, false}, tuple, rid);
 
-  // // // Log: after update
-  // // update_log_rec.prev_lsn_ = context->txn_->get_prev_lsn();
-  // // lsn_t lsn = context->log_mgr_->add_log_to_buffer(&update_log_rec);
-  // // context->txn_->set_prev_lsn(lsn);
-  // // // set lsn in page header
-  // // fh->set_page_lsn(rid.page_no, lsn);
+  // // Log: after update
+  // update_log_rec.prev_lsn_ = context->txn_->get_prev_lsn();
+  // lsn_t lsn = context->log_mgr_->add_log_to_buffer(&update_log_rec);
+  // context->txn_->set_prev_lsn(lsn);
+  // // set lsn in page header
+  // fh->set_page_lsn(rid.page_no, lsn);
 
-  // // Set lsn(abort lsn) in page header(not CLR lsn)
-  // fh->SetPageLSN(rid.GetPageId(), context->txn_->get_prev_lsn());
+  // Set lsn(abort lsn) in page header(not CLR lsn)
+  fh->SetPageLSN(rid.GetPageId(), context->txn_->get_prev_lsn());
 
-  // // update the index entry in the index file
-  // for (auto &index : db_.get_table(table_name).indexes) {
-  //   auto index_name = ix_manager_->GetIndexName(table_name, index.cols);
-  //   auto Iih = ihs_.at(index_name).get();
-  //   char *old_key = new char[index.col_tot_len];
-  //   char *new_key = new char[index.col_tot_len];
-  //   int offset = 0;
-  //   for (int i = 0; i < index.col_num; ++i) {
-  //     memcpy(old_key + offset, record.data + index.cols[i].offset, index.cols[i].len);
-  //     memcpy(new_key + offset, new_record->data + index.cols[i].offset, index.cols[i].len);
-  //     offset += index.cols[i].len;
-  //   }
-  //   // check if the key is the same as before
-  //   if (memcmp(old_key, new_key, index.col_tot_len) == 0) {
-  //     delete[] old_key;
-  //     delete[] new_key;
-  //     continue;
-  //   }
-  //   // check if the new key duplicated
-  //   auto is_insert = Iih->InsertEntry(old_key, rid, context->txn_);
-  //   if (is_insert == -1) {
-  //     // should not happen because this is logged
-  //     throw InternalError("SmManager::rollback_update: index entry not found");
-  //   }
-  //   Iih->DeleteEntry(new_key, context->txn_);
-  //   delete[] old_key;
-  //   delete[] new_key;
-  // }
+  // update the index entry in the index file
+  for (auto index : tab.indexes) {
+    auto ih = ihs_.at(ix_manager_->GetIndexName(table_name, index.cols)).get();
+    auto ids = index.col_ids;
+    char *key_d = new char[index.col_tot_len];
+    char *key_i = new char[index.col_tot_len];
+    int offset = 0;
+    for (int i = 0; i < index.col_num; ++i) {
+      auto id = ids[i];
+      auto val_d = new_values[id];
+      auto val_i = values[id];
+      ix_memcpy(key_d + offset, val_d, index.cols[i].len);
+      ix_memcpy(key_i + offset, val_i, index.cols[i].len);
+      offset += index.cols[i].len;
+    }
+    // check if the key is the same as before
+    if (memcmp(key_d, key_i, index.col_tot_len) == 0) {
+      continue;
+    }
+    // check if the new key duplicated
+    auto is_insert = ih->InsertEntry(key_i, rid, context->txn_);
+    if (is_insert == -1) {
+      // should not happen because this is logged
+      throw InternalError("SmManager::rollback_update: index entry not found");
+    }
+    ih->DeleteEntry(key_d, context->txn_);
+    delete[] key_d;
+    delete[] key_i;
+  }
 }
 
 /**

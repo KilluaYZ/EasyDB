@@ -425,7 +425,7 @@ TEST(EasyDBTest, SimpleTest) {
         }
         offset += index_meta.cols[i].len;
       }
-      Ixh->InsertEntry(key, rid);
+      Ixh->InsertEntry(key, rid, nullptr);
       delete[] key;
       scan.Next();
     }
@@ -438,16 +438,16 @@ TEST(EasyDBTest, SimpleTest) {
     // 索引查找
     std::cerr << "[TEST] ==> 查找b+树索引" << std::endl;
     std::vector<RID> target_rid;
-    Ixh->GetValue(target_key, &target_rid);
+    Ixh->GetValue(target_key, &target_rid, nullptr);
     EXPECT_EQ(target_rid[0], delete_rid);
 
     // 修改索引
-    Ixh->DeleteEntry(delete_key);
-    Ixh->InsertEntry(delete_key, delete_rid);
+    Ixh->DeleteEntry(delete_key, nullptr);
+    Ixh->InsertEntry(delete_key, delete_rid, nullptr);
 
     // 删除索引
     std::cerr << "[TEST] ===> 删除索引" << std::endl;
-    EXPECT_TRUE(Ixh->DeleteEntry(delete_key));
+    EXPECT_TRUE(Ixh->DeleteEntry(delete_key, nullptr));
 
     std::cerr << "[TEST] => B+树索引测试完毕" << std::endl;
     delete[] delete_key;

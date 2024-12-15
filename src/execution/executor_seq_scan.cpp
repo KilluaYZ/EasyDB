@@ -12,7 +12,8 @@
 
 namespace easydb {
 
-SeqScanExecutor::SeqScanExecutor(SmManager *sm_manager, std::string tab_name, std::vector<Condition> conds, Context *context) {
+SeqScanExecutor::SeqScanExecutor(SmManager *sm_manager, std::string tab_name, std::vector<Condition> conds,
+                                 Context *context) {
   sm_manager_ = sm_manager;
   tab_name_ = std::move(tab_name);
   conds_ = std::move(conds);
@@ -22,11 +23,11 @@ SeqScanExecutor::SeqScanExecutor(SmManager *sm_manager, std::string tab_name, st
   cols_ = tab.cols;
   // len_ = cols_.back().offset + cols_.back().len;
   len_ = schema_.GetInlinedStorageSize();
-  
+
   context_ = context;
-  
+
   fed_conds_ = conds_;
-  
+
   // // lock table
   // if (context_ != nullptr) {
   //   context_->lock_mgr_->lock_shared_on_table(context_->txn_, fh_->GetFd());
@@ -49,7 +50,7 @@ void SeqScanExecutor::nextTuple() {
   } while (!IsEnd() && !predicate());
 }
 
-std::unique_ptr<Tuple> SeqScanExecutor::Next() { return fh_->GetTupleValue(rid_); }
+std::unique_ptr<Tuple> SeqScanExecutor::Next() { return fh_->GetTupleValue(rid_, context_); }
 
 bool SeqScanExecutor::predicate() {
   auto tuple = *this->Next();
@@ -81,14 +82,14 @@ bool SeqScanExecutor::predicate() {
       cond.is_rhs_exe_processed = true;
     }
     Value lhs_v, rhs_v;
-    lhs_v = tuple.GetValue(&schema_,cond.lhs_col.col_name);
+    lhs_v = tuple.GetValue(&schema_, cond.lhs_col.col_name);
     // if (lhs_v.GetData() == nullptr) {
     //   throw InternalError("target column not found.");
     // }
     if (cond.is_rhs_val) {
       rhs_v = cond.rhs_val;
     } else if (cond.op != OP_IN) {
-      rhs_v = tuple.GetValue(&schema_,cond.rhs_col.col_name);
+      rhs_v = tuple.GetValue(&schema_, cond.rhs_col.col_name);
       // rhs_v.get_value_from_tuple(tuple, cols_, cond.rhs_col.col_name)
       // if(rhs_v.GetData() == nullptr){
       //   throw InternalError("target column not found.");

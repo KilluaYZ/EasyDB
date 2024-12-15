@@ -56,6 +56,8 @@ std::unique_ptr<Tuple> InsertExecutor::Next() {
 
   // Insert into record file
   auto rid = fh_->InsertTuple(TupleMeta{0, false}, tuple);
+  // auto page_id = rid->GetPageId();
+  // auto slot_num = rid->GetSlotNum();
   rid_ = RID{rid->GetPageId(), rid->GetSlotNum()};
 
   // // Log the insert operation
@@ -76,16 +78,15 @@ std::unique_ptr<Tuple> InsertExecutor::Next() {
     for (int i = 0; i < index.col_num; ++i) {
       // memcpy(key + offset, rec.data + index.cols[i].offset, index.cols[i].len);
       auto val = key_tuple.GetValue(&key_schema, i);
-      memcpy(key + offset, val.GetData(), val.GetStorageSize());
+      // memcpy(key + offset, val.GetData(), val.GetStorageSize());
+      ix_memcpy(key + offset, val, index.cols[i].len);
       offset += index.cols[i].len;
     }
-    // auto is_insert = ih->InsertEntry(key, rid_, context_->txn_);
-    auto is_insert = ih->InsertEntry(key, rid_);
+    auto is_insert = ih->InsertEntry(key, rid_, context_->txn_);
     delete[] key;
 
     if (is_insert == -1) {
-      // fh_->DeleteTuple(rid_, context_);
-      fh_->DeleteTuple(rid_);
+      fh_->DeleteTuple(rid_, context_);
       std::vector<std::string> col_names;
       for (auto col : index.cols) {
         col_names.emplace_back(col.name);
@@ -94,9 +95,9 @@ std::unique_ptr<Tuple> InsertExecutor::Next() {
     }
   }
 
-  // // Update context_ for rollback (be sure to update after record insert)
-  // WriteRecord *write_record = new WriteRecord(WType::INSERT_TUPLE, tab_name_, rid_);
-  // context_->txn_->append_write_record(write_record);
+  // Update context_ for rollback (be sure to update after record insert)
+  WriteRecord *write_record = new WriteRecord(WType::INSERT_TUPLE, tab_name_, rid_);
+  context_->txn_->AppendWriteRecord(write_record);
 
   sm_manager_->UpdateTableCount(tab_name_, 1);
 
