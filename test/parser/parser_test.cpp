@@ -27,6 +27,7 @@ int main() {
       // "create static_checkpoint;",
       // "load ../../src/test/performance_test/table_data/warehouse.csv into warehouse;",
       // "set output_file off",
+      "set enable_optimizer = true;",
       "create table history (h_c_id int, h_date datetime);",
       // "exit;",
       // "help;",

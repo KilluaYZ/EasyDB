@@ -36,6 +36,8 @@ class Planner {
   bool enable_sortmerge_join = false;
   bool enable_hash_join = false;
 
+  bool enable_optimizer = true;
+
  public:
   Planner(SmManager *sm_manager) : sm_manager_(sm_manager) {}
 
@@ -46,6 +48,10 @@ class Planner {
   void set_enable_sortmerge_join(bool set_val) { enable_sortmerge_join = set_val; }
 
   void setEnableHashJoin(bool set_val) { enable_hash_join = set_val; }
+
+  void SetEnableOptimizer(bool set_val) { enable_optimizer = set_val; }
+
+  bool GetEnableOptimizer() { return enable_optimizer; }
 
  private:
   std::shared_ptr<Query> logical_optimization(std::shared_ptr<Query> query, Context *context);

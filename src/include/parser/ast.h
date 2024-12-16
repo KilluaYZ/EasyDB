@@ -26,7 +26,7 @@ enum SvArithOp { SV_OP_PLUS, SV_OP_MINUS, SV_OP_MUL, SV_OP_DIV };
 
 enum OrderByDir { OrderBy_DEFAULT, OrderBy_ASC, OrderBy_DESC };
 
-enum SetKnobType { EnableNestLoop, EnableSortMerge, EnableHashJoin, EnableOutput };
+enum SetKnobType { EnableNestLoop, EnableSortMerge, EnableHashJoin, EnableOutput, EnableOptimizer };
 
 // Base class for tree nodes
 struct TreeNode {

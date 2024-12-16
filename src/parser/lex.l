@@ -95,6 +95,7 @@ arith_op "+"|"-"|"*"|"/"
 "ENABLE_NESTLOOP" { return ENABLE_NESTLOOP; }
 "ENABLE_SORTMERGE" { return ENABLE_SORTMERGE; }
 "ENABLE_HASHJOIN" { return ENABLE_HASHJOIN; }
+"ENABLE_OPTIMIZER" { return ENABLE_OPTIMIZER; }
 "AS" {return AS;}
 "COUNT" { return COUNT;}
 "MAX" { return MAX; }

@@ -134,6 +134,7 @@ void *client_handler(void *sock_fd) {
           finish_analyze = true;
           pthread_mutex_unlock(buffer_mutex);
           // 优化器
+          // std::cout << "Optimizer Enable: " << planner->GetEnableOptimizer() << std::endl;
           // if (!optimizer->bypass(query, context))
           {
             std::shared_ptr<Plan> plan = optimizer->plan_query(query, context);

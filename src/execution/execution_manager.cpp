@@ -20,6 +20,7 @@
 #include "execution/executor_projection.h"
 #include "execution/executor_seq_scan.h"
 #include "execution/executor_sort.h"
+#include "parser/ast.h"
 #include "storage/index/ix_manager.h"
 #include "storage/index/ix_scan.h"
 #include "type/value.h"
@@ -142,6 +143,9 @@ void QlManager::run_cmd_utility(std::shared_ptr<Plan> plan, txn_id_t *txn_id, Co
       case ast::SetKnobType::EnableHashJoin: {
         planner_->setEnableHashJoin(x->bool_value_);
         break;
+      }
+      case ast::SetKnobType::EnableOptimizer: {
+        planner_->SetEnableOptimizer(x->bool_value_);
       }
       case ast::SetKnobType::EnableOutput: {
         sm_manager_->SetEnableOutput(x->bool_value_);
