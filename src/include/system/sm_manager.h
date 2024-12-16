@@ -125,7 +125,12 @@ class SmManager {
   bool IsEnableOutput() { return enable_output_; }
 
   // table statistics
-  void SetTableCount(const std::string &table_name, int count) { table_count_.emplace(table_name, count); }
+  void SetTableCount(const std::string &table_name, int count) {
+    if (table_count_.find(table_name) == table_count_.end())
+      table_count_.emplace(table_name, count);
+    else
+      (table_count_[table_name] += count);
+  }
 
   // -1 if table not found
   int GetTableCount(const std::string &table_name) {
