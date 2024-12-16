@@ -150,10 +150,98 @@ std::shared_ptr<Plan> pop_scan(int *scantbl, std::string table, std::vector<std:
   return nullptr;
 }
 
-std::shared_ptr<Query> Planner::logical_optimization(std::shared_ptr<Query> query, Context *context) {
-  // TODO 实现逻辑优化规则
+void Planner::reorder_conds_based_on_table_size(std::shared_ptr<Query> query) {
+  std::vector<Condition> join_conds;
+  std::vector<Condition> single_conds;
 
+  // 将query->conds拆分为join条件和单表条件
+  for (auto &cond : query->conds) {
+    bool is_join_cond = (!cond.is_rhs_val && !cond.is_rhs_stmt && cond.lhs_col.tab_name != cond.rhs_col.tab_name);
+    if (is_join_cond) {
+      join_conds.push_back(cond);
+    } else {
+      single_conds.push_back(cond);
+    }
+  }
+
+  auto get_table_size = [&](const std::string &tab_name) {
+    int count = sm_manager_->GetTableCount(tab_name);
+    if (count < 0) {
+      count = 1000;  // 若无统计信息则假设为1000
+    }
+    return count;
+  };
+
+  // 根据表大小对join_conds进行排序，小表优先
+  // 这里使用两表大小的乘积作为简易估计值
+  std::sort(join_conds.begin(), join_conds.end(), [&](const Condition &a, const Condition &b) {
+    int a_size = get_table_size(a.lhs_col.tab_name) * get_table_size(a.rhs_col.tab_name);
+    int b_size = get_table_size(b.lhs_col.tab_name) * get_table_size(b.rhs_col.tab_name);
+    return a_size < b_size;
+  });
+
+  // 对每个join_cond，若 lhs_table 大于 rhs_table，则交换 lhs 和 rhs
+  for (auto &cond : join_conds) {
+    int lhs_size = get_table_size(cond.lhs_col.tab_name);
+    int rhs_size = get_table_size(cond.rhs_col.tab_name);
+    if (lhs_size > rhs_size) {
+      // 交换 lhs_col 和 rhs_col
+      std::swap(cond.lhs_col, cond.rhs_col);
+      // 翻转操作符
+      cond.op = reverse_op(cond.op);
+    }
+  }
+
+  // 最终将单表条件放前面，join条件放后面
+  std::vector<Condition> new_conds;
+  new_conds.insert(new_conds.end(), single_conds.begin(), single_conds.end());
+  new_conds.insert(new_conds.end(), join_conds.begin(), join_conds.end());
+
+  query->conds = std::move(new_conds);
+}
+
+std::shared_ptr<Query> Planner::logical_optimization(std::shared_ptr<Query> query, Context *context) {
+  // // 调用reorder_joins对query->tables进行连接顺序重排
+  if (query->tables.size() > 1) {
+    reorder_joins(query);
+  }
+  reorder_conds_based_on_table_size(query);
   return query;
+}
+
+void Planner::reorder_joins(std::shared_ptr<Query> query) {
+  // 简单启发式：对query->tables根据其大小(行数)进行升序排序
+  // 获取每个表的代价(用行数代替)
+  std::vector<std::pair<std::string, double>> table_costs;
+  for (auto &t : query->tables) {
+    double cost = estimate_table_scan_cost(t);
+    table_costs.emplace_back(t, cost);
+  }
+
+  // 按照cost从小到大排序
+  std::sort(table_costs.begin(), table_costs.end(), [](auto &a, auto &b) { return a.second < b.second; });
+
+  query->optimized_table_order.clear();
+  for (auto &tc : table_costs) {
+    query->optimized_table_order.push_back(tc.first);
+  }
+}
+
+double Planner::estimate_table_scan_cost(const std::string &tab_name) {
+  // 简单估计：行数越多，cost越高。行数从sm_manager_获取
+  int count = sm_manager_->GetTableCount(tab_name);
+  if (count < 0) {
+    // 如果没有统计信息，假设一个默认值
+    return 1000.0;
+  }
+  return static_cast<double>(count);
+}
+
+double Planner::estimate_join_cost(const std::string &left_table, const std::string &right_table) {
+  // 简单启发式join代价估计 = 两表大小相乘 (笛卡尔积大小)
+  double left_cost = estimate_table_scan_cost(left_table);
+  double right_cost = estimate_table_scan_cost(right_table);
+  return left_cost * right_cost;
 }
 
 std::shared_ptr<Plan> Planner::physical_optimization(std::shared_ptr<Query> query, Context *context) {
@@ -171,9 +259,13 @@ std::shared_ptr<Plan> Planner::physical_optimization(std::shared_ptr<Query> quer
 
 std::shared_ptr<Plan> Planner::make_one_rel(std::shared_ptr<Query> query, Context *context) {
   auto x = std::dynamic_pointer_cast<ast::SelectStmt>(query->parse);
-  std::vector<std::string> tables = query->tables;
-  // // Scan table , 生成表算子列表tab_nodes
+  std::vector<std::string> tables = query->optimized_table_order.empty() ? query->tables : query->optimized_table_order;
+
   std::vector<std::shared_ptr<Plan>> table_scan_executors(tables.size());
+
+  // std::vector<std::string> tables = query->tables;
+  // // Scan table , 生成表算子列表tab_nodes
+  // std::vector<std::shared_ptr<Plan>> table_scan_executors(tables.size());
   // traverse all tables, if tables[i] == left col tab, then move corresponding cond into curr_conds
   for (size_t i = 0; i < tables.size(); i++) {
     auto curr_conds = pop_conds(query->conds, tables[i]);

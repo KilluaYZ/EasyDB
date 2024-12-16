@@ -249,6 +249,7 @@ void SmManager::CreateTable(const std::string &tab_name, const std::vector<ColDe
   // if (context != nullptr) {
   //   // context->lock_mgr_->lock_exclusive_on_table(context->txn_, fhs_[tab_name]->GetFd());
   // }
+  SetTableCount(tab_name, 0);
 
   FlushMeta();
 }
