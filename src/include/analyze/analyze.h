@@ -25,6 +25,7 @@ namespace easydb {
 
 class Query {
  public:
+  bool no_result = false;  // ADDED: 标记查询结果为空
   std::shared_ptr<ast::TreeNode> parse;
   // TODO jointree
   // where条件

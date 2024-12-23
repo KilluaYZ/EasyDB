@@ -137,11 +137,19 @@ void *client_handler(void *sock_fd) {
           // std::cout << "Optimizer Enable: " << planner->GetEnableOptimizer() << std::endl;
           // if (!optimizer->bypass(query, context))
           {
+            auto temp1 = std::chrono::high_resolution_clock::now();
             std::shared_ptr<Plan> plan = optimizer->plan_query(query, context);
             // portal
-            std::shared_ptr<PortalStmt> portalStmt = portal->start(plan, context);
-            portal->run(portalStmt, ql_manager.get(), &txn_id, context);
-            portal->drop();
+            if (plan->tag != easydb::T_Empty) {
+              std::shared_ptr<PortalStmt> portalStmt = portal->start(plan, context);
+              portal->run(portalStmt, ql_manager.get(), &txn_id, context);
+              portal->drop();
+            }
+            auto temp2 = std::chrono::high_resolution_clock::now();
+            std::cout << "sql time usage:"
+                      << (double)std::chrono::duration_cast<std::chrono::microseconds>(temp2 - temp1).count() / 1000000
+                      << std::endl
+                      << std::endl;
           }
         } catch (TransactionAbortException &e) {
           // 事务需要回滚，需要把abort信息返回给客户端并写入output.txt文件中

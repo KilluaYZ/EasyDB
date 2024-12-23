@@ -27,6 +27,260 @@ See the Mulan PSL v2 for more details. */
 // #include "record_printer.h"
 namespace easydb {
 
+namespace {
+
+// 辅助结构用于简化同一列上的条件
+struct ColCondRange {
+  bool has_equal = false;
+  Value equal_val;
+  bool has_lower = false;
+  Value lower_val;
+  bool lower_inclusive = false;
+  bool has_upper = false;
+  Value upper_val;
+  bool upper_inclusive = false;
+  std::vector<Value> ne_values;
+
+  bool isContradictory() {
+    // 若有equal条件，则检查equal_val是否满足上下界并与NE条件无冲突
+    if (has_equal) {
+      // 检查与下界冲突
+      if (has_lower) {
+        if (lower_inclusive) {
+          // equal_val必须 >= lower_val
+          if (equal_val < lower_val) return true;
+        } else {
+          // equal_val必须 > lower_val
+          if (equal_val <= lower_val) return true;
+        }
+      }
+      // 检查与上界冲突
+      if (has_upper) {
+        if (upper_inclusive) {
+          // equal_val必须 <= upper_val
+          if (equal_val > upper_val) return true;
+        } else {
+          // equal_val必须 < upper_val
+          if (equal_val >= upper_val) return true;
+        }
+      }
+      // 检查不等条件冲突
+      for (auto &nev : ne_values) {
+        if (equal_val == nev) {
+          return true;
+        }
+      }
+    } else {
+      // 无equal时检查范围
+      if (has_lower && has_upper) {
+        // 下界不能大于上界
+        if (lower_val > upper_val) {
+          return true;
+        } else if (lower_val == upper_val && (!lower_inclusive || !upper_inclusive)) {
+          // 下界 == 上界但没有包含这个点
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  std::vector<Condition> toConditions(const TabCol &col) {
+    std::vector<Condition> result;
+    if (has_equal) {
+      Condition c;
+      c.op = OP_EQ;
+      c.lhs_col = col;
+      c.is_rhs_val = true;
+      c.is_rhs_stmt = false;
+      c.is_rhs_exe_processed = false;
+      c.rhs_val = equal_val;
+      result.push_back(c);
+      return result;
+    }
+
+    if (has_lower) {
+      Condition c;
+      c.lhs_col = col;
+      c.is_rhs_val = true;
+      c.is_rhs_stmt = false;
+      c.is_rhs_exe_processed = false;
+      c.rhs_val = lower_val;
+      c.op = lower_inclusive ? OP_GE : OP_GT;
+      result.push_back(c);
+    }
+
+    if (has_upper) {
+      Condition c;
+      c.lhs_col = col;
+      c.is_rhs_val = true;
+      c.is_rhs_stmt = false;
+      c.is_rhs_exe_processed = false;
+      c.rhs_val = upper_val;
+      c.op = upper_inclusive ? OP_LE : OP_LT;
+      result.push_back(c);
+    }
+
+    for (auto &v : ne_values) {
+      Condition c;
+      c.lhs_col = col;
+      c.is_rhs_val = true;
+      c.is_rhs_stmt = false;
+      c.is_rhs_exe_processed = false;
+      c.rhs_val = v;
+      c.op = OP_NE;
+      result.push_back(c);
+    }
+
+    return result;
+  }
+
+  // 辅助函数：处理一个新的范围条件后检查矛盾
+  bool tryCheckContradictory() { return isContradictory(); }
+};
+
+void simplify_conditions(std::shared_ptr<Query> query) {
+  std::map<std::pair<std::string, std::string>, ColCondRange> col_map;
+
+  for (auto &cond : query->conds) {
+    // 只简化列-常量的条件
+    if (!cond.is_rhs_val || cond.is_rhs_stmt) {
+      continue;
+    }
+
+    auto key = std::make_pair(cond.lhs_col.tab_name, cond.lhs_col.col_name);
+    auto &range = col_map[key];
+
+    switch (cond.op) {
+      case OP_EQ: {
+        if (range.has_equal) {
+          // 已有equal，如果值不同则无解
+          if (range.equal_val != cond.rhs_val) {
+            query->no_result = true;
+            return;
+          }
+        } else {
+          range.has_equal = true;
+          range.equal_val = cond.rhs_val;
+        }
+        break;
+      }
+      case OP_NE: {
+        if (range.has_equal && range.equal_val == cond.rhs_val) {
+          query->no_result = true;
+          return;
+        }
+        range.ne_values.push_back(cond.rhs_val);
+        break;
+      }
+      case OP_LT: {
+        if (!range.has_upper) {
+          range.has_upper = true;
+          range.upper_val = cond.rhs_val;
+          range.upper_inclusive = false;
+        } else {
+          if (cond.rhs_val < range.upper_val) {
+            range.upper_val = cond.rhs_val;
+            range.upper_inclusive = false;
+          } else if (cond.rhs_val == range.upper_val && range.upper_inclusive) {
+            // 原为<=，现为<更严格，更新为<（上界更严格）
+            range.upper_inclusive = false;
+          }
+        }
+        break;
+      }
+      case OP_LE: {
+        if (!range.has_upper) {
+          range.has_upper = true;
+          range.upper_val = cond.rhs_val;
+          range.upper_inclusive = true;
+        } else {
+          if (cond.rhs_val < range.upper_val) {
+            range.upper_val = cond.rhs_val;
+            range.upper_inclusive = true;
+          } else if (cond.rhs_val == range.upper_val && !range.upper_inclusive) {
+            // 原是<，现在<=宽松，不更新为宽松的条件，保持严格的<
+          }
+        }
+        break;
+      }
+      case OP_GT: {
+        if (!range.has_lower) {
+          range.has_lower = true;
+          range.lower_val = cond.rhs_val;
+          range.lower_inclusive = false;
+        } else {
+          if (cond.rhs_val > range.lower_val) {
+            range.lower_val = cond.rhs_val;
+            range.lower_inclusive = false;
+          } else if (cond.rhs_val == range.lower_val && range.lower_inclusive) {
+            // 原是>=，现在>更严格
+            range.lower_inclusive = false;
+          }
+        }
+        break;
+      }
+      case OP_GE: {
+        if (!range.has_lower) {
+          range.has_lower = true;
+          range.lower_val = cond.rhs_val;
+          range.lower_inclusive = true;
+        } else {
+          if (cond.rhs_val > range.lower_val) {
+            range.lower_val = cond.rhs_val;
+            range.lower_inclusive = true;
+          } else if (cond.rhs_val == range.lower_val && !range.lower_inclusive) {
+            // 原是>，新是>=更宽松，不替换为宽松的条件
+          }
+        }
+        break;
+      }
+      default:
+        // OP_IN等不做特殊优化
+        break;
+    }
+
+    // 每添加一个条件后就检查是否矛盾
+    if (range.tryCheckContradictory()) {
+      query->no_result = true;
+      return;
+    }
+  }
+
+  // 所有条件处理完再次检查
+  for (auto &[key, range] : col_map) {
+    if (range.isContradictory()) {
+      query->no_result = true;
+      return;
+    }
+  }
+
+  if (query->no_result) return;
+
+  // 重构conds
+  std::vector<Condition> new_conds;
+  for (auto &cond : query->conds) {
+    // 非列-常量条件保留
+    if (!cond.is_rhs_val || cond.is_rhs_stmt) {
+      new_conds.push_back(cond);
+    }
+  }
+  // 添加简化后的列条件
+  for (auto &[key, range] : col_map) {
+    TabCol col;
+    col.tab_name = key.first;
+    col.col_name = key.second;
+    auto cnds = range.toConditions(col);
+    for (auto &c : cnds) {
+      new_conds.push_back(c);
+    }
+  }
+
+  query->conds = std::move(new_conds);
+}
+
+}  // namespace
+
 // 目前的索引匹配规则为：完全匹配索引字段，支持范围查询(不支持NE)，不会自动调整where条件的顺序(目前是左边字段，右边值)
 // OLD：完全匹配索引字段，且全部为单点查询，不会自动调整where条件的顺序
 bool Planner::get_index_cols(std::string tab_name, std::vector<Condition> curr_conds,
@@ -201,11 +455,15 @@ void Planner::reorder_conds_based_on_table_size(std::shared_ptr<Query> query) {
 }
 
 std::shared_ptr<Query> Planner::logical_optimization(std::shared_ptr<Query> query, Context *context) {
-  // // 调用reorder_joins对query->tables进行连接顺序重排
-  if (query->tables.size() > 1) {
-    reorder_joins(query);
+  if (GetEnableOptimizer()) {
+    // 调用reorder_joins对query->tables进行连接顺序重排
+    if (query->tables.size() > 1) {
+      reorder_joins(query);
+    }
+    reorder_conds_based_on_table_size(query);
+    // ADDED: 简化条件
+    simplify_conditions(query);
   }
-  reorder_conds_based_on_table_size(query);
   return query;
 }
 
@@ -245,9 +503,14 @@ double Planner::estimate_join_cost(const std::string &left_table, const std::str
 }
 
 std::shared_ptr<Plan> Planner::physical_optimization(std::shared_ptr<Query> query, Context *context) {
+  // ADDED: 若no_result为true，直接返回EmptyPlan
+  if (query->no_result) {
+    return std::make_shared<EmptyPlan>();
+  }
   std::shared_ptr<Plan> plan = make_one_rel(query, context);
-
-  // 其他物理优化
+  if (GetEnableOptimizer()) {
+    // 其他物理优化
+  }
 
   // 处理aggregation
   plan = generate_aggregation_plan(query, std::move(plan));
@@ -457,7 +720,8 @@ std::shared_ptr<Plan> Planner::generate_select_plan(std::shared_ptr<Query> query
   // 物理优化
   auto sel_cols = query->cols;
   std::shared_ptr<Plan> plannerRoot = physical_optimization(query, context);
-  plannerRoot = std::make_shared<ProjectionPlan>(T_Projection, std::move(plannerRoot), std::move(sel_cols));
+  if (plannerRoot->tag != T_Empty)
+    plannerRoot = std::make_shared<ProjectionPlan>(T_Projection, std::move(plannerRoot), std::move(sel_cols));
 
   return plannerRoot;
 }
@@ -537,8 +801,11 @@ std::shared_ptr<Plan> Planner::do_planner(std::shared_ptr<Query> query, Context 
     std::shared_ptr<plannerInfo> root = std::make_shared<plannerInfo>(x);
     // 生成select语句的查询执行计划
     std::shared_ptr<Plan> projection = generate_select_plan(std::move(query), context);
-    plannerRoot = std::make_shared<DMLPlan>(T_select, projection, std::string(), std::vector<Value>(),
-                                            std::vector<Condition>(), std::vector<SetClause>(), x->is_unique);
+    if (projection->tag != T_Empty)
+      plannerRoot = std::make_shared<DMLPlan>(T_select, projection, std::string(), std::vector<Value>(),
+                                              std::vector<Condition>(), std::vector<SetClause>(), x->is_unique);
+    else
+      return projection;
   } else {
     throw InternalError("Unexpected AST root");
   }

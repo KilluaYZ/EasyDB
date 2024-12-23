@@ -53,7 +53,8 @@ typedef enum PlanTag {
   T_HashJoin,
   T_Sort,
   T_Projection,
-  T_Aggregation
+  T_Aggregation,
+  T_Empty  // ADDED: 表示空结果集的执行计划
 } PlanTag;
 
 // 查询执行计划
@@ -61,9 +62,14 @@ class Plan {
  public:
   PlanTag tag;
   virtual ~Plan() = default;
-  std::vector<Condition> get_conds(){
-    throw std::runtime_error("not supported!");
-  }
+  std::vector<Condition> get_conds() { throw std::runtime_error("not supported!"); }
+};
+
+// ADDED: 定义EmptyPlan类
+class EmptyPlan : public Plan {
+ public:
+  EmptyPlan() { tag = T_Empty; }
+  ~EmptyPlan() {}
 };
 
 class ScanPlan : public Plan {
@@ -85,9 +91,7 @@ class ScanPlan : public Plan {
   //   return tag == T_IndexScan;
   // }
 
-  std::vector<Condition> get_conds() {
-    return fed_conds_;
-  }
+  std::vector<Condition> get_conds() { return fed_conds_; }
 
   // 以下变量同ScanExecutor中的变量
   std::string tab_name_;
@@ -120,16 +124,14 @@ class JoinPlan : public Plan {
 
 class ProjectionPlan : public Plan {
  public:
-  ProjectionPlan(PlanTag tag, std::shared_ptr<Plan> subplan, std::vector<TabCol> sel_cols, bool is_unique=false) {
+  ProjectionPlan(PlanTag tag, std::shared_ptr<Plan> subplan, std::vector<TabCol> sel_cols, bool is_unique = false) {
     Plan::tag = tag;
     subplan_ = std::move(subplan);
     sel_cols_ = std::move(sel_cols);
     is_unique_ = is_unique;
   }
   ~ProjectionPlan() {}
-  void SetUnique(bool is_unique) {
-    is_unique_ = is_unique;
-  }
+  void SetUnique(bool is_unique) { is_unique_ = is_unique; }
   std::shared_ptr<Plan> subplan_;
   std::vector<TabCol> sel_cols_;
   bool is_unique_;
