@@ -192,6 +192,9 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
   // 执行query_plan
   for (executorTreeRoot->beginTuple(); !executorTreeRoot->IsEnd(); executorTreeRoot->nextTuple()) {
     auto tuple = executorTreeRoot->Next();
+    if (num_rec == 0 && executorTreeRoot->IsEnd()) {
+      outfile << "empty set\n\0";
+    }
     std::vector<std::string> columns;
     std::string col_str;
     auto schema = &executorTreeRoot->schema();

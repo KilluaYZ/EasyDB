@@ -144,6 +144,10 @@ void *client_handler(void *sock_fd) {
               std::shared_ptr<PortalStmt> portalStmt = portal->start(plan, context);
               portal->run(portalStmt, ql_manager.get(), &txn_id, context);
               portal->drop();
+            } else {
+              std::string str = "empty set\n";
+              memcpy(context->data_send_, str.c_str(), str.length());
+              *(context->offset_) = str.length();
             }
             auto temp2 = std::chrono::high_resolution_clock::now();
             std::cout << "sql time usage:"
