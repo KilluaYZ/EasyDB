@@ -279,7 +279,103 @@ void simplify_conditions(std::shared_ptr<Query> query) {
   query->conds = std::move(new_conds);
 }
 
+// 记录一个列 -> 常量的映射
+// key: (tab_name, col_name)
+using ColPair = std::pair<std::string, std::string>;
+
+struct ColPairHash {
+  std::size_t operator()(const ColPair &p) const {
+    // 也可用 boost::hash_combine, 这里只是简易示例
+    auto h1 = std::hash<std::string>()(p.first);
+    auto h2 = std::hash<std::string>()(p.second);
+    return h1 ^ (h2 + 0x9e3779b97f4a7c15ULL + (h1 << 6) + (h1 >> 2));
+  }
+};
+
+bool isEq(const Value &c1, const Value &c2) { return c1 == c2; }
+
 }  // namespace
+
+void Planner::deduce_equal_conditions(std::shared_ptr<Query> query) {
+  // 1. 收集形如: tab.col = const 的单表等值条件
+  //    存到 col_eq_const_map[ (tab,col) ] = constVal
+  std::unordered_map<ColPair, Value, ColPairHash> col_eq_const_map;
+  for (auto &cond : query->conds) {
+    // 只关心列=常量
+    if (cond.op == OP_EQ && cond.is_rhs_val && !cond.is_rhs_stmt) {
+      ColPair key = std::make_pair(cond.lhs_col.tab_name, cond.lhs_col.col_name);
+      if (col_eq_const_map.find(key) != col_eq_const_map.end()) {
+        // 若新旧两个常量不一致，就出现矛盾
+        if (!isEq(col_eq_const_map[key], cond.rhs_val)) {
+          // 直接标记无结果
+          query->no_result = true;
+          return;
+        }
+      } else {
+        // 未出现过就记录
+        col_eq_const_map[key] = cond.rhs_val;
+      }
+    }
+  }
+
+  // 2. 看看有没有形如: (tableA.a = tableB.a) 的 join 等值条件
+  //    若发现 tableA.a 已知 = c，则推导 tableB.a = c；反之亦然
+  std::vector<Condition> new_deduced_conds;
+  for (auto &cond : query->conds) {
+    // 只关心两列之间的等值条件
+    //   例如tableA.a = tableB.b
+    bool is_join_cond =
+        (!cond.is_rhs_val && !cond.is_rhs_stmt && cond.op == OP_EQ && cond.lhs_col.tab_name != cond.rhs_col.tab_name);
+    if (!is_join_cond) {
+      continue;
+    }
+    // lhs -> (tabA, colA)
+    // rhs -> (tabB, colB)
+    ColPair lhs_key(cond.lhs_col.tab_name, cond.lhs_col.col_name);
+    ColPair rhs_key(cond.rhs_col.tab_name, cond.rhs_col.col_name);
+
+    bool lhs_known = (col_eq_const_map.find(lhs_key) != col_eq_const_map.end());
+    bool rhs_known = (col_eq_const_map.find(rhs_key) != col_eq_const_map.end());
+    // 如果左侧列已知 = const, 推导右侧
+    if (lhs_known && !rhs_known) {
+      Condition c;
+      c.op = OP_EQ;
+      c.lhs_col = cond.rhs_col;  // tableB.b
+      c.is_rhs_val = true;
+      c.is_rhs_stmt = false;
+      c.rhs_val = col_eq_const_map[lhs_key];
+      new_deduced_conds.push_back(c);
+    }
+    // 如果右侧列已知 = const, 推导左侧
+    if (rhs_known && !lhs_known) {
+      Condition c;
+      c.op = OP_EQ;
+      c.lhs_col = cond.lhs_col;  // tableA.a
+      c.is_rhs_val = true;
+      c.is_rhs_stmt = false;
+      c.rhs_val = col_eq_const_map[rhs_key];
+      new_deduced_conds.push_back(c);
+    }
+  }
+
+  // 3. 把新推导出来的条件加入 query->conds
+  //    加进去以后，就可以在后续 simplify_conditions 阶段把它们合并/去重
+  if (!new_deduced_conds.empty()) {
+    // 把推导出的单表条件直接插入到头部，
+    std::vector<Condition> updated;
+    updated.reserve(query->conds.size() + new_deduced_conds.size());
+
+    // 先放新推导出来的
+    for (auto &nc : new_deduced_conds) {
+      updated.push_back(std::move(nc));
+    }
+    // 再放原来的
+    for (auto &orig : query->conds) {
+      updated.push_back(std::move(orig));
+    }
+    query->conds = std::move(updated);
+  }
+}
 
 // 目前的索引匹配规则为：完全匹配索引字段，支持范围查询(不支持NE)，不会自动调整where条件的顺序(目前是左边字段，右边值)
 // OLD：完全匹配索引字段，且全部为单点查询，不会自动调整where条件的顺序
@@ -461,6 +557,7 @@ std::shared_ptr<Query> Planner::logical_optimization(std::shared_ptr<Query> quer
       reorder_joins(query);
     }
     reorder_conds_based_on_table_size(query);
+    deduce_equal_conditions(query);
     // ADDED: 简化条件
     simplify_conditions(query);
   }
