@@ -10,6 +10,8 @@
  */
 
 #include "execution/executor_insert.h"
+#include <sys/stat.h>
+#include <vector>
 
 namespace easydb {
 
@@ -25,37 +27,41 @@ InsertExecutor::InsertExecutor(SmManager *sm_manager, const std::string &tab_nam
   fh_ = sm_manager_->fhs_.at(tab_name).get();
   context_ = context;
 
-  // // lock table
-  // if (context_ != nullptr) {
-  //   context_->lock_mgr_->lock_IX_on_table(context_->txn_, fh_->GetFd());
-  // }
+  // lock table
+  if (context_ != nullptr) {
+    context_->lock_mgr_->lock_IX_on_table(context_->txn_, fh_->GetFd());
+  }
 };
 
 std::unique_ptr<Tuple> InsertExecutor::Next() {
   // Construct the tuple
   Tuple tuple{values_, &tab_.schema};
-  // // Wait for GAP lock first
-  // int index_len = tab_.indexes.size();
-  // // TODO: keep the key to avoid copy again when insert into index
-  // if (context_ != nullptr) {
-  //   for (int i = 0; i < index_len; ++i) {
-  //     auto &index = tab_.indexes[i];
-  //     auto ih = sm_manager_->ihs_.at(sm_manager_->GetIxManager()->GetIndexName(tab_name_, index.cols)).get();
-  //     char *key = new char[index.col_tot_len];
-  //     int offset = 0;
-  //     for (int i = 0; i < index.col_num; ++i) {
-  //       memcpy(key + offset, rec.data + index.cols[i].offset, index.cols[i].len);
-  //       offset += index.cols[i].len;
-  //     }
-  //     // wait
-  //     Iid lower = ih->LowerBound(key);
-  //     context_->lock_mgr_->handle_index_gap_wait_die(context_->txn_, lower, fh_->GetFd());
-  //   }
-  // }
-  // // Now we can insert the record into the file and index safely
+  // Keep the key to avoid copy again when insert into index
+  std::vector<std::vector<char>> keys;
+  // Wait for GAP lock first
+  if (context_ != nullptr) {
+    for (auto index : tab_.indexes) {
+      auto ih = sm_manager_->ihs_.at(sm_manager_->GetIxManager()->GetIndexName(tab_name_, index.cols)).get();
+      auto key_schema = Schema::CopySchema(&tab_.schema, index.col_ids);
+      auto key_tuple = tuple.KeyFromTuple(tab_.schema, key_schema, index.col_ids);
+      std::vector<char> key(index.col_tot_len);
+      int offset = 0;
+      for (int i = 0; i < index.col_num; ++i) {
+        auto val = key_tuple.GetValue(&key_schema, i);
+        // memcpy(key + offset, rec.data + index.cols[i].offset, index.cols[i].len);
+        ix_memcpy(key.data() + offset, val, index.cols[i].len);
+        offset += index.cols[i].len;
+      }
+      keys.emplace_back(key);
+      // wait
+      Iid lower = ih->LowerBound(key.data());
+      context_->lock_mgr_->handle_index_gap_wait_die(context_->txn_, lower, fh_->GetFd());
+    }
+  }
+  // Now we can insert the record into the file and index safely
 
   // Insert into record file
-  auto rid = fh_->InsertTuple(TupleMeta{0, false}, tuple);
+  auto rid = fh_->InsertTuple(TupleMeta{0, false}, tuple, context_);
   // auto page_id = rid->GetPageId();
   // auto slot_num = rid->GetSlotNum();
   rid_ = RID{rid->GetPageId(), rid->GetSlotNum()};
@@ -69,21 +75,13 @@ std::unique_ptr<Tuple> InsertExecutor::Next() {
   // fh_->SetPageLSN(rid_.GetPageId(), lsn);
 
   // Insert into index
-  for (auto index : tab_.indexes) {
+  int index_len = tab_.indexes.size();
+  for (auto i = 0; i < index_len; ++i) {
+    auto index = tab_.indexes[i];
     auto ih = sm_manager_->ihs_.at(sm_manager_->GetIxManager()->GetIndexName(tab_name_, index.cols)).get();
-    auto key_schema = Schema::CopySchema(&tab_.schema, index.col_ids);
-    auto key_tuple = fh_->GetKeyTuple(tab_.schema, key_schema, index.col_ids, rid_);
-    char *key = new char[index.col_tot_len];
-    int offset = 0;
-    for (int i = 0; i < index.col_num; ++i) {
-      // memcpy(key + offset, rec.data + index.cols[i].offset, index.cols[i].len);
-      auto val = key_tuple.GetValue(&key_schema, i);
-      // memcpy(key + offset, val.GetData(), val.GetStorageSize());
-      ix_memcpy(key + offset, val, index.cols[i].len);
-      offset += index.cols[i].len;
-    }
-    auto is_insert = ih->InsertEntry(key, rid_, context_->txn_);
-    delete[] key;
+    auto key = keys[i];
+
+    auto is_insert = ih->InsertEntry(key.data(), rid_, context_->txn_);
 
     if (is_insert == -1) {
       fh_->DeleteTuple(rid_, context_);

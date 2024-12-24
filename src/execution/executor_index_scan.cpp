@@ -39,6 +39,7 @@ IndexScanExecutor::IndexScanExecutor(SmManager *sm_manager, std::string tab_name
   };
 
   std::vector<std::string> cond_cols;
+  std::unordered_set<std::string> cond_cols_set;
   for (auto &cond : conds_) {
     if (cond.lhs_col.tab_name != tab_name_) {
       // lhs is on other table, now rhs must be on this table
@@ -48,27 +49,29 @@ IndexScanExecutor::IndexScanExecutor(SmManager *sm_manager, std::string tab_name
       cond.op = swap_op.at(cond.op);
     }
     cond_cols.emplace_back(cond.lhs_col.col_name);
+    cond_cols_set.emplace(cond.lhs_col.col_name);
   }
   // Now we just check columns of conditions must be the same as the index.
   // Actually, parts of columns can use the index.
   // TODO: support more complex conditions
-  if (tab_.is_index(cond_cols)) {
+  std::vector<std::string> cond_cols_vec(cond_cols_set.begin(), cond_cols_set.end());
+  if (tab_.is_index(cond_cols_vec)) {
     fed_conds_ = conds_;
   }
 
-  // // lock table
-  // if (context_ != nullptr) {
-  //   // context_->lock_mgr_->lock_shared_on_table(context_->txn_, fh_->GetFd());
-  //   context_->lock_mgr_->lock_IS_on_table(context_->txn_, fh_->GetFd());
-  //   // // IS lock only works for unique index (one column)
-  //   // if (index_meta_.col_num == 1) {
-  //   //     context_->lock_mgr_->lock_IS_on_table(context_->txn_, fh_->GetFd());
-  //   //     std::cout << "IndexScanExecutor lock_IS_on_table" << std::endl;
-  //   // } else {
-  //   //     context_->lock_mgr_->lock_shared_on_table(context_->txn_, fh_->GetFd());
-  //   //     std::cout << "IndexScanExecutor lock_shared_on_table" << std::endl;
-  //   // }
-  // }
+  // lock table
+  if (context_ != nullptr) {
+    // context_->lock_mgr_->lock_shared_on_table(context_->txn_, fh_->GetFd());
+    context_->lock_mgr_->lock_IS_on_table(context_->txn_, fh_->GetFd());
+    // // IS lock only works for unique index (one column)
+    // if (index_meta_.col_num == 1) {
+    //     context_->lock_mgr_->lock_IS_on_table(context_->txn_, fh_->GetFd());
+    //     std::cout << "IndexScanExecutor lock_IS_on_table" << std::endl;
+    // } else {
+    //     context_->lock_mgr_->lock_shared_on_table(context_->txn_, fh_->GetFd());
+    //     std::cout << "IndexScanExecutor lock_shared_on_table" << std::endl;
+    // }
+  }
 }
 
 void IndexScanExecutor::beginTuple() {
@@ -175,21 +178,22 @@ void IndexScanExecutor::beginTuple() {
     scan_->Next();
   }
 
-  // // Lock the gap between lower and upper bounds
-  // if (context_ != nullptr) {
-  //   // The reason do before check IsEnd() is that we need to lock the gap of next key
-  //   // when the current key is the last one in the index or the lower=upper.
-  //   auto iid = scan_->GetIid();
-  //   context_->lock_mgr_->lock_gap_on_index(context_->txn_, iid, fh_->GetFd());
-  //   // lock the gap of next key
-  //   while (!IsEnd()) {
-  //     scan_->Next();
-  //     iid = scan_->GetIid();
-  //     context_->lock_mgr_->lock_gap_on_index(context_->txn_, iid, fh_->GetFd());
-  //   }
-  //   // reset the lower bound to the first record
-  //   scan_->set_lower(lower);
-  // }
+  // Lock the gap between lower and upper bounds
+  if (context_ != nullptr) {
+    // The reason do before check IsEnd() is that we need to lock the gap of next key
+    // when the current key is the last one in the index or the lower=upper.
+    auto iid = scan_->GetIid();
+    auto lower_iid = iid;
+    context_->lock_mgr_->lock_gap_on_index(context_->txn_, iid, fh_->GetFd());
+    // lock the gap of next key
+    while (!IsEnd()) {
+      scan_->Next();
+      iid = scan_->GetIid();
+      context_->lock_mgr_->lock_gap_on_index(context_->txn_, iid, fh_->GetFd());
+    }
+    // reset the lower bound to the first record
+    scan_->set_lower(lower_iid);
+  }
 
   delete[] key_lower;
   delete[] key_upper;

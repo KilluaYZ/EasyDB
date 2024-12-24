@@ -111,7 +111,7 @@ void create_file(DiskManager *disk_manager, const std::string &filename, int rec
 
 RID fh_insert(RmFileHandle *fh, std::vector<Value> &values, Schema *schema) {
   Tuple tuple{values, schema};
-  auto rid = fh->InsertTuple(TupleMeta{0, false}, tuple);
+  auto rid = fh->InsertTuple(TupleMeta{0, false}, tuple, nullptr);
   auto page_id = rid->GetPageId();
   auto slot_num = rid->GetSlotNum();
   std::cout << "[TEST] insert rid: page id: " << page_id << " slot num: " << slot_num << std::endl;
@@ -119,7 +119,7 @@ RID fh_insert(RmFileHandle *fh, std::vector<Value> &values, Schema *schema) {
 }
 
 void fh_get(RmFileHandle *fh, RID rid, Schema *schema) {
-  auto [meta, tuple] = fh->GetTuple(rid);
+  auto [meta, tuple] = fh->GetTuple(rid, nullptr);
   std::cout << "[TEST] get rid: page id: " << rid.GetPageId() << " slot num: " << rid.GetSlotNum() << std::endl;
   // std::cout << "[TEST] get tuple: " << tuple.ToString(schema) << std::endl;
   std::ofstream outfile(TEST_DB_NAME + "/" + TEST_OUTPUT, std::ios::app);
@@ -409,7 +409,7 @@ TEST(EasyDBTest, SimpleTest) {
     while (!scan.IsEnd()) {
       auto rid = scan.GetRid();
       // auto rec = fh_->GetRecord(rid);
-      auto key_tuple = fh_->GetKeyTuple(schema, key_schema, key_ids, rid);
+      auto key_tuple = fh_->GetKeyTuple(schema, key_schema, key_ids, rid, nullptr);
       char *key = new char[index_meta.col_tot_len];
       int offset = 0;
       for (int i = 0; i < index_meta.col_num; ++i) {

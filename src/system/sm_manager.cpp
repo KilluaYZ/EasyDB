@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include <fstream>
 #include <string>
 #include "catalog/schema.h"
+#include "common/context.h"
 #include "common/errors.h"
 #include "common/exception.h"
 #include "common/macros.h"
@@ -246,10 +247,10 @@ void SmManager::CreateTable(const std::string &tab_name, const std::vector<ColDe
   // fhs_[tab_name] = rm_manager_->open_file(tab_name);
   fhs_.emplace(tab_name, rm_manager_->OpenFile(tab_name));
 
-  // // lock manager
-  // if (context != nullptr) {
-  //   // context->lock_mgr_->lock_exclusive_on_table(context->txn_, fhs_[tab_name]->GetFd());
-  // }
+  // lock manager
+  if (context != nullptr) {
+    context->lock_mgr_->lock_exclusive_on_table(context->txn_, fhs_[tab_name]->GetFd());
+  }
 
   FlushMeta();
 }
@@ -264,10 +265,10 @@ void SmManager::DropTable(const std::string &tab_name, Context *context) {
     throw TableNotFoundError(tab_name);
   }
 
-  // // lock manager
-  // if (context != nullptr) {
-  //   context->lock_mgr_->lock_exclusive_on_table(context->txn_, fhs_[tab_name]->GetFd());
-  // }
+  // lock manager
+  if (context != nullptr) {
+    context->lock_mgr_->lock_exclusive_on_table(context->txn_, fhs_[tab_name]->GetFd());
+  }
 
   // remove record file and index file(if exist)
   TabMeta &tab = db_.get_table(tab_name);
@@ -323,10 +324,10 @@ void SmManager::CreateIndex(const std::string &tab_name, const std::vector<std::
     throw TableNotFoundError(tab_name);
   }
 
-  // // lock manager
-  // if (context != nullptr) {
-  //   // context->lock_mgr_->lock_shared_on_table(context->txn_, fhs_[tab_name]->GetFd());
-  // }
+  // lock manager
+  if (context != nullptr) {
+    context->lock_mgr_->lock_shared_on_table(context->txn_, fhs_[tab_name]->GetFd());
+  }
 
   // get colMeta
   std::vector<ColMeta> index_cols;
@@ -361,9 +362,8 @@ void SmManager::CreateIndex(const std::string &tab_name, const std::vector<std::
 
   while (!rmScan.IsEnd()) {
     auto rid = rmScan.GetRid();
-    // auto rec = Rfh->GetRecord(rid, context);
     auto tuple = Rfh->GetTupleValue(rid, context);
-    auto key_tuple = Rfh->GetKeyTuple(tab_meta.schema, key_schema, key_ids, rid);
+    auto key_tuple = Rfh->GetKeyTuple(tab_meta.schema, key_schema, key_ids, rid, context);
     // construct key
     char *key = new char[index_meta.col_tot_len];
     int offset = 0;
@@ -389,9 +389,9 @@ void SmManager::CreateIndex(const std::string &tab_name, const std::vector<std::
     // std::cout << "key(int): " << std::to_string(*(int *)key) << std::endl;
     int pos = -1;
     if (context != nullptr) {
-      Iih->InsertEntry(key, rid, context->txn_);
+      pos = Iih->InsertEntry(key, rid, context->txn_);
     } else {
-      Iih->InsertEntry(key, rid, nullptr);
+      pos = Iih->InsertEntry(key, rid, nullptr);
     }
     if (pos == -1) {
       throw Exception("Insert index entry failed(duplicate key). Is the index unique?");
@@ -418,10 +418,10 @@ void SmManager::DropIndex(const std::string &tab_name, const std::vector<std::st
     throw IndexEntryNotFoundError();
   }
 
-  // // lock manager
-  // if (context != nullptr) {
-  //   context->lock_mgr_->lock_shared_on_table(context->txn_, fhs_[tab_name]->GetFd());
-  // }
+  // lock manager
+  if (context != nullptr) {
+    context->lock_mgr_->lock_shared_on_table(context->txn_, fhs_[tab_name]->GetFd());
+  }
 
   auto index_name = ix_manager_->GetIndexName(tab_name, col_names);
   // close index and remove from ihs_
@@ -503,7 +503,7 @@ void SmManager::RollbackInsert(const std::string &table_name, RID &rid, Context 
     auto index_name = ix_manager_->GetIndexName(table_name, index.cols);
     auto ih = ihs_.at(index_name).get();
     auto key_schema = Schema::CopySchema(&tab.schema, index.col_ids);
-    auto key_tuple = fh->GetKeyTuple(tab.schema, key_schema, index.col_ids, rid);
+    auto key_tuple = fh->GetKeyTuple(tab.schema, key_schema, index.col_ids, rid, context);
     char *key = new char[index.col_tot_len];
     int offset = 0;
     for (int i = 0; i < index.col_num; ++i) {
@@ -542,7 +542,7 @@ void SmManager::RollbackInsert(const std::string &table_name, RID &rid, Context 
 void SmManager::RollbackDelete(const std::string &table_name, RID &rid, Tuple &tuple, Context *context) {
   // insert the record back into the record file
   auto fh = fhs_.at(table_name).get();
-  fh->InsertTuple(rid, TupleMeta{0, false}, tuple);
+  fh->InsertTuple(rid, TupleMeta{0, false}, tuple, context);
 
   // // TODO: InsertLogRecord(CLR)
   // InsertLogRecord insert_log_rec(context->txn_->get_transaction_id(), record, rid, table_name);
@@ -560,7 +560,7 @@ void SmManager::RollbackDelete(const std::string &table_name, RID &rid, Tuple &t
   for (auto index : tab.indexes) {
     auto ih = ihs_.at(ix_manager_->GetIndexName(table_name, index.cols)).get();
     auto key_schema = Schema::CopySchema(&tab.schema, index.col_ids);
-    auto key_tuple = fh->GetKeyTuple(tab.schema, key_schema, index.col_ids, rid);
+    auto key_tuple = fh->GetKeyTuple(tab.schema, key_schema, index.col_ids, rid, context);
     char *key = new char[index.col_tot_len];
     int offset = 0;
     for (int i = 0; i < index.col_num; ++i) {
@@ -603,7 +603,7 @@ void SmManager::RollbackUpdate(const std::string &table_name, RID &rid, Tuple &t
 
   // update the record to the old record
   // fh->UpdateTupleInPlace(TupleMeta{0, false}, tuple, rid, context);
-  fh->UpdateTupleInPlace(TupleMeta{0, false}, tuple, rid);
+  fh->UpdateTupleInPlace(TupleMeta{0, false}, tuple, rid, context);
 
   // // Log: after update
   // update_log_rec.prev_lsn_ = context->txn_->get_prev_lsn();
@@ -700,9 +700,9 @@ inline int ix_compare(const char *a, const char *b, const std::vector<ColMeta> c
  * @param context
  * @note: this function will insert one record into table
  */
-RID fh_insert(RmFileHandle *fh, std::vector<Value> &values, Schema *schema) {
+RID fh_insert(RmFileHandle *fh, std::vector<Value> &values, Schema *schema, Context *context) {
   Tuple tuple{values, schema};
-  auto rid = fh->InsertTuple(TupleMeta{0, false}, tuple);
+  auto rid = fh->InsertTuple(TupleMeta{0, false}, tuple, context);
   auto page_id = rid->GetPageId();
   auto slot_num = rid->GetSlotNum();
   // std::cout << "[TEST] insert rid: page id: " << page_id << " slot num: " << slot_num << std::endl;
@@ -823,7 +823,7 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
       // Move to the next token
       token_start = token_end + 1;
     }
-    auto _tmp_rid = fh_insert(fh, values, &tab.schema);
+    auto _tmp_rid = fh_insert(fh, values, &tab.schema, context);
 
     // // Extract the key for index
     // for (auto &index : tab.indexes) {

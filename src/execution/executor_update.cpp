@@ -24,10 +24,10 @@ UpdateExecutor::UpdateExecutor(SmManager *sm_manager, const std::string &tab_nam
   rids_ = rids;
   context_ = context;
 
-  // // lock table
-  // if (context_ != nullptr) {
-  //   context_->lock_mgr_->lock_IX_on_table(context_->txn_, fh_->GetFd());
-  // }
+  // lock table
+  if (context_ != nullptr) {
+    context_->lock_mgr_->lock_IX_on_table(context_->txn_, fh_->GetFd());
+  }
 }
 
 std::unique_ptr<Tuple> UpdateExecutor::Next() {
@@ -82,11 +82,11 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
         continue;
       }
 
-      //   // Wait for GAP lock before insert
-      //   if (context_ != nullptr) {
-      //     Iid lower = ih->LowerBound(key_i);
-      //     context_->lock_mgr_->handle_index_gap_wait_die(context_->txn_, lower, fh_->GetFd());
-      //   }
+      // Wait for GAP lock before insert
+      if (context_ != nullptr) {
+        Iid lower = ih->LowerBound(key_i);
+        context_->lock_mgr_->handle_index_gap_wait_die(context_->txn_, lower, fh_->GetFd());
+      }
 
       // check if the new key duplicated
       auto is_insert = ih->InsertEntry(key_i, rid, context_->txn_);
@@ -98,11 +98,11 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
         throw IndexExistsError(tab_name_, col_names);
       }
 
-      //   // Wait for GAP lock before delete
-      //   if (context_ != nullptr) {
-      //     Iid lower = ih->LowerBound(key_d);
-      //     context_->lock_mgr_->handle_index_gap_wait_die(context_->txn_, lower, fh_->GetFd());
-      //   }
+      // Wait for GAP lock before delete
+      if (context_ != nullptr) {
+        Iid lower = ih->LowerBound(key_d);
+        context_->lock_mgr_->handle_index_gap_wait_die(context_->txn_, lower, fh_->GetFd());
+      }
 
       ih->DeleteEntry(key_d, context_->txn_);
       delete[] key_d;
@@ -114,7 +114,7 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
 
     // update records
     // fh_->UpdateTupleInPlace(TupleMeta{0, false}, new_tuple, context_);
-    fh_->UpdateTupleInPlace(TupleMeta{0, false}, new_tuple, rid);
+    fh_->UpdateTupleInPlace(TupleMeta{0, false}, new_tuple, rid, context_);
 
     // // Log the update operation(after update)
     // update_log_rec.prev_lsn_ = context_->txn_->get_prev_lsn();

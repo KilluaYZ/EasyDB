@@ -544,34 +544,34 @@ void RecoveryManager::redo_delete(DeleteLogRecord *delete_log) {
 }
 
 void RecoveryManager::redo_update(UpdateLogRecord *update_log) {
-  std::string tab_name(update_log->table_name_, update_log->table_name_size_);
-  int fd = disk_manager_->GetFileFd(tab_name);
-  PageId page_id{fd, update_log->rid_.GetPageId()};
+  // std::string tab_name(update_log->table_name_, update_log->table_name_size_);
+  // int fd = disk_manager_->GetFileFd(tab_name);
+  // PageId page_id{fd, update_log->rid_.GetPageId()};
 
-  auto fh = sm_manager_->fhs_.at(tab_name).get();
-  Page *page = buffer_pool_manager_->RecoverPage(page_id);
+  // auto fh = sm_manager_->fhs_.at(tab_name).get();
+  // Page *page = buffer_pool_manager_->RecoverPage(page_id);
 
-  // 1. Skip or not
-  if (redo_skip(update_log, page_id, page)) {
-    return;
-  }
+  // // 1. Skip or not
+  // if (redo_skip(update_log, page_id, page)) {
+  //   return;
+  // }
 
-  // 2. Redo the operation
-  auto &tab = sm_manager_->db_.get_table(tab_name);
-  int index_len = tab.indexes.size();
-  // auto& old_rec = update_log->old_value_;
-  auto &new_rec = update_log->new_value_;
-  RID rid = update_log->rid_;
-  // Update table
-  fh->UpdateRecord(rid, new_rec.data);
-  // Update index
-  if (index_len > 0) {
-    tab_name_with_index_.emplace(tab_name);
-  }
+  // // 2. Redo the operation
+  // auto &tab = sm_manager_->db_.get_table(tab_name);
+  // int index_len = tab.indexes.size();
+  // // auto& old_rec = update_log->old_value_;
+  // auto &new_rec = update_log->new_value_;
+  // RID rid = update_log->rid_;
+  // // Update table
+  // fh->UpdateRecord(rid, new_rec.data);
+  // // Update index
+  // if (index_len > 0) {
+  //   tab_name_with_index_.emplace(tab_name);
+  // }
 
-  // 3. Update the pageLSN
-  page->SetLSN(update_log->lsn_);
-  buffer_pool_manager_->UnpinPage(page_id, true);
+  // // 3. Update the pageLSN
+  // page->SetLSN(update_log->lsn_);
+  // buffer_pool_manager_->UnpinPage(page_id, true);
 }
 
 void RecoveryManager::redo_index() {

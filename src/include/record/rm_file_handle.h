@@ -168,22 +168,25 @@ class RmFileHandle {
    * Insert a tuple into the table. If the tuple is too large (>= page_size), return std::nullopt.
    * @param meta tuple meta
    * @param tuple tuple to insert
+   * @param context context of transaction
    * @return rid of the inserted tuple
    */
-  auto InsertTuple(const TupleMeta &meta, const Tuple &tuple) -> std::optional<RID>;
+  auto InsertTuple(const TupleMeta &meta, const Tuple &tuple, Context *context) -> std::optional<RID>;
 
   /**
    * Insert a tuple into the table for rollback.
    * @param meta tuple meta
    * @param tuple tuple to insert
    * @param rid the rid of the inserted tuple
+   * @param context context of transaction
    * @return true if the insert is successful
    */
-  auto InsertTuple(RID rid, const TupleMeta &meta, const Tuple &tuple) -> bool;
+  auto InsertTuple(RID rid, const TupleMeta &meta, const Tuple &tuple, Context *context) -> bool;
 
   /**
    * Delete a tuple from the table.
    * @param rid rid of the tuple to delete
+   * @param context context of transaction
    * @return true if the delete is successful
    */
   auto DeleteTuple(RID rid, Context *context) -> bool;
@@ -193,9 +196,10 @@ class RmFileHandle {
    * @param meta new tuple meta
    * @param tuple  new tuple
    * @param rid the rid of the tuple to be updated
+   * @param context context of transaction
    * @param check the check to run before actually update.
    */
-  auto UpdateTupleInPlace(const TupleMeta &meta, const Tuple &tuple, RID rid,
+  auto UpdateTupleInPlace(const TupleMeta &meta, const Tuple &tuple, RID rid, Context *context,
                           std::function<bool(const TupleMeta &meta, const Tuple &table, RID rid)> &&check = nullptr)
       -> bool;
 
@@ -203,19 +207,22 @@ class RmFileHandle {
    * Update the meta of a tuple.
    * @param meta new tuple meta
    * @param rid the rid of the inserted tuple
+   * @param context context of transaction
    */
-  void UpdateTupleMeta(const TupleMeta &meta, RID rid);
+  void UpdateTupleMeta(const TupleMeta &meta, RID rid, Context *context);
 
   /**
    * Read a tuple from the table.
    * @param rid rid of the tuple to read
+   * @param context context of transaction
    * @return the meta and tuple
    */
-  auto GetTuple(RID rid) -> std::pair<TupleMeta, Tuple>;
+  auto GetTuple(RID rid, Context *context) -> std::pair<TupleMeta, Tuple>;
 
   /**
    * Read a tuple from the table.
    * @param rid rid of the tuple to read
+   * @param context context of transaction
    * @return the tuple
    */
   auto GetTupleValue(const RID &rid, Context *context) -> std::unique_ptr<Tuple>;
@@ -224,9 +231,10 @@ class RmFileHandle {
    * Read a tuple meta from the table. Note: if you want to get tuple and meta together, use `GetTuple` instead
    * to ensure atomicity.
    * @param rid rid of the tuple to read
+   * @param context context of transaction
    * @return the meta
    */
-  auto GetTupleMeta(RID rid) -> TupleMeta;
+  auto GetTupleMeta(RID rid, Context *context) -> TupleMeta;
 
   // /* 判断指定位置上是否已经存在一条记录，通过Bitmap来判断 */
   // bool IsRecord(const RID  &rid) const {
@@ -235,7 +243,7 @@ class RmFileHandle {
   // }
 
   //   std::unique_ptr<RmRecord> get_record(const RID  &rid, Context *context) const;
-  auto GetRecord(const RID &rid) -> std::unique_ptr<RmRecord>;
+  // auto GetRecord(const RID &rid) -> std::unique_ptr<RmRecord>;
 
   /**
    * Read a tuple from the table and generates a key tuple given schemas and attributes.
@@ -243,21 +251,22 @@ class RmFileHandle {
    * @param key_schema the schema of the key
    * @param key_attrs the attributes of the key in the table schema
    * @param rid the rid of the tuple to read
+   * @param context context of transaction
    */
   auto GetKeyTuple(const Schema &schema, const Schema &key_schema, const std::vector<uint32_t> &key_attrs,
-                   const RID &rid) -> Tuple;
+                   const RID &rid, Context *context) -> Tuple;
 
-  //   RID insert_record(char *buf, Context *context);
-  RID InsertRecord(char *buf);
+  // //   RID insert_record(char *buf, Context *context);
+  // RID InsertRecord(char *buf);
 
-  //   void insert_record(const RID  &rid, char *buf);
-  void InsertRecord(const RID &rid, char *buf);
+  // //   void insert_record(const RID  &rid, char *buf);
+  // void InsertRecord(const RID &rid, char *buf);
 
-  //   void delete_record(const RID  &rid, Context *context);
-  void DeleteRecord(const RID &rid);
+  // //   void delete_record(const RID  &rid, Context *context);
+  // void DeleteRecord(const RID &rid);
 
-  //   void update_record(const RID  &rid, char *buf, Context *context);
-  void UpdateRecord(const RID &rid, char *buf);
+  // //   void update_record(const RID  &rid, char *buf, Context *context);
+  // void UpdateRecord(const RID &rid, char *buf);
 
   // RmPageHandle create_new_page_handle();
   RmPageHandle CreateNewPageHandle();
