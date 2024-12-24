@@ -1081,6 +1081,7 @@ void IxIndexHandle::MaintainParent(IxNodeHandle *node) {
     char *child_first_key = curr->GetKey(0);
     if (memcmp(parent_key, child_first_key, file_hdr_->col_tot_len_) == 0) {
       assert(buffer_pool_manager_->UnpinPage(parent->GetPageId(), true));
+      delete parent;
       break;
     }
     memcpy(parent_key, child_first_key, file_hdr_->col_tot_len_);  // 修改了parent node

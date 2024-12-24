@@ -79,8 +79,9 @@ void TransactionManager::commit(Transaction *txn, LogManager *log_manager) {
 
   // 1. Commit all uncommitted write operations
   for (auto write_record : *txn->get_write_set()) {
-    // TODO: Commit the write operation
-    std::cout << "Committing write operation: " << write_record->GetWriteType() << std::endl;
+    // // TODO: Commit the write operation
+    // std::cout << "Committing write operation: " << write_record->GetWriteType() << std::endl;
+    delete write_record;
   }
   txn->get_write_set()->clear();
 

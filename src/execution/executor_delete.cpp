@@ -45,19 +45,19 @@ std::unique_ptr<Tuple> DeleteExecutor::Next() {
       auto ih = sm_manager_->ihs_.at(sm_manager_->GetIxManager()->GetIndexName(tab_name_, index.cols)).get();
       auto key_schema = Schema::CopySchema(&tab_.schema, index.col_ids);
       auto key_tuple = fh_->GetKeyTuple(tab_.schema, key_schema, index.col_ids, rid, context_);
-      char *key = new char[index.col_tot_len];
+      std::vector<char> key(index.col_tot_len);
       int offset = 0;
       for (int i = 0; i < index.col_num; ++i) {
         auto val = key_tuple.GetValue(&key_schema, i);
-        ix_memcpy(key + offset, val, index.cols[i].len);
+        ix_memcpy(key.data() + offset, val, index.cols[i].len);
         offset += index.cols[i].len;
       }
       // Wait for GAP lock first
       if (context_ != nullptr) {
-        Iid lower = ih->LowerBound(key);
+        Iid lower = ih->LowerBound(key.data());
         context_->lock_mgr_->handle_index_gap_wait_die(context_->txn_, lower, fh_->GetFd());
       }
-      ih->DeleteEntry(key, context_->txn_);
+      ih->DeleteEntry(key.data(), context_->txn_);
     }
 
     // delete records
