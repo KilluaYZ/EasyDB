@@ -760,6 +760,7 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
 
   std::unordered_map<std::string, float> attr_max;
   std::unordered_map<std::string, float> attr_min;
+  std::unordered_map<std::string, float> attr_sum;
   std::unordered_map<std::string, std::set<float>>
       attr_distinct;  // 仅统计数值型数据的distinct值，统一转换为double类型，以向低精度兼容。
 
@@ -767,6 +768,7 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
   for (auto &name : col_name) {
     attr_max.emplace(name, 0);
     attr_min.emplace(name, ((1 << 31) - 1));
+    attr_sum.emplace(name, 0);
     std::set<float> set_tp;
     attr_distinct.emplace(name, set_tp);
   }
@@ -808,6 +810,7 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
           if (val_tp < attr_min[col_name[i]]) {
             attr_min[col_name[i]] = val_tp;
           }
+          attr_sum[col_name[i]] += val_tp;
           attr_distinct[col_name[i]].emplace(val_tp);
           break;
         }
@@ -821,6 +824,7 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
           if (val_tp < attr_min[col_name[i]]) {
             attr_min[col_name[i]] = val_tp;
           }
+          attr_sum[col_name[i]] += val_tp;
           attr_distinct[col_name[i]].emplace(val_tp);
           // *reinterpret_cast<float *>(dest) = std::stof(std::string(token_start, token_end));
           break;
@@ -882,9 +886,11 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
     if (attr_distinct[name].size() == 0) continue;
     std::cout << table_name << " " << name << " max = " << attr_max[name] << " " << std::endl;
     std::cout << table_name << " " << name << " min = " << attr_min[name] << " " << std::endl;
+    std::cout << table_name << " " << name << " sum = " << attr_sum[name] << " " << std::endl;
     std::cout << table_name << " " << name << " distinct = " << attr_distinct[name].size() << " " << std::endl;
     SetTableAttrMax(table_name, name, attr_max[name]);
     SetTableAttrMin(table_name, name, attr_min[name]);
+    SetTableAttrSum(table_name, name, attr_sum[name]);
     SetTableAttrDistinct(table_name, name, attr_distinct[name].size());
   }
 

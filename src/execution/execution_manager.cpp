@@ -14,6 +14,7 @@
 
 #include "catalog/schema.h"
 #include "common/errors.h"
+#include "execution/executor_aggregation.h"
 #include "execution/executor_index_scan.h"
 #include "execution/executor_merge_join.h"
 #include "execution/executor_nestedloop_join.h"

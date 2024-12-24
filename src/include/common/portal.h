@@ -18,8 +18,8 @@ See the Mulan PSL v2 for more details. */
 #include "execution/executor_abstract.h"
 #include "execution/executor_sort.h"
 
-// #include "execution/executor_aggregation.h"
 #include <chrono>
+#include "execution/executor_aggregation.h"
 #include "execution/executor_delete.h"
 #include "execution/executor_hash_join.h"
 #include "execution/executor_index_scan.h"
@@ -198,9 +198,10 @@ class Portal {
     } else if (auto x = std::dynamic_pointer_cast<SortPlan>(plan)) {
       return std::make_unique<SortExecutor>(convert_plan_executor(x->subplan_, context), x->sel_col_, x->is_desc_);
     } else if (auto x = std::dynamic_pointer_cast<AggregationPlan>(plan)) {
-      // return std::make_unique<AggregationExecutor>(convert_plan_executor(x->subplan_, context), x->sel_cols_,
-      //                                              x->group_cols_, x->having_conds_);
-      UNIMPLEMENTED("AggregationExecutor is not implemented yet.");
+      return std::make_unique<AggregationExecutor>(sm_manager_, convert_plan_executor(x->subplan_, context),
+                                                   x->sel_cols_);
+      //  x->sel_cols_, x->group_cols_, x->having_conds_);
+      // UNIMPLEMENTED("AggregationExecutor is not implemented yet.");
     }
     return nullptr;
   }
