@@ -280,15 +280,19 @@ execute "$1"
 
 optimize_test(){
     
-    execute_optimize "SELECT * FROM supplier, nation WHERE S_NATIONKEY = N_NATIONKEY;"
+    # execute_optimize "SELECT * FROM supplier, nation WHERE S_NATIONKEY = N_NATIONKEY;"
 
-    execute_optimize "select * from supplier, nation WHERE S_SUPPKEY = N_NATIONKEY AND S_SUPPKEY<10000 AND S_SUPPKEY<20 AND S_SUPPKEY<10;"
+    # execute_optimize "select * from supplier, nation WHERE N_NATIONKEY = S_SUPPKEY;"
 
-    execute_optimize "select * from supplier, nation WHERE S_NAME = 'Supplier#000000229' AND S_NAME = '123';"
+    execute_optimize "select * from supplier, nation WHERE S_SUPPKEY = N_NATIONKEY;"
 
-    execute_optimize "select * from supplier, nation WHERE S_SUPPKEY = N_NATIONKEY AND S_SUPPKEY<10 AND S_SUPPKEY>20;"
+    # execute_optimize "select * from supplier, nation WHERE S_SUPPKEY = N_NATIONKEY AND S_SUPPKEY<10000 AND S_SUPPKEY<20 AND S_SUPPKEY<10;"
 
-    execute_optimize "select * from supplier, nation, region WHERE S_SUPPKEY = N_NATIONKEY AND N_NATIONKEY = R_REGIONKEY AND N_NATIONKEY < 5 AND R_REGIONKEY<10;"
+    # execute_optimize "select * from supplier, nation WHERE S_NAME = 'Supplier#000000229' AND S_NAME = '123';"
+
+    # execute_optimize "select * from supplier, nation WHERE S_SUPPKEY = N_NATIONKEY AND S_SUPPKEY<10 AND S_SUPPKEY>20;"
+
+    # execute_optimize "select * from supplier, nation, region WHERE S_SUPPKEY = N_NATIONKEY AND N_NATIONKEY = R_REGIONKEY AND N_NATIONKEY < 5 AND R_REGIONKEY<10;"
 
     # join_test;
 }
@@ -344,7 +348,7 @@ load_data;
 
 # print_green "-------- HashJoin Test --------"
 
-# print_green "=> 设置为Hash Join"
+print_green "=> 设置为Hash Join"
 execute "SET enable_nestloop = false;"
 execute "SET enable_sortmerge = false;"
 execute "SET enable_hashjoin = true;"
