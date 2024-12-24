@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fstream>
+#include <set>
 #include <string>
 #include "catalog/schema.h"
 #include "common/errors.h"
@@ -713,6 +714,11 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
   auto fh = fhs_.at(table_name).get();
   size_t col_size = tab.cols.size();
 
+  std::vector<std::string> col_name;
+  for (auto &col : tab.schema.GetColumns()) {
+    col_name.push_back(col.GetName());
+  }
+
   // 2. Open file and create memory mapping
   int fd = open(file_name.c_str(), O_RDONLY);
   if (fd == -1) {
@@ -751,6 +757,20 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
   // 4. Parse data and batch insert into table
   int total_records = 0;
   int page_record_count = 0;
+
+  std::unordered_map<std::string, float> attr_max;
+  std::unordered_map<std::string, float> attr_min;
+  std::unordered_map<std::string, std::set<float>>
+      attr_distinct;  // 仅统计数值型数据的distinct值，统一转换为double类型，以向低精度兼容。
+
+  // 初始化统计数据结构
+  for (auto &name : col_name) {
+    attr_max.emplace(name, 0);
+    attr_min.emplace(name, ((1 << 31) - 1));
+    std::set<float> set_tp;
+    attr_distinct.emplace(name, set_tp);
+  }
+
   // int record_size = fh->GetFileHdr().record_size;
   // int num_records_per_page = fh->get_file_hdr().num_records_per_page;
   // int page_size = record_size * num_records_per_page;
@@ -781,12 +801,27 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
       switch (type) {
         case TYPE_INT: {
           _tmp_val = Value(type, std::stoi(std::string(token_start, token_end)));
-          // *reinterpret_cast<int *>(dest) = std::stoi(std::string(token_start, token_end));
+          float val_tp = std::stoi(std::string(token_start, token_end));
+          if (val_tp > attr_max[col_name[i]]) {
+            attr_max[col_name[i]] = val_tp;
+          }
+          if (val_tp < attr_min[col_name[i]]) {
+            attr_min[col_name[i]] = val_tp;
+          }
+          attr_distinct[col_name[i]].emplace(val_tp);
           break;
         }
         case TYPE_DOUBLE:
         case TYPE_FLOAT: {
           _tmp_val = Value(type, std::stof(std::string(token_start, token_end)));
+          float val_tp = std::stof(std::string(token_start, token_end));
+          if (val_tp > attr_max[col_name[i]]) {
+            attr_max[col_name[i]] = val_tp;
+          }
+          if (val_tp < attr_min[col_name[i]]) {
+            attr_min[col_name[i]] = val_tp;
+          }
+          attr_distinct[col_name[i]].emplace(val_tp);
           // *reinterpret_cast<float *>(dest) = std::stof(std::string(token_start, token_end));
           break;
         }
@@ -843,6 +878,15 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
   // }
 
   SetTableCount(table_name, total_records);
+  for (auto &name : col_name) {
+    if (attr_distinct[name].size() == 0) continue;
+    std::cout << table_name << " " << name << " max = " << attr_max[name] << " " << std::endl;
+    std::cout << table_name << " " << name << " min = " << attr_min[name] << " " << std::endl;
+    std::cout << table_name << " " << name << " distinct = " << attr_distinct[name].size() << " " << std::endl;
+    SetTableAttrMax(table_name, name, attr_max[name]);
+    SetTableAttrMin(table_name, name, attr_min[name]);
+    SetTableAttrDistinct(table_name, name, attr_distinct[name].size());
+  }
 
   // // Sort the index entries and insert them into the index file
   // for (auto &index : tab.indexes) {
