@@ -557,11 +557,23 @@ void Planner::reorder_conds_based_on_table_size(std::shared_ptr<Query> query) {
     return count;
   };
 
+  auto get_max_distinct_size = [&](const std::string &left_tab_name, const std::string &left_col_name,
+                                   const std::string &right_tab_name, const std::string &right_col_name) {
+    int left_count = sm_manager_->GetTableAttrDistinct(left_tab_name, left_col_name);
+    int right_count = sm_manager_->GetTableAttrDistinct(right_tab_name, right_col_name);
+    if (left_count < 0 && right_count < 0) {
+      return 1;  // 若无统计信息则返回1，相当于不进行distinct值统计
+    }
+    return left_count > right_count ? left_count : right_count;
+  };
+
   // 根据表大小对join_conds进行排序，小表优先
   // 这里使用两表大小的乘积作为简易估计值
   std::sort(join_conds.begin(), join_conds.end(), [&](const Condition &a, const Condition &b) {
-    int a_size = get_table_size(a.lhs_col.tab_name) * get_table_size(a.rhs_col.tab_name);
-    int b_size = get_table_size(b.lhs_col.tab_name) * get_table_size(b.rhs_col.tab_name);
+    int a_size = (get_table_size(a.lhs_col.tab_name) * get_table_size(a.rhs_col.tab_name)) /
+                 get_max_distinct_size(a.lhs_col.tab_name, a.lhs_col.col_name, a.rhs_col.tab_name, a.rhs_col.col_name);
+    int b_size = (get_table_size(b.lhs_col.tab_name) * get_table_size(b.rhs_col.tab_name)) /
+                 get_max_distinct_size(b.lhs_col.tab_name,b.lhs_col.col_name, b.rhs_col.tab_name,b.rhs_col.col_name);
     return a_size < b_size;
   });
 
