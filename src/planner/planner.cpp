@@ -278,8 +278,139 @@ void simplify_conditions(std::shared_ptr<Query> query) {
 
   query->conds = std::move(new_conds);
 }
+// 标识 (表名, 列名)
+struct ColId {
+  std::string tab_name;
+  std::string col_name;
+
+  bool operator==(const ColId &o) const { return tab_name == o.tab_name && col_name == o.col_name; }
+};
+
+struct ColIdHash {
+  size_t operator()(const ColId &c) const {
+    // 简易hash组合
+    auto h1 = std::hash<std::string>()(c.tab_name);
+    auto h2 = std::hash<std::string>()(c.col_name);
+    // 大致混合
+    return h1 ^ (h2 + 0x9e3779b97f4a7c15ULL + (h1 << 6) + (h1 >> 2));
+  }
+};
+
+// 并查集，用于把 tableA.a, tableB.a, tableC.a 等列合并到同一个“等价类”
+class ColumnUnionFind {
+ public:
+  ColId find(const ColId &x) {
+    if (parent_.find(x) == parent_.end()) {
+      parent_[x] = x;  // 若 x 不在 parent_ 里，则把它自己设为它的 parent
+      return x;
+    }
+    if (!(parent_[x] == x)) {
+      parent_[x] = find(parent_[x]);  // 路径压缩
+    }
+    return parent_[x];
+  }
+
+  void unite(const ColId &a, const ColId &b) {
+    auto ra = find(a);
+    auto rb = find(b);
+    if (!(ra == rb)) {
+      parent_[rb] = ra;
+    }
+  }
+
+ private:
+  std::unordered_map<ColId, ColId, ColIdHash> parent_;
+};
 
 }  // namespace
+
+void Planner::deduce_conditions_via_equijoin(std::shared_ptr<Query> query) {
+  // 第1步：构建并查集
+  ColumnUnionFind uf;
+
+  // 先把所有 “表列” 都在 union-find 里出现一次
+  //   1) lhs_col
+  //   2) 若是 col op col 的，则 rhs_col 也要
+  for (auto &cond : query->conds) {
+    ColId lhs{cond.lhs_col.tab_name, cond.lhs_col.col_name};
+    uf.find(lhs);  // 确保它进并查集
+    if (!cond.is_rhs_val && !cond.is_rhs_stmt) {
+      // 说明 rhs 也是列
+      ColId rhs{cond.rhs_col.tab_name, cond.rhs_col.col_name};
+      uf.find(rhs);
+    }
+  }
+
+  // 把多表等值条件 (tableA.a = tableB.a) 全部 union
+  for (auto &cond : query->conds) {
+    bool is_join_eq = (cond.op == OP_EQ && !cond.is_rhs_val &&  // rhs不是常量
+                       !cond.is_rhs_stmt &&                     // rhs不是子查询
+                       cond.lhs_col.tab_name != cond.rhs_col.tab_name);
+    if (is_join_eq) {
+      ColId c1{cond.lhs_col.tab_name, cond.lhs_col.col_name};
+      ColId c2{cond.rhs_col.tab_name, cond.rhs_col.col_name};
+      uf.unite(c1, c2);
+    }
+  }
+
+  // 第2步：收集单表谓词
+  std::unordered_map<ColId, std::vector<Condition>, ColIdHash> singleTableConds;
+  for (auto &cond : query->conds) {
+    // 如果是 “col op 常量” 的单表条件 (op可以是 <, <=, >, >=, =, != ...)
+    if (cond.is_rhs_val && !cond.is_rhs_stmt) {
+      ColId c{cond.lhs_col.tab_name, cond.lhs_col.col_name};
+      ColId rep = uf.find(c);  // 找到它所在的等价类
+      singleTableConds[rep].push_back(cond);
+    }
+  }
+
+  // 第3步：等价类复制
+  // eqClassMembers[rep] = 这个等价类下的所有列
+  std::unordered_map<ColId, std::vector<ColId>, ColIdHash> eqClassMembers;
+  // 枚举一下 union-find 里出现过的所有列(方法：再扫一遍 conds, 或者若有接口能直接从 union-find 里取出)
+  for (auto &cond : query->conds) {
+    // LHS
+    ColId lhs{cond.lhs_col.tab_name, cond.lhs_col.col_name};
+    ColId rep_lhs = uf.find(lhs);
+    eqClassMembers[rep_lhs].push_back(lhs);
+
+    // 如果 RHS 也是列，则同样处理
+    if (!cond.is_rhs_val && !cond.is_rhs_stmt) {
+      ColId rhs{cond.rhs_col.tab_name, cond.rhs_col.col_name};
+      ColId rep_rhs = uf.find(rhs);
+      eqClassMembers[rep_rhs].push_back(rhs);
+    }
+  }
+
+  // 遍历 singleTableConds[rep] 里的所有 condition, 复制到 eqClassMembers[rep] 下的每个列
+  std::vector<Condition> newConds;
+  for (auto &kv : singleTableConds) {
+    ColId rep = kv.first;
+    auto &condsInThisRep = kv.second;
+    // 该等价类的所有列
+    auto &cols = eqClassMembers[rep];
+    // 复制
+    for (auto &oldCond : condsInThisRep) {
+      for (auto &colId : cols) {
+        // 如果本来就是 oldCond 那个列，就不必重复
+        if (colId.tab_name == oldCond.lhs_col.tab_name && colId.col_name == oldCond.lhs_col.col_name) {
+          continue;
+        }
+        // 新建一个 condition
+        Condition c = oldCond;
+        // 把 lhs 改为等价类中的另一个列
+        c.lhs_col.tab_name = colId.tab_name;
+        c.lhs_col.col_name = colId.col_name;
+        newConds.push_back(std::move(c));
+      }
+    }
+  }
+
+  // 第4步：将推导出的 newConds 加入 query->conds
+  if (!newConds.empty()) {
+    query->conds.insert(query->conds.end(), newConds.begin(), newConds.end());
+  }
+}
 
 // 目前的索引匹配规则为：完全匹配索引字段，支持范围查询(不支持NE)，不会自动调整where条件的顺序(目前是左边字段，右边值)
 // OLD：完全匹配索引字段，且全部为单点查询，不会自动调整where条件的顺序
@@ -461,6 +592,7 @@ std::shared_ptr<Query> Planner::logical_optimization(std::shared_ptr<Query> quer
       reorder_joins(query);
     }
     reorder_conds_based_on_table_size(query);
+    deduce_conditions_via_equijoin(query);
     // ADDED: 简化条件
     simplify_conditions(query);
   }

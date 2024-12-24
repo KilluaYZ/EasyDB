@@ -76,6 +76,8 @@ class Planner {
 
   bool GetEnableOptimizer() { return enable_optimizer; }
 
+  void deduce_conditions_via_equijoin(std::shared_ptr<Query> query);
+
  private:
   std::shared_ptr<Query> logical_optimization(std::shared_ptr<Query> query, Context *context);
   std::shared_ptr<Plan> physical_optimization(std::shared_ptr<Query> query, Context *context);
