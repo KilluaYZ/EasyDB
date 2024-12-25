@@ -106,14 +106,14 @@ class Column {
                   "Wrong constructor for variable-length types.");
   }
 
-  Column &operator=(Column &c) {
-    tab_name_ = c.GetTabName();
-    column_name_ = c.GetName();
-    column_type_ = c.GetType();
-    length_ = c.GetStorageSize();
-    column_offset_ = c.GetOffset();
-    agg_type_ = c.GetAggregationType();
-  }
+  // Column &operator=(Column &c) {
+  //   tab_name_ = c.GetTabName();
+  //   column_name_ = c.GetName();
+  //   column_type_ = c.GetType();
+  //   length_ = c.GetStorageSize();
+  //   column_offset_ = c.GetOffset();
+  //   agg_type_ = c.GetAggregationType();
+  // }
 
   /** @return column name */
   auto GetName() const -> std::string { return column_name_; }
