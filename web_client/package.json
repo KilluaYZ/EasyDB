@@ -1,0 +1,29 @@
+{
+  "name": "frontend-new",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "@types/node": "^20.11.17",
+    "axios": "^1.6.7",
+    "echarts": "^5.4.3",
+    "element-plus": "^2.5.5",
+    "js-base64": "^3.7.6",
+    "mixin": "^0.2.0",
+    "nprogress": "^0.2.0",
+    "sass": "^1.70.0",
+    "vue": "^3.4.15",
+    "vue-kinesis": "^2.0.5",
+    "vue-router": "^4.2.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.3",
+    "vite": "^6.0.5"
+  }
+}

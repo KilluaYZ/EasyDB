@@ -1,0 +1,41 @@
+@font-face {
+    font-family: Mouldy Cheese Regular;
+    src: url("./MouldyCheeseRegular-WyMWG.ttf") format('truetype');
+    font-weight: normal;
+}
+@font-face {
+    font-family: Super Dream;
+    src: url("./SuperDream-ax3vE.ttf") format('truetype');
+    font-weight: normal;
+}
+
+@font-face {
+    font-family: Super Funtime;
+    src: url("./SuperFuntime-3zpLX.ttf") format('truetype');
+    font-weight: normal;
+}
+@font-face {
+    font-family: 寒蝉全圆体;
+    src: url("./ChillRoundF.ttf") format('truetype');
+    font-weight: normal;
+}
+
+/*以下为flowus字体*/
+/*Light*/
+@font-face {
+    font-family: 霞鹜文楷等宽 Light;
+    src: url("./LXGWWenKaiMono-Light.ttf") format('truetype');
+    font-weight: normal;
+}
+/*Regular*/
+@font-face {
+    font-family: LXGW WenKai Mono;
+    src: url("./LXGWWenKaiMono-Regular.ttf") format('truetype');
+    font-weight: normal;
+}
+/*Bold*/
+@font-face {
+    font-family: LXGW WenKai Mono Bold;
+    src: url("./LXGWWenKaiMono-Bold.ttf") format('truetype');
+    font-weight: normal;
+}
