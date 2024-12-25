@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include <signal.h>
 #include <unistd.h>
 #include <atomic>
+#include <iostream>
 #include "analyze/analyze.h"
 #include "common/errors.h"
 #include "common/portal.h"
@@ -30,6 +31,7 @@ using namespace easydb;
 int SOCK_PORT = 8765;
 
 static bool should_exit = false;
+bool for_web = false;
 
 std::unique_ptr<DiskManager> disk_manager;
 std::unique_ptr<BufferPoolManager> buffer_pool_manager;
@@ -216,14 +218,21 @@ void *client_handler(void *sock_fd) {
     context->SerializeTo(data_send_vec);
     // std::cout << data_send_vec.data() << std::endl;
 
-    // future TODO: 格式化 sql_handler.result, 传给客户端
-    // send result with fixed format, use protobuf in the future
-    if (write(fd, data_send, offset + 1) == -1) {
-      break;
-    }
-
     // 释放系统资源
     delete context;
+
+    // future TODO: 格式化 sql_handler.result, 传给客户端
+    // send result with fixed format, use protobuf in the future
+    int send = 0;
+    if (for_web) {
+      send = write(fd, data_send_vec.data(), data_send_vec.size());
+    } else {
+      send = write(fd, data_send, offset + 1);
+    }
+    if (send == -1) {
+      std::cerr << "Client write error!" << std::endl;
+      break;
+    }
   }
 
   // Clear
@@ -312,7 +321,7 @@ void print_help() { std::cout << "Usage: ./easydb_server -p <port> -d <database>
 int main(int argc, char **argv) {
   std::string db_name;
   int opt;
-  while ((opt = getopt(argc, argv, "d:p:h")) > 0) {
+  while ((opt = getopt(argc, argv, "d:p:hw")) > 0) {
     switch (opt) {
       case 'd':
         db_name = optarg;
@@ -323,6 +332,9 @@ int main(int argc, char **argv) {
       case 'h':
         print_help();
         exit(0);
+      case 'w':
+        for_web = true;
+        break;
       default:
         break;
     }
