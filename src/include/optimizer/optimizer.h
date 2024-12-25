@@ -19,7 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "parser/parser.h"
 #include "planner/plan.h"
 #include "planner/planner.h"
-#include "record_printer.h"
+#include "record/record_printer.h"
 #include "system/sm.h"
 #include "transaction/transaction_manager.h"
 

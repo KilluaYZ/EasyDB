@@ -18,8 +18,8 @@ See the Mulan PSL v2 for more details. */
 #include "common/config.h"
 #include "common/context.h"
 
-#define RECORD_COUNT_LENGTH 40
 namespace easydb {
+#define RECORD_COUNT_LENGTH 40
 
 class RecordPrinter {
   static constexpr size_t COL_WIDTH = 16;
@@ -70,6 +70,7 @@ class RecordPrinter {
       memcpy(context->data_send_ + *(context->offset_), str.c_str(), str.length());
       *(context->offset_) = *(context->offset_) + str.length();
     }
+    context->AddJsonData(rec_str);
   }
 
   static void print_record_count(size_t num_rec, Context *context) {
@@ -81,11 +82,13 @@ class RecordPrinter {
         str = "... ...\n";
       }
       str += "Total record(s): " + std::to_string(num_rec) + '\n';
-    } else {
-      str = "empty set\n\0";
       memcpy(context->data_send_ + *(context->offset_), str.c_str(), str.length());
       *(context->offset_) = *(context->offset_) + str.length();
+    } else {
+      str = "empty set\n";
+      memcpy(context->data_send_, str.c_str(), str.length());
+      *(context->offset_) = str.length();
     }
   }
 };
-};  // namespace easydb
+}  // namespace easydb

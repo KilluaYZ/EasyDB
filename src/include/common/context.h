@@ -10,9 +10,14 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
-#include "recovery/log_manager.h"
+#include <cstdlib>
+#include <nlohmann/json.hpp>
+#include <vector>
 #include "concurrency/lock_manager.h"
+#include "recovery/log_manager.h"
 #include "transaction/transaction.h"
+
+using json = nlohmann::json;
 
 namespace easydb {
 // class TransactionManager;
@@ -37,5 +42,26 @@ class Context {
   char *data_send_;
   int *offset_;
   bool ellipsis_;
+  json result_json;
+
+  void InitJson() {
+    InitJsonData();
+    SetJsonMsg("");
+  }
+
+  void InitJsonData() { result_json["data"] = json::array(); }
+  void AddJsonData(const std::vector<std::string> &row) { result_json["data"].push_back(row); }
+  void SetJsonMsg(const std::string &msg) { result_json["msg"] = msg; }
+
+  void PrintJsonMsg() { std::cout << result_json["msg"] << std::endl; }
+  void PrintJson() { std::cout << result_json.dump(4) << std::endl; }
+  int SerializeTo(std::vector<char> &buf) {
+    int len = result_json.dump(4).length();
+    buf.resize(len + 1);
+    memcpy(buf.data(), result_json.dump(4).c_str(), len);
+    buf[len] = '\0';
+    return len;
+  }
 };
-};  // namespace easydb
+
+}  // namespace easydb
