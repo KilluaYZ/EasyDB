@@ -74,13 +74,20 @@ class RecordPrinter {
 
   static void print_record_count(size_t num_rec, Context *context) {
     // std::cout << "Total record(s): " << num_rec << '\n';
-    std::string str = "";
-    if (context->ellipsis_ == true) {
-      str = "... ...\n";
+    std::string str;
+    if (num_rec > 0) {
+      str = "";
+      if (context->ellipsis_ == true) {
+        str = "... ...\n";
+      }
+      str += "Total record(s): " + std::to_string(num_rec) + '\n';
+      memcpy(context->data_send_ + *(context->offset_), str.c_str(), str.length());
+      *(context->offset_) = *(context->offset_) + str.length();
+    } else {
+      str = "empty set\n";
+      memcpy(context->data_send_, str.c_str(), str.length());
+      *(context->offset_) = str.length() - 1;
     }
-    str += "Total record(s): " + std::to_string(num_rec) + '\n';
-    memcpy(context->data_send_ + *(context->offset_), str.c_str(), str.length());
-    *(context->offset_) = *(context->offset_) + str.length();
   }
 };
 }  // namespace easydb

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 
 include(GoogleTest)
 
-file(GLOB_RECURSE EASYDB_TEST_SOURCES "${PROJECT_SOURCE_DIR}/test/*/*test.cpp")
+file(GLOB_RECURSE EASYDB_TEST_SOURCES "${PROJECT_SOURCE_DIR}/test/*/*.cpp")
 #file(GLOB_RECURSE EASYDB_TEST_HEADERS "${PROJECT_SOURCE_DIR}/test/*/*test.hpp")
 include_directories(${PROJECT_SOURCE_DIR}/test/include)
 

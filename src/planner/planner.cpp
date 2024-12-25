@@ -27,6 +27,391 @@ See the Mulan PSL v2 for more details. */
 // #include "record_printer.h"
 namespace easydb {
 
+namespace {
+
+// 辅助结构用于简化同一列上的条件
+struct ColCondRange {
+  bool has_equal = false;
+  Value equal_val;
+  bool has_lower = false;
+  Value lower_val;
+  bool lower_inclusive = false;
+  bool has_upper = false;
+  Value upper_val;
+  bool upper_inclusive = false;
+  std::vector<Value> ne_values;
+
+  bool isContradictory() {
+    // 若有equal条件，则检查equal_val是否满足上下界并与NE条件无冲突
+    if (has_equal) {
+      // 检查与下界冲突
+      if (has_lower) {
+        if (lower_inclusive) {
+          // equal_val必须 >= lower_val
+          if (equal_val < lower_val) return true;
+        } else {
+          // equal_val必须 > lower_val
+          if (equal_val <= lower_val) return true;
+        }
+      }
+      // 检查与上界冲突
+      if (has_upper) {
+        if (upper_inclusive) {
+          // equal_val必须 <= upper_val
+          if (equal_val > upper_val) return true;
+        } else {
+          // equal_val必须 < upper_val
+          if (equal_val >= upper_val) return true;
+        }
+      }
+      // 检查不等条件冲突
+      for (auto &nev : ne_values) {
+        if (equal_val == nev) {
+          return true;
+        }
+      }
+    } else {
+      // 无equal时检查范围
+      if (has_lower && has_upper) {
+        // 下界不能大于上界
+        if (lower_val > upper_val) {
+          return true;
+        } else if (lower_val == upper_val && (!lower_inclusive || !upper_inclusive)) {
+          // 下界 == 上界但没有包含这个点
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  std::vector<Condition> toConditions(const TabCol &col) {
+    std::vector<Condition> result;
+    if (has_equal) {
+      Condition c;
+      c.op = OP_EQ;
+      c.lhs_col = col;
+      c.is_rhs_val = true;
+      c.is_rhs_stmt = false;
+      c.is_rhs_exe_processed = false;
+      c.rhs_val = equal_val;
+      result.push_back(c);
+      return result;
+    }
+
+    if (has_lower) {
+      Condition c;
+      c.lhs_col = col;
+      c.is_rhs_val = true;
+      c.is_rhs_stmt = false;
+      c.is_rhs_exe_processed = false;
+      c.rhs_val = lower_val;
+      c.op = lower_inclusive ? OP_GE : OP_GT;
+      result.push_back(c);
+    }
+
+    if (has_upper) {
+      Condition c;
+      c.lhs_col = col;
+      c.is_rhs_val = true;
+      c.is_rhs_stmt = false;
+      c.is_rhs_exe_processed = false;
+      c.rhs_val = upper_val;
+      c.op = upper_inclusive ? OP_LE : OP_LT;
+      result.push_back(c);
+    }
+
+    for (auto &v : ne_values) {
+      Condition c;
+      c.lhs_col = col;
+      c.is_rhs_val = true;
+      c.is_rhs_stmt = false;
+      c.is_rhs_exe_processed = false;
+      c.rhs_val = v;
+      c.op = OP_NE;
+      result.push_back(c);
+    }
+
+    return result;
+  }
+
+  // 辅助函数：处理一个新的范围条件后检查矛盾
+  bool tryCheckContradictory() { return isContradictory(); }
+};
+
+void simplify_conditions(std::shared_ptr<Query> query) {
+  std::map<std::pair<std::string, std::string>, ColCondRange> col_map;
+
+  for (auto &cond : query->conds) {
+    // 只简化列-常量的条件
+    if (!cond.is_rhs_val || cond.is_rhs_stmt) {
+      continue;
+    }
+
+    auto key = std::make_pair(cond.lhs_col.tab_name, cond.lhs_col.col_name);
+    auto &range = col_map[key];
+
+    switch (cond.op) {
+      case OP_EQ: {
+        if (range.has_equal) {
+          // 已有equal，如果值不同则无解
+          if (range.equal_val != cond.rhs_val) {
+            query->no_result = true;
+            return;
+          }
+        } else {
+          range.has_equal = true;
+          range.equal_val = cond.rhs_val;
+        }
+        break;
+      }
+      case OP_NE: {
+        if (range.has_equal && range.equal_val == cond.rhs_val) {
+          query->no_result = true;
+          return;
+        }
+        range.ne_values.push_back(cond.rhs_val);
+        break;
+      }
+      case OP_LT: {
+        if (!range.has_upper) {
+          range.has_upper = true;
+          range.upper_val = cond.rhs_val;
+          range.upper_inclusive = false;
+        } else {
+          if (cond.rhs_val < range.upper_val) {
+            range.upper_val = cond.rhs_val;
+            range.upper_inclusive = false;
+          } else if (cond.rhs_val == range.upper_val && range.upper_inclusive) {
+            // 原为<=，现为<更严格，更新为<（上界更严格）
+            range.upper_inclusive = false;
+          }
+        }
+        break;
+      }
+      case OP_LE: {
+        if (!range.has_upper) {
+          range.has_upper = true;
+          range.upper_val = cond.rhs_val;
+          range.upper_inclusive = true;
+        } else {
+          if (cond.rhs_val < range.upper_val) {
+            range.upper_val = cond.rhs_val;
+            range.upper_inclusive = true;
+          } else if (cond.rhs_val == range.upper_val && !range.upper_inclusive) {
+            // 原是<，现在<=宽松，不更新为宽松的条件，保持严格的<
+          }
+        }
+        break;
+      }
+      case OP_GT: {
+        if (!range.has_lower) {
+          range.has_lower = true;
+          range.lower_val = cond.rhs_val;
+          range.lower_inclusive = false;
+        } else {
+          if (cond.rhs_val > range.lower_val) {
+            range.lower_val = cond.rhs_val;
+            range.lower_inclusive = false;
+          } else if (cond.rhs_val == range.lower_val && range.lower_inclusive) {
+            // 原是>=，现在>更严格
+            range.lower_inclusive = false;
+          }
+        }
+        break;
+      }
+      case OP_GE: {
+        if (!range.has_lower) {
+          range.has_lower = true;
+          range.lower_val = cond.rhs_val;
+          range.lower_inclusive = true;
+        } else {
+          if (cond.rhs_val > range.lower_val) {
+            range.lower_val = cond.rhs_val;
+            range.lower_inclusive = true;
+          } else if (cond.rhs_val == range.lower_val && !range.lower_inclusive) {
+            // 原是>，新是>=更宽松，不替换为宽松的条件
+          }
+        }
+        break;
+      }
+      default:
+        // OP_IN等不做特殊优化
+        break;
+    }
+
+    // 每添加一个条件后就检查是否矛盾
+    if (range.tryCheckContradictory()) {
+      query->no_result = true;
+      return;
+    }
+  }
+
+  // 所有条件处理完再次检查
+  for (auto &[key, range] : col_map) {
+    if (range.isContradictory()) {
+      query->no_result = true;
+      return;
+    }
+  }
+
+  if (query->no_result) return;
+
+  // 重构conds
+  std::vector<Condition> new_conds;
+  for (auto &cond : query->conds) {
+    // 非列-常量条件保留
+    if (!cond.is_rhs_val || cond.is_rhs_stmt) {
+      new_conds.push_back(cond);
+    }
+  }
+  // 添加简化后的列条件
+  for (auto &[key, range] : col_map) {
+    TabCol col;
+    col.tab_name = key.first;
+    col.col_name = key.second;
+    auto cnds = range.toConditions(col);
+    for (auto &c : cnds) {
+      new_conds.push_back(c);
+    }
+  }
+
+  query->conds = std::move(new_conds);
+}
+// 标识 (表名, 列名)
+struct ColId {
+  std::string tab_name;
+  std::string col_name;
+
+  bool operator==(const ColId &o) const { return tab_name == o.tab_name && col_name == o.col_name; }
+};
+
+struct ColIdHash {
+  size_t operator()(const ColId &c) const {
+    // 简易hash组合
+    auto h1 = std::hash<std::string>()(c.tab_name);
+    auto h2 = std::hash<std::string>()(c.col_name);
+    // 大致混合
+    return h1 ^ (h2 + 0x9e3779b97f4a7c15ULL + (h1 << 6) + (h1 >> 2));
+  }
+};
+
+// 并查集，用于把 tableA.a, tableB.a, tableC.a 等列合并到同一个“等价类”
+class ColumnUnionFind {
+ public:
+  ColId find(const ColId &x) {
+    if (parent_.find(x) == parent_.end()) {
+      parent_[x] = x;  // 若 x 不在 parent_ 里，则把它自己设为它的 parent
+      return x;
+    }
+    if (!(parent_[x] == x)) {
+      parent_[x] = find(parent_[x]);  // 路径压缩
+    }
+    return parent_[x];
+  }
+
+  void unite(const ColId &a, const ColId &b) {
+    auto ra = find(a);
+    auto rb = find(b);
+    if (!(ra == rb)) {
+      parent_[rb] = ra;
+    }
+  }
+
+ private:
+  std::unordered_map<ColId, ColId, ColIdHash> parent_;
+};
+
+}  // namespace
+
+void Planner::deduce_conditions_via_equijoin(std::shared_ptr<Query> query) {
+  // 第1步：构建并查集
+  ColumnUnionFind uf;
+
+  // 先把所有 “表列” 都在 union-find 里出现一次
+  //   1) lhs_col
+  //   2) 若是 col op col 的，则 rhs_col 也要
+  for (auto &cond : query->conds) {
+    ColId lhs{cond.lhs_col.tab_name, cond.lhs_col.col_name};
+    uf.find(lhs);  // 确保它进并查集
+    if (!cond.is_rhs_val && !cond.is_rhs_stmt) {
+      // 说明 rhs 也是列
+      ColId rhs{cond.rhs_col.tab_name, cond.rhs_col.col_name};
+      uf.find(rhs);
+    }
+  }
+
+  // 把多表等值条件 (tableA.a = tableB.a) 全部 union
+  for (auto &cond : query->conds) {
+    bool is_join_eq = (cond.op == OP_EQ && !cond.is_rhs_val &&  // rhs不是常量
+                       !cond.is_rhs_stmt &&                     // rhs不是子查询
+                       cond.lhs_col.tab_name != cond.rhs_col.tab_name);
+    if (is_join_eq) {
+      ColId c1{cond.lhs_col.tab_name, cond.lhs_col.col_name};
+      ColId c2{cond.rhs_col.tab_name, cond.rhs_col.col_name};
+      uf.unite(c1, c2);
+    }
+  }
+
+  // 第2步：收集单表谓词
+  std::unordered_map<ColId, std::vector<Condition>, ColIdHash> singleTableConds;
+  for (auto &cond : query->conds) {
+    // 如果是 “col op 常量” 的单表条件 (op可以是 <, <=, >, >=, =, != ...)
+    if (cond.is_rhs_val && !cond.is_rhs_stmt) {
+      ColId c{cond.lhs_col.tab_name, cond.lhs_col.col_name};
+      ColId rep = uf.find(c);  // 找到它所在的等价类
+      singleTableConds[rep].push_back(cond);
+    }
+  }
+
+  // 第3步：等价类复制
+  // eqClassMembers[rep] = 这个等价类下的所有列
+  std::unordered_map<ColId, std::vector<ColId>, ColIdHash> eqClassMembers;
+  // 枚举一下 union-find 里出现过的所有列(方法：再扫一遍 conds, 或者若有接口能直接从 union-find 里取出)
+  for (auto &cond : query->conds) {
+    // LHS
+    ColId lhs{cond.lhs_col.tab_name, cond.lhs_col.col_name};
+    ColId rep_lhs = uf.find(lhs);
+    eqClassMembers[rep_lhs].push_back(lhs);
+
+    // 如果 RHS 也是列，则同样处理
+    if (!cond.is_rhs_val && !cond.is_rhs_stmt) {
+      ColId rhs{cond.rhs_col.tab_name, cond.rhs_col.col_name};
+      ColId rep_rhs = uf.find(rhs);
+      eqClassMembers[rep_rhs].push_back(rhs);
+    }
+  }
+
+  // 遍历 singleTableConds[rep] 里的所有 condition, 复制到 eqClassMembers[rep] 下的每个列
+  std::vector<Condition> newConds;
+  for (auto &kv : singleTableConds) {
+    ColId rep = kv.first;
+    auto &condsInThisRep = kv.second;
+    // 该等价类的所有列
+    auto &cols = eqClassMembers[rep];
+    // 复制
+    for (auto &oldCond : condsInThisRep) {
+      for (auto &colId : cols) {
+        // 如果本来就是 oldCond 那个列，就不必重复
+        if (colId.tab_name == oldCond.lhs_col.tab_name && colId.col_name == oldCond.lhs_col.col_name) {
+          continue;
+        }
+        // 新建一个 condition
+        Condition c = oldCond;
+        // 把 lhs 改为等价类中的另一个列
+        c.lhs_col.tab_name = colId.tab_name;
+        c.lhs_col.col_name = colId.col_name;
+        newConds.push_back(std::move(c));
+      }
+    }
+  }
+
+  // 第4步：将推导出的 newConds 加入 query->conds
+  if (!newConds.empty()) {
+    query->conds.insert(query->conds.end(), newConds.begin(), newConds.end());
+  }
+}
+
 // 目前的索引匹配规则为：完全匹配索引字段，支持范围查询(不支持NE)，不会自动调整where条件的顺序(目前是左边字段，右边值)
 // OLD：完全匹配索引字段，且全部为单点查询，不会自动调整where条件的顺序
 bool Planner::get_index_cols(std::string tab_name, std::vector<Condition> curr_conds,
@@ -150,16 +535,126 @@ std::shared_ptr<Plan> pop_scan(int *scantbl, std::string table, std::vector<std:
   return nullptr;
 }
 
-std::shared_ptr<Query> Planner::logical_optimization(std::shared_ptr<Query> query, Context *context) {
-  // TODO 实现逻辑优化规则
+void Planner::reorder_conds_based_on_table_size(std::shared_ptr<Query> query) {
+  std::vector<Condition> join_conds;
+  std::vector<Condition> single_conds;
 
+  // 将query->conds拆分为join条件和单表条件
+  for (auto &cond : query->conds) {
+    bool is_join_cond = (!cond.is_rhs_val && !cond.is_rhs_stmt && cond.lhs_col.tab_name != cond.rhs_col.tab_name);
+    if (is_join_cond) {
+      join_conds.push_back(cond);
+    } else {
+      single_conds.push_back(cond);
+    }
+  }
+
+  auto get_table_size = [&](const std::string &tab_name) {
+    int count = sm_manager_->GetTableCount(tab_name);
+    if (count < 0) {
+      count = 1000;  // 若无统计信息则假设为1000
+    }
+    return count;
+  };
+
+  auto get_max_distinct_size = [&](const std::string &left_tab_name, const std::string &left_col_name,
+                                   const std::string &right_tab_name, const std::string &right_col_name) {
+    int left_count = sm_manager_->GetTableAttrDistinct(left_tab_name, left_col_name);
+    int right_count = sm_manager_->GetTableAttrDistinct(right_tab_name, right_col_name);
+    if (left_count < 0 && right_count < 0) {
+      return 1;  // 若无统计信息则返回1，相当于不进行distinct值统计
+    }
+    return left_count > right_count ? left_count : right_count;
+  };
+
+  // 根据表大小对join_conds进行排序，小表优先
+  // 这里使用两表大小的乘积作为简易估计值
+  std::sort(join_conds.begin(), join_conds.end(), [&](const Condition &a, const Condition &b) {
+    int a_size = (get_table_size(a.lhs_col.tab_name) * get_table_size(a.rhs_col.tab_name)) /
+                 get_max_distinct_size(a.lhs_col.tab_name, a.lhs_col.col_name, a.rhs_col.tab_name, a.rhs_col.col_name);
+    int b_size = (get_table_size(b.lhs_col.tab_name) * get_table_size(b.rhs_col.tab_name)) /
+                 get_max_distinct_size(b.lhs_col.tab_name,b.lhs_col.col_name, b.rhs_col.tab_name,b.rhs_col.col_name);
+    return a_size < b_size;
+  });
+
+  // 对每个join_cond，若 lhs_table 大于 rhs_table，则交换 lhs 和 rhs
+  for (auto &cond : join_conds) {
+    int lhs_size = get_table_size(cond.lhs_col.tab_name);
+    int rhs_size = get_table_size(cond.rhs_col.tab_name);
+    if (lhs_size > rhs_size) {
+      // 交换 lhs_col 和 rhs_col
+      std::swap(cond.lhs_col, cond.rhs_col);
+      // 翻转操作符
+      cond.op = reverse_op(cond.op);
+    }
+  }
+
+  // 最终将单表条件放前面，join条件放后面
+  std::vector<Condition> new_conds;
+  new_conds.insert(new_conds.end(), single_conds.begin(), single_conds.end());
+  new_conds.insert(new_conds.end(), join_conds.begin(), join_conds.end());
+
+  query->conds = std::move(new_conds);
+}
+
+std::shared_ptr<Query> Planner::logical_optimization(std::shared_ptr<Query> query, Context *context) {
+  if (GetEnableOptimizer()) {
+    // 调用reorder_joins对query->tables进行连接顺序重排
+    if (query->tables.size() > 1) {
+      reorder_joins(query);
+    }
+    reorder_conds_based_on_table_size(query);
+    deduce_conditions_via_equijoin(query);
+    // ADDED: 简化条件
+    simplify_conditions(query);
+  }
   return query;
 }
 
-std::shared_ptr<Plan> Planner::physical_optimization(std::shared_ptr<Query> query, Context *context) {
-  std::shared_ptr<Plan> plan = make_one_rel(query, context);
+void Planner::reorder_joins(std::shared_ptr<Query> query) {
+  // 简单启发式：对query->tables根据其大小(行数)进行升序排序
+  // 获取每个表的代价(用行数代替)
+  std::vector<std::pair<std::string, double>> table_costs;
+  for (auto &t : query->tables) {
+    double cost = estimate_table_scan_cost(t);
+    table_costs.emplace_back(t, cost);
+  }
 
-  // 其他物理优化
+  // 按照cost从小到大排序
+  std::sort(table_costs.begin(), table_costs.end(), [](auto &a, auto &b) { return a.second < b.second; });
+
+  query->optimized_table_order.clear();
+  for (auto &tc : table_costs) {
+    query->optimized_table_order.push_back(tc.first);
+  }
+}
+
+double Planner::estimate_table_scan_cost(const std::string &tab_name) {
+  // 简单估计：行数越多，cost越高。行数从sm_manager_获取
+  int count = sm_manager_->GetTableCount(tab_name);
+  if (count < 0) {
+    // 如果没有统计信息，假设一个默认值
+    return 1000.0;
+  }
+  return static_cast<double>(count);
+}
+
+double Planner::estimate_join_cost(const std::string &left_table, const std::string &right_table) {
+  // 简单启发式join代价估计 = 两表大小相乘 (笛卡尔积大小)
+  double left_cost = estimate_table_scan_cost(left_table);
+  double right_cost = estimate_table_scan_cost(right_table);
+  return left_cost * right_cost;
+}
+
+std::shared_ptr<Plan> Planner::physical_optimization(std::shared_ptr<Query> query, Context *context) {
+  // ADDED: 若no_result为true，直接返回EmptyPlan
+  if (query->no_result) {
+    return std::make_shared<EmptyPlan>();
+  }
+  std::shared_ptr<Plan> plan = make_one_rel(query, context);
+  if (GetEnableOptimizer()) {
+    // 其他物理优化
+  }
 
   // 处理aggregation
   plan = generate_aggregation_plan(query, std::move(plan));
@@ -171,9 +666,13 @@ std::shared_ptr<Plan> Planner::physical_optimization(std::shared_ptr<Query> quer
 
 std::shared_ptr<Plan> Planner::make_one_rel(std::shared_ptr<Query> query, Context *context) {
   auto x = std::dynamic_pointer_cast<ast::SelectStmt>(query->parse);
-  std::vector<std::string> tables = query->tables;
-  // // Scan table , 生成表算子列表tab_nodes
+  std::vector<std::string> tables = query->optimized_table_order.empty() ? query->tables : query->optimized_table_order;
+
   std::vector<std::shared_ptr<Plan>> table_scan_executors(tables.size());
+
+  // std::vector<std::string> tables = query->tables;
+  // // Scan table , 生成表算子列表tab_nodes
+  // std::vector<std::shared_ptr<Plan>> table_scan_executors(tables.size());
   // traverse all tables, if tables[i] == left col tab, then move corresponding cond into curr_conds
   for (size_t i = 0; i < tables.size(); i++) {
     auto curr_conds = pop_conds(query->conds, tables[i]);
@@ -365,7 +864,8 @@ std::shared_ptr<Plan> Planner::generate_select_plan(std::shared_ptr<Query> query
   // 物理优化
   auto sel_cols = query->cols;
   std::shared_ptr<Plan> plannerRoot = physical_optimization(query, context);
-  plannerRoot = std::make_shared<ProjectionPlan>(T_Projection, std::move(plannerRoot), std::move(sel_cols));
+  if (plannerRoot->tag != T_Empty)
+    plannerRoot = std::make_shared<ProjectionPlan>(T_Projection, std::move(plannerRoot), std::move(sel_cols));
 
   return plannerRoot;
 }
@@ -445,8 +945,11 @@ std::shared_ptr<Plan> Planner::do_planner(std::shared_ptr<Query> query, Context 
     std::shared_ptr<plannerInfo> root = std::make_shared<plannerInfo>(x);
     // 生成select语句的查询执行计划
     std::shared_ptr<Plan> projection = generate_select_plan(std::move(query), context);
-    plannerRoot = std::make_shared<DMLPlan>(T_select, projection, std::string(), std::vector<Value>(),
-                                            std::vector<Condition>(), std::vector<SetClause>(), x->is_unique);
+    if (projection->tag != T_Empty)
+      plannerRoot = std::make_shared<DMLPlan>(T_select, projection, std::string(), std::vector<Value>(),
+                                              std::vector<Condition>(), std::vector<SetClause>(), x->is_unique);
+    else
+      return projection;
   } else {
     throw InternalError("Unexpected AST root");
   }

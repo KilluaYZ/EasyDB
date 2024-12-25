@@ -3,6 +3,7 @@ add_library(
     OBJECT
     execution_manager.cpp
     executor_sort.cpp
+    executor_aggregation.cpp
     executor_delete.cpp
     executor_index_scan.cpp
     executor_insert.cpp

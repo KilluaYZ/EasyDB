@@ -54,12 +54,25 @@ DATA_PART_PATH=$DATA_PATH/part.tbl
 DATA_PARTSUPP_PATH=$DATA_PATH/partsupp.tbl
 DATA_REGION_PATH=$DATA_PATH/region.tbl
 DATA_TEST_PATH=$DATA_PATH/test.tbl
+DOT_ROOT=$SCRIPT_DIR/dots
+SQL_DOT_NUM=0
+
+draw_ast(){
+    DOT_OUT_PATH=$DOT_ROOT/SQL$SQL_DOT_NUM.dot
+    SVG_OUT_PATH=$DOT_ROOT/SQL$SQL_DOT_NUM.png
+    SQL_DOT_NUM=$((SQL_DOT_NUM + 1))
+    # echo "$1"
+    $ROOT_PATH/build/test/parser_ast_printer -s "$1" -o $DOT_OUT_PATH 
+    dot -T png $DOT_OUT_PATH -o $SVG_OUT_PATH 
+}
+
 execute(){
-    print_blue "执行命令:"
+    print_blue "执行命令: $1"
     echo -e "$1 \n" >> out.sql 
-    if [ "$2" != "." ]; then
-        echo "$1; exit;" | $CLIENT_PATH -p $SERVE_PORT
-    fi
+    # if [ "$2" != "." ]; then
+    draw_ast "$1";
+    # fi
+    echo "$1; exit;" | $CLIENT_PATH -p $SERVE_PORT
 }
 
 execute_quiet(){
@@ -177,6 +190,55 @@ execute "$create_table_lineitem"
 }
 
 
+join_test(){
+
+print_green "=> 单条件等值连接"
+print_green "==> int上进行单条件等值连接"
+execute "SELECT * FROM supplier, nation where S_NATIONKEY = N_NATIONKEY;"
+
+execute "SELECT * FROM supplier, nation where S_SUPPKEY < 10 AND S_NATIONKEY = N_NATIONKEY;"
+
+print_green "==> char上进行单条件等值连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE = C_PHONE;"
+
+print_green "==> varchar上进行单条件等值连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_NAME = C_NAME;"
+
+print_green "=> 单条件不等值连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE != C_PHONE;"
+
+print_green "=> 多条件连接"
+print_green "==> int, varchar上进行多条件连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_PHONE != C_PHONE AND S_SUPPKEY != C_CUSTKEY;"
+
+print_green "=> 三表连接"
+execute "SELECT S_NAME, C_NAME, N_NAME FROM supplier, customer, nation where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND C_NATIONKEY = N_NATIONKEY;"
+
+print_green "=> 两表卡氏积连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10;"
+
+}
+
+select_test(){
+    print_green "-------- Select Test --------"
+
+    print_green "=> 在float, int, varchar上进行条件选择"
+
+    print_green "==> int上进行条件选择"
+    execute "SELECT * FROM supplier where S_SUPPKEY = 10;"
+    execute "SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20;"
+    execute "SELECT * FROM nation order by N_REGIONKEY;"
+    execute "SELECT * FROM nation where N_NATIONKEY > 10 order by N_REGIONKEY;"
+
+    print_green "==> float上进行条件选择"
+    execute "SELECT * FROM supplier where S_ACCTBAL < 3000.0;"
+    execute "SELECT * FROM supplier where S_ACCTBAL > 1000.5 AND S_SUPPKEY < 2000.1;"
+
+    print_green "==> varchar上进行条件选择"
+    execute "SELECT * FROM supplier where S_NAME = 'Supplier#000000015';"
+    execute "SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20 AND S_NAME != 'Supplier#000000015';"
+}
+
 load_data(){
 # 导入数据
 print_green "导入数据..."
@@ -218,6 +280,12 @@ print_white "ROOT_PATH: $ROOT_PATH"
 if [ -d "$DB_PATH" ]; then
     rm -rf $DB_PATH;
 fi
+
+if [ -d "$DOT_ROOT" ]; then 
+    rm -rf $DOT_ROOT;
+fi
+
+mkdir -p $DOT_ROOT
 
 # 首先启动server
 print_green "启动server"
@@ -283,7 +351,6 @@ execute "INSERT INTO student values(3, 'eee', 35, '2000-01-23');"
 execute "INSERT INTO student values(3, 'eee', 35, '2000-01-23');"
 execute "INSERT INTO student values(6, 'fff', 35, '1999-01-23');"
 
-
 execute "INSERT INTO teacher values(1, 'aaa', 35, '1999-01-23');"
 execute "INSERT INTO teacher values(2, 'ddd', 49, '1979-01-23');"
 execute "INSERT INTO teacher values(3, 'bbb', 50, '1959-01-23');"
@@ -306,43 +373,34 @@ execute "INSERT INTO sc values(4, 3);"
 execute "INSERT INTO sc values(5, 3);"
 execute "INSERT INTO sc values(6, 3);"
 
+print_green "=> Select"
 
-print_green "-------- NestLoop Test --------"
+# 测试SELCT语句基本用法
+execute "SELECT s_id, s_name, s_age, s_birthday FROM student;"
 
-print_green "=> 设置为NestLoop Join"
-execute "SET enable_nestloop = true;"
-execute "SET enable_sortmerge = false;"
-execute "SET enable_hashjoin = false;"
-execute "SELECT s_name, c_name FROM student, course, sc where s_id = sc_sid AND sc_cid = c_id;"
+print_green "==> order"
+# 测试SELCT语句带order by操作
+execute "SELECT s_id, s_name, s_age, s_birthday FROM student order by s_age;"
 
+print_green "==> unique"
+# 测试SELCT语句带unique操作
+execute "SELECT UNIQUE s_id, s_name, s_age, s_birthday FROM student;"
 
-print_green "-------- SortMerge Test --------"
+print_green "==> condition"
+# 测试SELCT语句带条件
+execute "SELECT s_id, s_name, s_age, s_birthday FROM student where s_age = 35;"
 
-print_green "=> 设置为SortMerge Join"
-execute "SET enable_nestloop = false;"
-execute "SET enable_sortmerge = true;"
-execute "SET enable_hashjoin = false;";
+print_green "===> condition order"
+# 测试SELCT语句带条件和order by
+execute "SELECT s_id, s_name, s_age, s_birthday FROM student where s_age = 35 order by s_birthday;"
 
-execute "SELECT s_name, c_name FROM student, course, sc where s_id = sc_sid AND sc_cid = c_id;"
+print_green "===> condition unique"
+# 测试SELCT语句带条件和unique
+execute "SELECT UNIQUE s_id, s_name, s_age, s_birthday FROM student where s_age = 35;"
 
-# print_green "=> Select"
-
-# execute "SELECT * FROM student;"
-
-# print_green "==> order"
-# execute "SELECT * FROM student order by s_age;"
-
-# print_green "==> unique"
-# execute "SELECT UNIQUE * FROM student;"
-
-# print_green "==> condition"
-# execute "SELECT * FROM student where s_age = 35;"
-
-# print_green "===> condition order"
-# execute "SELECT * FROM student where s_age = 35 order by s_birthday;"
-
-# print_green "===> condition unique"
-# execute "SELECT UNIQUE * FROM student where s_age = 35;"
+# 测试SELECT语句带join
+print_green "===> join"
+execute "SELECT s_id, s_name, s_age, s_birthday, c_name FROM student, course, sc WHERE s_id = sc_sid AND c_id = sc_cid;"
 
 # print_green "===> nested"
 # execute "SELECT * FROM student where s_age in (SELECT t_age from teacher);"
@@ -350,26 +408,33 @@ execute "SELECT s_name, c_name FROM student, course, sc where s_id = sc_sid AND 
 # print_green "===> group"
 # execute "SELECT s_age, COUNT(*) FROM student group by s_age;"
 
+print_green "=> Delete"
+execute "select * from student where s_id = 6;"
+execute "delete from student where s_id = 6;"
+execute "select * from student where s_id = 6;"
 
+print_green "=> Drop Table"
+execute "show tables;"
+execute "drop table student;"
+execute "drop table teacher;"
+execute "show tables;"
 
-# print_green "=> Drop Table"
-# execute "show tables;"
-# execute "drop table student;"
-# execute "drop table teacher;"
-# execute "show tables;"
+# print_green "=> syntax error"
+# execute "select * from student where s_id = ;"
+# execute "insert student values() ;"
 
-# print_green "------------- 大数据集 --------------"
+print_green "------------- 大数据集 --------------"
 
-# create_tables;
+create_tables;
 
-# create_index;
+load_data;
 
-# load_data;
+select_test;
 
-# execute "SELECT UNIQUE S_NATIONKEY FROM supplier; "
-
-# execute "SELECT UNIQUE S_NATIONKEY FROM supplier order by S_NATIONKEY; "
-
+execute "SET enable_nestloop = true;"
+execute "SET enable_sortmerge = false;"
+execute "SET enable_hashjoin = false;";
+join_test;
 
 print_green "====================================================="
 print_green "                    Query Parse Test End"

@@ -36,6 +36,31 @@ class Planner {
   bool enable_sortmerge_join = false;
   bool enable_hash_join = false;
 
+  bool enable_optimizer = true;
+  double estimate_table_scan_cost(const std::string &tab_name);
+  double estimate_join_cost(const std::string &left_table, const std::string &right_table);
+  void reorder_conds_based_on_table_size(std::shared_ptr<Query> query);
+  void reorder_joins(std::shared_ptr<Query> query);
+
+  CompOp reverse_op(CompOp op) {
+    switch (op) {
+      case OP_EQ:
+        return OP_EQ;  // 相等对称
+      case OP_NE:
+        return OP_NE;  // 不等对称
+      case OP_LT:
+        return OP_GT;  // 小于变大于
+      case OP_GT:
+        return OP_LT;  // 大于变小于
+      case OP_LE:
+        return OP_GE;  // 小于等于变大于等于
+      case OP_GE:
+        return OP_LE;  // 大于等于变小于等于
+      default:
+        return op;  // fallback
+    }
+  }
+
  public:
   Planner(SmManager *sm_manager) : sm_manager_(sm_manager) {}
 
@@ -46,6 +71,12 @@ class Planner {
   void set_enable_sortmerge_join(bool set_val) { enable_sortmerge_join = set_val; }
 
   void setEnableHashJoin(bool set_val) { enable_hash_join = set_val; }
+
+  void SetEnableOptimizer(bool set_val) { enable_optimizer = set_val; }
+
+  bool GetEnableOptimizer() { return enable_optimizer; }
+
+  void deduce_conditions_via_equijoin(std::shared_ptr<Query> query);
 
  private:
   std::shared_ptr<Query> logical_optimization(std::shared_ptr<Query> query, Context *context);

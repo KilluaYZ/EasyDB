@@ -22,9 +22,9 @@
 #include <utility>
 
 // #include "fmt/format.h"
-
 #include "common/exception.h"
 #include "common/macros.h"
+#include "defs.h"
 // #include "system/sm_meta.h"
 #include "type/type.h"
 #include "type/type_id.h"
@@ -68,6 +68,18 @@ class Column {
     // EASYDB_ASSERT(type == TypeId::TYPE_VARCHAR || type == TypeId::VECTOR, "Wrong constructor for fixed-size type.");
   }
 
+  Column(std::string tab_name, std::string column_name, TypeId type, uint32_t length, uint32_t offset,
+         AggregationType agg_type)
+      : tab_name_(tab_name),
+        column_name_(std::move(column_name)),
+        column_type_(type),
+        length_(TypeSize(type, length)),
+        column_offset_(offset),
+        agg_type_(agg_type) {
+    EASYDB_ASSERT(type == TypeId::TYPE_CHAR || type == TypeId::TYPE_VARCHAR, "Wrong constructor for fixed-size type.");
+    // EASYDB_ASSERT(type == TypeId::TYPE_VARCHAR || type == TypeId::VECTOR, "Wrong constructor for fixed-size type.");
+  }
+
   /**
    * Replicate a Column with a different name.
    * @param column_name name of the column
@@ -85,15 +97,23 @@ class Column {
     return c;
   }
 
-
   Column(std::string column_name, std::string tab_name, TypeId type)
-    : column_name_(std::move(column_name)),
-      tab_name_(std::move(tab_name)),
-      column_type_(type),
-      length_(TypeSize(type)) {
-  EASYDB_ASSERT(type != TypeId::TYPE_CHAR && type != TypeId::TYPE_VARCHAR,
-                "Wrong constructor for variable-length types.");
-}
+      : column_name_(std::move(column_name)),
+        tab_name_(std::move(tab_name)),
+        column_type_(type),
+        length_(TypeSize(type)) {
+    EASYDB_ASSERT(type != TypeId::TYPE_CHAR && type != TypeId::TYPE_VARCHAR,
+                  "Wrong constructor for variable-length types.");
+  }
+
+  // Column &operator=(Column &c) {
+  //   tab_name_ = c.GetTabName();
+  //   column_name_ = c.GetName();
+  //   column_type_ = c.GetType();
+  //   length_ = c.GetStorageSize();
+  //   column_offset_ = c.GetOffset();
+  //   agg_type_ = c.GetAggregationType();
+  // }
 
   /** @return column name */
   auto GetName() const -> std::string { return column_name_; }
@@ -107,6 +127,8 @@ class Column {
   /** @return column length */
   auto GetStorageSize() const -> uint32_t { return length_; }
 
+  void SetStorageSize(uint32_t length) { length = length_; }
+
   /** @return column's offset in the tuple */
   auto GetOffset() const -> uint32_t { return column_offset_; }
 
@@ -114,6 +136,12 @@ class Column {
 
   /** @return column type */
   auto GetType() const -> TypeId { return column_type_; }
+
+  void SetType(TypeId column_type) { column_type_ = column_type; }
+
+  auto GetAggregationType() const -> AggregationType { return agg_type_; }
+
+  void SetAggregationType(AggregationType agg_type) { agg_type_ = agg_type; }
 
   /** @return true if column is inlined, false otherwise */
   auto IsInlined() const -> bool {
@@ -181,6 +209,8 @@ class Column {
 
   /** Column offset in the tuple. */
   uint32_t column_offset_{0};
+
+  AggregationType agg_type_{AggregationType::NO_AGG};
 };
 
 }  // namespace easydb

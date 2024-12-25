@@ -14,12 +14,14 @@
 
 #include "catalog/schema.h"
 #include "common/errors.h"
+#include "execution/executor_aggregation.h"
 #include "execution/executor_index_scan.h"
 #include "execution/executor_merge_join.h"
 #include "execution/executor_nestedloop_join.h"
 #include "execution/executor_projection.h"
 #include "execution/executor_seq_scan.h"
 #include "execution/executor_sort.h"
+#include "parser/ast.h"
 #include "storage/index/ix_manager.h"
 #include "storage/index/ix_scan.h"
 #include "type/value.h"
@@ -143,6 +145,9 @@ void QlManager::run_cmd_utility(std::shared_ptr<Plan> plan, txn_id_t *txn_id, Co
         planner_->setEnableHashJoin(x->bool_value_);
         break;
       }
+      case ast::SetKnobType::EnableOptimizer: {
+        planner_->SetEnableOptimizer(x->bool_value_);
+      }
       case ast::SetKnobType::EnableOutput: {
         sm_manager_->SetEnableOutput(x->bool_value_);
         break;
@@ -188,6 +193,9 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
   // 执行query_plan
   for (executorTreeRoot->beginTuple(); !executorTreeRoot->IsEnd(); executorTreeRoot->nextTuple()) {
     auto tuple = executorTreeRoot->Next();
+    if (num_rec == 0 && executorTreeRoot->IsEnd()) {
+      outfile << "empty set\n\0";
+    }
     std::vector<std::string> columns;
     std::string col_str;
     auto schema = &executorTreeRoot->schema();

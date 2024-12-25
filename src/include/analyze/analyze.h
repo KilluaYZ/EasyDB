@@ -25,6 +25,7 @@ namespace easydb {
 
 class Query {
  public:
+  bool no_result = false;  // ADDED: 标记查询结果为空
   std::shared_ptr<ast::TreeNode> parse;
   // TODO jointree
   // where条件
@@ -42,6 +43,12 @@ class Query {
   // having条件
   std::vector<Condition> having_conds;
 
+  // 是否有SELECT DISTINCT语句
+  bool is_unique = false;
+
+  // 在逻辑优化后确定的表连接顺序（连接重排后使用）
+  std::vector<std::string> optimized_table_order;
+
   Query() {}
   Query(std::shared_ptr<void> &ptr) {
     auto queryPtr = std::static_pointer_cast<Query>(ptr);
@@ -54,6 +61,8 @@ class Query {
       this->values = queryPtr->values;
       this->groupby_cols = queryPtr->groupby_cols;
       this->having_conds = queryPtr->having_conds;
+      this->is_unique = queryPtr->is_unique;
+      this->optimized_table_order = queryPtr->optimized_table_order;
     }
   }
 };
@@ -78,7 +87,7 @@ class Analyze {
   void get_clause(const std::vector<std::shared_ptr<ast::BinaryExpr>> &sv_conds, std::vector<Condition> &conds);
   void check_clause(const std::vector<std::string> &tab_names, std::vector<Condition> &conds);
   bool find_col(std::vector<std::shared_ptr<ast::Col>> &cols,
-                std::string col_name);                                            // check if col_name is find in cols
+                std::string col_name);                                         // check if col_name is find in cols
   bool check_aggregation_legality(const std::shared_ptr<ast::SelectStmt> &x);  // 聚集函数相关的合法性
   Value init_sv_value(const std::shared_ptr<ast::Value> &sv_val);
   Value convert_sv_value(const std::shared_ptr<ast::Value> &sv_val);

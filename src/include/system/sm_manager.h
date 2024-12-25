@@ -46,6 +46,10 @@ class SmManager {
   bool enable_output_;
   // map from table name to statistics
   std::unordered_map<std::string, int> table_count_;
+  std::unordered_map<std::string, std::unordered_map<std::string, float>> table_attr_max_;
+  std::unordered_map<std::string, std::unordered_map<std::string, float>> table_attr_min_;
+  std::unordered_map<std::string, std::unordered_map<std::string, float>> table_attr_sum_;
+  std::unordered_map<std::string, std::unordered_map<std::string, int>> table_attr_distinct_;
   // -1 for not load, 0 for loading, 1 for loaded
   int load_ = -1;
   std::vector<std::future<void>> futures_;
@@ -126,7 +130,12 @@ class SmManager {
   bool IsEnableOutput() { return enable_output_; }
 
   // table statistics
-  void SetTableCount(const std::string &table_name, int count) { table_count_.emplace(table_name, count); }
+  void SetTableCount(const std::string &table_name, int count) {
+    if (table_count_.find(table_name) == table_count_.end())
+      table_count_.emplace(table_name, count);
+    else
+      (table_count_[table_name] += count);
+  }
 
   // -1 if table not found
   int GetTableCount(const std::string &table_name) {
@@ -139,6 +148,95 @@ class SmManager {
     if (table_count_.find(table_name) == table_count_.end()) return;
     table_count_[table_name] += count;
   }
+
+  // table statistics
+  void SetTableAttrMax(const std::string &table_name, const std::string &attr_name, float count) {
+    if (table_attr_max_.find(table_name) == table_attr_max_.end()) {
+      std::unordered_map<std::string, float> map_tp;
+      map_tp.emplace(attr_name, count);
+      table_attr_max_.emplace(table_name, map_tp);
+    } else if (table_attr_max_[table_name].find(attr_name) == table_attr_max_[table_name].end()) {
+      table_attr_max_[table_name].emplace(attr_name, count);
+    } else {
+      table_attr_max_[table_name][attr_name] = count;
+    }
+  }
+
+  // -1 if table or attr not found
+  float GetTableAttrMax(const std::string &table_name, const std::string &attr_name) {
+    if (table_attr_max_.find(table_name) == table_attr_max_.end())
+      return -1;
+    else if (table_attr_max_[table_name].find(attr_name) == table_attr_max_[table_name].end())
+      return -1;
+    return table_attr_max_[table_name][attr_name];
+  }
+
+  // table statistics
+  void SetTableAttrMin(const std::string &table_name, const std::string &attr_name, float count) {
+    if (table_attr_min_.find(table_name) == table_attr_min_.end()) {
+      std::unordered_map<std::string, float> map_tp;
+      map_tp.emplace(attr_name, count);
+      table_attr_min_.emplace(table_name, map_tp);
+    } else if (table_attr_min_[table_name].find(attr_name) == table_attr_min_[table_name].end()) {
+      table_attr_min_[table_name].emplace(attr_name, count);
+    } else {
+      table_attr_min_[table_name][attr_name] = count;
+    }
+  }
+
+  // -1 if table or attr not found
+  float GetTableAttrMin(const std::string &table_name, const std::string &attr_name) {
+    if (table_attr_min_.find(table_name) == table_attr_min_.end())
+      return -1;
+    else if (table_attr_min_[table_name].find(attr_name) == table_attr_min_[table_name].end())
+      return -1;
+    return table_attr_min_[table_name][attr_name];
+  }
+
+  // table statistics
+  void SetTableAttrDistinct(const std::string &table_name, const std::string &attr_name, int count) {
+    if (table_attr_distinct_.find(table_name) == table_attr_distinct_.end()) {
+      std::unordered_map<std::string, int> map_tp;
+      map_tp.emplace(attr_name, count);
+      table_attr_distinct_.emplace(table_name, map_tp);
+    } else if (table_attr_distinct_[table_name].find(attr_name) == table_attr_distinct_[table_name].end()) {
+      table_attr_distinct_[table_name].emplace(attr_name, count);
+    } else {
+      table_attr_distinct_[table_name][attr_name] = count;
+    }
+  }
+
+  // -1 if table or attr not found
+  int GetTableAttrDistinct(const std::string &table_name, const std::string &attr_name) {
+    if (table_attr_distinct_.find(table_name) == table_attr_distinct_.end())
+      return -1;
+    else if (table_attr_distinct_[table_name].find(attr_name) == table_attr_distinct_[table_name].end())
+      return -1;
+    return table_attr_distinct_[table_name][attr_name];
+  }
+
+  // table statistics
+  void SetTableAttrSum(const std::string &table_name, const std::string &attr_name, float count) {
+    if (table_attr_sum_.find(table_name) == table_attr_sum_.end()) {
+      std::unordered_map<std::string, float> map_tp;
+      map_tp.emplace(attr_name, count);
+      table_attr_sum_.emplace(table_name, map_tp);
+    } else if (table_attr_sum_[table_name].find(attr_name) == table_attr_sum_[table_name].end()) {
+      table_attr_sum_[table_name].emplace(attr_name, count);
+    } else {
+      table_attr_sum_[table_name][attr_name] = count;
+    }
+  }
+
+  // -1 if table or attr not found
+  float GetTableAttrSum(const std::string &table_name, const std::string &attr_name) {
+    if (table_attr_sum_.find(table_name) == table_attr_sum_.end())
+      return -1;
+    else if (table_attr_sum_[table_name].find(attr_name) == table_attr_sum_[table_name].end())
+      return -1;
+    return table_attr_sum_[table_name][attr_name];
+  }
+
 };
 
 }  // namespace easydb

@@ -223,16 +223,15 @@ execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 
 print_green "==> varchar上进行单条件等值连接"
 execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_NAME = C_NAME;"
 
-# print_green "=> 单条件不等值连接"
-# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE != C_PHONE;"
+print_green "=> 单条件不等值连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 100 AND C_CUSTKEY < 100 AND S_PHONE != C_PHONE;"
 
-# print_green "=> 多条件连接"
-# print_green "==> int, varchar上进行多条件连接"
-# execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_PHONE != C_PHONE AND S_SUPPKEY != C_CUSTKEY;"
+print_green "=> 多条件连接"
+print_green "==> int, varchar上进行多条件连接"
+execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_PHONE != C_PHONE AND S_SUPPKEY != C_CUSTKEY;"
 
 print_green "=> 三表连接"
 execute "SELECT S_NAME, C_NAME, N_NAME FROM supplier, customer, nation where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND C_NATIONKEY = N_NATIONKEY;"
-# execute "SELECT S_NAME, C_NAME, N_NAME FROM supplier, customer, nation where S_SUPPKEY < 10 AND C_CUSTKEY < 10 AND S_NATIONKEY = N_NATIONKEY AND C_NATIONKEY = N_NATIONKEY;" . ;                                                                                              cat $DATA_TEST_PATH; echo -e "\n";
 
 print_green "=> 两表卡氏积连接"
 execute "SELECT * FROM supplier, customer where S_SUPPKEY < 10 AND C_CUSTKEY < 10;"
@@ -250,21 +249,23 @@ projection_test(){
 select_test(){
     print_green "-------- Select Test --------"
 
+    e
+
     print_green "=> 在float, int, varchar上进行条件选择"
 
     print_green "==> int上进行条件选择"
-    # execute "SELECT * FROM supplier where S_SUPPKEY = 10;"
-    # execute "SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20;"
-    # execute "SELECT * FROM nation order by N_REGIONKEY;"
-    # execute "SELECT * FROM nation where N_NATIONKEY > 10 order by N_REGIONKEY;"
+    execute "SELECT * FROM supplier where S_SUPPKEY = 10;"
+    execute "SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20;"
+    execute "SELECT * FROM nation order by N_REGIONKEY;"
+    execute "SELECT * FROM nation where N_NATIONKEY > 10 order by N_REGIONKEY;"
 
-    # print_green "==> float上进行条件选择"
-    # execute "SELECT * FROM supplier where S_ACCTBAL < 3000.0;"
-    # execute "SELECT * FROM supplier where S_ACCTBAL > 1000.5 AND S_SUPPKEY < 2000.1;"
+    print_green "==> float上进行条件选择"
+    execute "SELECT * FROM supplier where S_ACCTBAL < 3000.0;"
+    execute "SELECT * FROM supplier where S_ACCTBAL > 1000.5 AND S_SUPPKEY < 2000.1;"
 
-    # print_green "==> varchar上进行条件选择"
-    # execute "SELECT * FROM supplier where S_NAME = 'Supplier#000000015';"
-    # execute "SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20 AND S_NAME != 'Supplier#000000015';"
+    print_green "==> varchar上进行条件选择"
+    execute "SELECT * FROM supplier where S_NAME = 'Supplier#000000015';"
+    execute "SELECT * FROM supplier where S_SUPPKEY > 10 AND S_SUPPKEY < 20 AND S_NAME != 'Supplier#000000015';"
 }
 
 print_green "====================================================="
