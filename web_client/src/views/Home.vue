@@ -18,7 +18,7 @@
                             <el-row
                                 style="width: 100%;height: fit-content; display: flex; flex-direction: row; justify-content: start; align-items: center; margin: 0 10px 0 10px">
                                 <el-button class="home_page_btn home_page_btn1" round type="primary"
-                                    size="large">进入系统</el-button>
+                                    @click="onClickEnterBtn" size="large">进入系统</el-button>
                                 <el-button class="home_page_btn home_page_btn2" round type="primary"
                                     size="large">查看更多</el-button>
                             </el-row>
@@ -49,8 +49,9 @@
 import { reactive, ref } from 'vue'
 import * as echarts from 'echarts';
 import { onMounted } from 'vue'
-
-
+import { useRouter } from "vue-router";
+import { NProgress } from "@utils/nprogress"
+const router = useRouter();
 const option = reactive({
     legend: {
         top: '5%',
@@ -104,10 +105,11 @@ function init_func() {
 }
 
 const onClickElLink = () => {
-    // shell.openExternal("https://gitee.com/killuayz/pond-memory");
-    // openDefaultBrowser("https://gitee.com/killuayz/pond-memory");
-    // window.electron.ipcRenderer.send('openProjectWindow');
     window.open('https://github.com/QiangjunZhou/DB2024');
+}
+
+const onClickEnterBtn = () => {
+    router.push('/panel')
 }
 
 onMounted(init_func);

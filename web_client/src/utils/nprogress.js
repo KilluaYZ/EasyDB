@@ -1,5 +1,5 @@
-import NProgress from 'src/utils/nprogress.ts'
 import 'nprogress/nprogress.css'
+import NProgress from 'nprogress'
 
 NProgress.configure({
   easing: 'ease',
