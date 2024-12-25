@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #include <signal.h>
 #include <unistd.h>
 #include <atomic>
+#include <iostream>
 #include "analyze/analyze.h"
 #include "common/errors.h"
 #include "common/portal.h"
@@ -30,6 +31,7 @@ using namespace easydb;
 int SOCK_PORT = 8765;
 
 static bool should_exit = false;
+bool for_web = false;
 
 std::unique_ptr<DiskManager> disk_manager;
 std::unique_ptr<BufferPoolManager> buffer_pool_manager;
@@ -78,6 +80,7 @@ void *client_handler(void *sock_fd) {
   char data_recv[BUFFER_LENGTH];
   // 需要返回给客户端的结果
   char *data_send = new char[BUFFER_LENGTH];
+  std::vector<char> data_send_vec;
   // 需要返回给客户端的结果的长度
   int offset = 0;
   // 记录客户端当前正在执行的事务ID
@@ -120,6 +123,7 @@ void *client_handler(void *sock_fd) {
     // 开启事务，初始化系统所需的上下文信息（包括事务对象指针、锁管理器指针、日志管理器指针、存放结果的buffer、记录结果长度的变量）
     Context *context = new Context(lock_manager.get(), log_manager.get(), nullptr, data_send, &offset);
     SetTransaction(&txn_id, context);
+    context->InitJson();
 
     // 用于判断是否已经调用了yy_delete_buffer来删除buf
     bool finish_analyze = false;
@@ -149,6 +153,7 @@ void *client_handler(void *sock_fd) {
               memcpy(context->data_send_, str.c_str(), str.length());
               *(context->offset_) = str.length();
             }
+            context->SetJsonMsg("success");
             auto temp2 = std::chrono::high_resolution_clock::now();
             std::cout << "sql time usage:"
                       << (double)std::chrono::duration_cast<std::chrono::microseconds>(temp2 - temp1).count() / 1000000
@@ -161,6 +166,7 @@ void *client_handler(void *sock_fd) {
           memcpy(data_send, str.c_str(), str.length());
           data_send[str.length()] = '\0';
           offset = str.length();
+          context->SetJsonMsg("abort");
 
           // 回滚事务
           txn_manager->abort(context->txn_, log_manager.get());
@@ -180,6 +186,7 @@ void *client_handler(void *sock_fd) {
           data_send[e.get_msg_len()] = '\n';
           data_send[e.get_msg_len() + 1] = '\0';
           offset = e.get_msg_len() + 1;
+          context->SetJsonMsg(e.what());
 
           // 将报错信息写入output.txt
           if (sm_manager->IsEnableOutput()) {
@@ -190,16 +197,14 @@ void *client_handler(void *sock_fd) {
           }
         }
       }
+    } else {
+      context->SetJsonMsg("syntax error");
     }
     if (finish_analyze == false) {
       yy_delete_buffer(buf);
       pthread_mutex_unlock(buffer_mutex);
     }
-    // future TODO: 格式化 sql_handler.result, 传给客户端
-    // send result with fixed format, use protobuf in the future
-    if (write(fd, data_send, offset + 1) == -1) {
-      break;
-    }
+
     // 如果是单条语句，需要按照一个完整的事务来执行，所以执行完当前语句后，自动提交事务
     if (context->txn_->get_txn_mode() == false) {
       // 如果已经 abort，则无需提交事务
@@ -208,8 +213,26 @@ void *client_handler(void *sock_fd) {
       }
     }
 
+    // context->PrintJsonMsg();
+    // context->PrintJson();
+    context->SerializeTo(data_send_vec);
+    // std::cout << data_send_vec.data() << std::endl;
+
     // 释放系统资源
     delete context;
+
+    // future TODO: 格式化 sql_handler.result, 传给客户端
+    // send result with fixed format, use protobuf in the future
+    int send = 0;
+    if (for_web) {
+      send = write(fd, data_send_vec.data(), data_send_vec.size());
+    } else {
+      send = write(fd, data_send, offset + 1);
+    }
+    if (send == -1) {
+      std::cerr << "Client write error!" << std::endl;
+      break;
+    }
   }
 
   // Clear
@@ -298,7 +321,7 @@ void print_help() { std::cout << "Usage: ./easydb_server -p <port> -d <database>
 int main(int argc, char **argv) {
   std::string db_name;
   int opt;
-  while ((opt = getopt(argc, argv, "d:p:h")) > 0) {
+  while ((opt = getopt(argc, argv, "d:p:hw")) > 0) {
     switch (opt) {
       case 'd':
         db_name = optarg;
@@ -309,6 +332,9 @@ int main(int argc, char **argv) {
       case 'h':
         print_help();
         exit(0);
+      case 'w':
+        for_web = true;
+        break;
       default:
         break;
     }
