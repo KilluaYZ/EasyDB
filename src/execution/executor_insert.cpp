@@ -29,7 +29,7 @@ InsertExecutor::InsertExecutor(SmManager *sm_manager, const std::string &tab_nam
 
   // lock table
   if (context_ != nullptr) {
-    context_->lock_mgr_->lock_IX_on_table(context_->txn_, fh_->GetFd());
+    context_->lock_mgr_->LockIXOnTable(context_->txn_, fh_->GetFd());
   }
 };
 
@@ -55,7 +55,7 @@ std::unique_ptr<Tuple> InsertExecutor::Next() {
       keys.emplace_back(key);
       // wait
       Iid lower = ih->LowerBound(key.data());
-      context_->lock_mgr_->handle_index_gap_wait_die(context_->txn_, lower, fh_->GetFd());
+      context_->lock_mgr_->HandleIndexGapWaitDie(context_->txn_, lower, fh_->GetFd());
     }
   }
   // Now we can insert the record into the file and index safely
@@ -67,10 +67,10 @@ std::unique_ptr<Tuple> InsertExecutor::Next() {
   rid_ = RID{rid->GetPageId(), rid->GetSlotNum()};
 
   // // Log the insert operation
-  // InsertLogRecord insert_log_rec(context_->txn_->get_transaction_id(), rec, rid_, tab_name_);
-  // insert_log_rec.prev_lsn_ = context_->txn_->get_prev_lsn();
+  // InsertLogRecord insert_log_rec(context_->txn_->GetTransactionId(), rec, rid_, tab_name_);
+  // insert_log_rec.prev_lsn_ = context_->txn_->GetPrevLsn();
   // lsn_t lsn = context_->log_mgr_->add_log_to_buffer(&insert_log_rec);
-  // context_->txn_->set_prev_lsn(lsn);
+  // context_->txn_->SetPrevLsn(lsn);
   // // set lsn in page header
   // fh_->SetPageLSN(rid_.GetPageId(), lsn);
 

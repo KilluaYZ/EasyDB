@@ -17,7 +17,6 @@
 #pragma once
 
 #include <cstring>
-#include <iostream>
 #include <vector>
 
 #include "common/config.h"

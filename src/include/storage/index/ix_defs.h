@@ -17,7 +17,6 @@
 
 #include "common/config.h"
 #include "common/errors.h"
-#include "defs.h"
 #include "type/type_id.h"
 #include "type/value.h"
 

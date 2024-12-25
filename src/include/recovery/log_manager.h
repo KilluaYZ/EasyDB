@@ -16,8 +16,10 @@ See the Mulan PSL v2 for more details. */
 #include <vector>
 
 #include "common/config.h"
+#include "common/rid.h"
 #include "log_defs.h"
 #include "record/rm_defs.h"
+#include "storage/page/page.h"
 
 namespace easydb {
 
@@ -60,7 +62,7 @@ class LogRecord {
     printf("log_type_: %s\n", LogTypeStr[log_type_].c_str());
     printf("lsn: %d\n", lsn_);
     printf("log_tot_len: %d\n", log_tot_len_);
-    printf("log_tid: %d\n", log_tid_);
+    printf("log_tid: %ld\n", log_tid_);
     printf("prev_lsn: %d\n", prev_lsn_);
   }
   virtual ~LogRecord() {}
@@ -474,11 +476,11 @@ class CheckpointLogRecord : public LogRecord {
     LogRecord::format_print();
     printf("att_vec: %lu\n", att_vec_.size());
     for (auto &att : att_vec_) {
-      printf(" txn_id: %d, lsn: %d\n", att.first, att.second);
+      printf(" txn_id: %ld, lsn: %d\n", att.first, att.second);
     }
     printf("aborted_txns_vec: %lu\n", aborted_txns_vec_.size());
     for (auto &aborted_txn : aborted_txns_vec_) {
-      printf(" txn_id: %d\n", aborted_txn);
+      printf(" txn_id: %ld\n", aborted_txn);
     }
     printf("dpt_vec: %lu\n", dpt_vec_.size());
     for (auto &dpt : dpt_vec_) {

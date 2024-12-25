@@ -134,7 +134,7 @@ auto RmFileHandle::InsertTuple(const TupleMeta &meta, const Tuple &tuple, Contex
   auto rid = RID(page_no, slot_no);
   // lock manager
   if (context != nullptr) {
-    context->lock_mgr_->lock_exclusive_on_record(context->txn_, rid, fd_);
+    context->lock_mgr_->LockExclusiveOnRecord(context->txn_, rid, fd_);
   }
 
   page_handle.tuple_info_[slot_no] = std::make_tuple(*tuple_offset, tuple.GetLength(), meta);
@@ -150,7 +150,7 @@ auto RmFileHandle::InsertTuple(const TupleMeta &meta, const Tuple &tuple, Contex
 auto RmFileHandle::InsertTuple(RID rid, const TupleMeta &meta, const Tuple &tuple, Context *context) -> bool {
   // lock manager
   if (context != nullptr) {
-    context->lock_mgr_->lock_exclusive_on_record(context->txn_, rid, fd_);
+    context->lock_mgr_->LockExclusiveOnRecord(context->txn_, rid, fd_);
   }
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
   auto [old_meta, old_tup] = page_handle.GetTuple(rid);
@@ -167,7 +167,7 @@ auto RmFileHandle::InsertTuple(RID rid, const TupleMeta &meta, const Tuple &tupl
 auto RmFileHandle::DeleteTuple(RID rid, Context *context) -> bool {
   // lock manager
   if (context != nullptr) {
-    context->lock_mgr_->lock_exclusive_on_record(context->txn_, rid, fd_);
+    context->lock_mgr_->LockExclusiveOnRecord(context->txn_, rid, fd_);
   }
 
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
@@ -186,7 +186,7 @@ auto RmFileHandle::UpdateTupleInPlace(const TupleMeta &meta, const Tuple &tuple,
     -> bool {
   // lock manager
   if (context != nullptr) {
-    context->lock_mgr_->lock_exclusive_on_record(context->txn_, rid, fd_);
+    context->lock_mgr_->LockExclusiveOnRecord(context->txn_, rid, fd_);
   }
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
   auto [old_meta, old_tup] = page_handle.GetTuple(rid);
@@ -202,7 +202,7 @@ auto RmFileHandle::UpdateTupleInPlace(const TupleMeta &meta, const Tuple &tuple,
 void RmFileHandle::UpdateTupleMeta(const TupleMeta &meta, RID rid, Context *context) {
   // lock manager
   if (context != nullptr) {
-    context->lock_mgr_->lock_exclusive_on_record(context->txn_, rid, fd_);
+    context->lock_mgr_->LockExclusiveOnRecord(context->txn_, rid, fd_);
   }
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
   page_handle.UpdateTupleMeta(meta, rid);
@@ -212,7 +212,7 @@ void RmFileHandle::UpdateTupleMeta(const TupleMeta &meta, RID rid, Context *cont
 auto RmFileHandle::GetTuple(RID rid, Context *context) -> std::pair<TupleMeta, Tuple> {
   // lock manager
   if (context != nullptr) {
-    context->lock_mgr_->lock_shared_on_record(context->txn_, rid, fd_);
+    context->lock_mgr_->LockSharedOnRecord(context->txn_, rid, fd_);
   }
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
   auto [meta, tuple] = page_handle.GetTuple(rid);
@@ -224,7 +224,7 @@ auto RmFileHandle::GetTuple(RID rid, Context *context) -> std::pair<TupleMeta, T
 auto RmFileHandle::GetTupleMeta(RID rid, Context *context) -> TupleMeta {
   // lock manager
   if (context != nullptr) {
-    context->lock_mgr_->lock_shared_on_record(context->txn_, rid, fd_);
+    context->lock_mgr_->LockSharedOnRecord(context->txn_, rid, fd_);
   }
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
   TupleMeta meat = page_handle.GetTupleMeta(rid);
@@ -246,7 +246,7 @@ auto RmFileHandle::GetTupleMeta(RID rid, Context *context) -> TupleMeta {
 //   // return nullptr;
 //   //   // lock manager
 //   //   if (context != nullptr) {
-//   //     context->lock_mgr_->lock_shared_on_record(context->txn_, rid, fd_);
+//   //     context->lock_mgr_->LockSharedOnRecord(context->txn_, rid, fd_);
 //   //   }
 //   // 1. Fetch the page handle for the page that contains the record
 //   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
@@ -269,7 +269,7 @@ auto RmFileHandle::GetTupleMeta(RID rid, Context *context) -> TupleMeta {
 auto RmFileHandle::GetTupleValue(const RID &rid, Context *context) -> std::unique_ptr<Tuple> {
   // lock manager
   if (context != nullptr) {
-    context->lock_mgr_->lock_shared_on_record(context->txn_, rid, fd_);
+    context->lock_mgr_->LockSharedOnRecord(context->txn_, rid, fd_);
   }
 
   // 1. Fetch the page handle for the page that contains the record
@@ -288,7 +288,7 @@ auto RmFileHandle::GetKeyTuple(const Schema &schema, const Schema &key_schema, c
                                const RID &rid, Context *context) -> Tuple {
   // lock manager
   if (context != nullptr) {
-    context->lock_mgr_->lock_shared_on_record(context->txn_, rid, fd_);
+    context->lock_mgr_->LockSharedOnRecord(context->txn_, rid, fd_);
   }
 
   // 1. Fetch the page handle for the page that contains the record

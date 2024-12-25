@@ -12,8 +12,6 @@
 #pragma once
 
 #include <string>
-#include "common/common.h"
-#include "defs.h"
 #include "storage/disk/disk_manager.h"
 #include "storage/index/ix_defs.h"
 #include "storage/page/page.h"
@@ -181,7 +179,8 @@ class IxNodeHandle {
     if (file_hdr == nullptr || page_hdr == nullptr) return std::vector<std::vector<std::string>>();
     std::vector<std::vector<std::string>> result;
     int offset = 0;
-    for (int i = 0; i < file_hdr->col_types_.size(); i++) {
+    int col_types_size = file_hdr->col_types_.size();
+    for (int i = 0; i < col_types_size; i++) {
       std::vector<std::string> tmp_res;
       for (int j = 0; j < page_hdr->num_key; j++) {
         auto cur_type = file_hdr->col_types_[i];

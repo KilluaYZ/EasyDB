@@ -26,7 +26,7 @@ UpdateExecutor::UpdateExecutor(SmManager *sm_manager, const std::string &tab_nam
 
   // lock table
   if (context_ != nullptr) {
-    context_->lock_mgr_->lock_IX_on_table(context_->txn_, fh_->GetFd());
+    context_->lock_mgr_->LockIXOnTable(context_->txn_, fh_->GetFd());
   }
 }
 
@@ -85,7 +85,7 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
       // Wait for GAP lock before insert
       if (context_ != nullptr) {
         Iid lower = ih->LowerBound(key_i);
-        context_->lock_mgr_->handle_index_gap_wait_die(context_->txn_, lower, fh_->GetFd());
+        context_->lock_mgr_->HandleIndexGapWaitDie(context_->txn_, lower, fh_->GetFd());
       }
 
       // check if the new key duplicated
@@ -101,7 +101,7 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
       // Wait for GAP lock before delete
       if (context_ != nullptr) {
         Iid lower = ih->LowerBound(key_d);
-        context_->lock_mgr_->handle_index_gap_wait_die(context_->txn_, lower, fh_->GetFd());
+        context_->lock_mgr_->HandleIndexGapWaitDie(context_->txn_, lower, fh_->GetFd());
       }
 
       ih->DeleteEntry(key_d, context_->txn_);
@@ -110,16 +110,16 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
     }
 
     // // Log the update operation(before update old value: *rec)
-    // UpdateLogRecord update_log_rec(context_->txn_->get_transaction_id(), *rec, buf, rid, tab_name_);
+    // UpdateLogRecord update_log_rec(context_->txn_->GetTransactionId(), *rec, buf, rid, tab_name_);
 
     // update records
     // fh_->UpdateTupleInPlace(TupleMeta{0, false}, new_tuple, context_);
     fh_->UpdateTupleInPlace(TupleMeta{0, false}, new_tuple, rid, context_);
 
     // // Log the update operation(after update)
-    // update_log_rec.prev_lsn_ = context_->txn_->get_prev_lsn();
+    // update_log_rec.prev_lsn_ = context_->txn_->GetPrevLsn();
     // lsn_t lsn = context_->log_mgr_->add_log_to_buffer(&update_log_rec);
-    // context_->txn_->set_prev_lsn(lsn);
+    // context_->txn_->SetPrevLsn(lsn);
     // // set lsn in page header
     // fh_->SetPageLSN(rid.page_no, lsn);
 

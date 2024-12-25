@@ -10,12 +10,9 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
-#include <atomic>
-
 #include "common/config.h"
-#include "defs.h"
-#include "record/rm_defs.h"
 #include "storage/index/ix_defs.h"
+#include "storage/table/tuple.h"
 
 namespace easydb {
 
@@ -138,7 +135,7 @@ class TransactionAbortException : public std::exception {
   explicit TransactionAbortException(txn_id_t txn_id, AbortReason abort_reason)
       : txn_id_(txn_id), abort_reason_(abort_reason) {}
 
-  txn_id_t get_transaction_id() { return txn_id_; }
+  txn_id_t GetTransactionId() { return txn_id_; }
   AbortReason GetAbortReason() { return abort_reason_; }
   std::string GetInfo() {
     switch (abort_reason_) {

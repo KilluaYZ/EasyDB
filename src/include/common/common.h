@@ -15,6 +15,7 @@
 #include <vector>
 #include "defs.h"
 #include "record/rm_defs.h"
+#include "storage/table/tuple.h"
 #include "system/sm_meta.h"
 #include "type/value.h"
 
@@ -69,7 +70,6 @@ struct SetClause {
 //   bool asce_;
 //   ColMeta col_;
 // };
-
 
 struct cmpTuple {
   cmpTuple(bool asce, Column col) : asce_(asce), col_(col) {}

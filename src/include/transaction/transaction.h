@@ -1,23 +1,29 @@
-/* Copyright (c) 2023 Renmin University of China
-RMDB is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
-        http://license.coscl.org.cn/MulanPSL2
-THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
-EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
-MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
-See the Mulan PSL v2 for more details. */
+/*-------------------------------------------------------------------------
+ *
+ * EasyDB
+ *
+ * transaction.h
+ *
+ * Identification: src/include/transaction/transaction.h
+ *
+ *-------------------------------------------------------------------------
+ */
+
+/*
+ * Original copyright:
+ * Copyright (c) 2023 Renmin University of China
+ */
 
 #pragma once
 
-#include <atomic>
 #include <deque>
 #include <memory>
-#include <string>
 #include <thread>
 #include <unordered_set>
 
+#include "common/config.h"
 #include "transaction/txn_defs.h"
+#include "storage/page/page.h"
 
 namespace easydb {
 
@@ -35,34 +41,34 @@ class Transaction {
 
   ~Transaction() = default;
 
-  inline txn_id_t get_transaction_id() { return txn_id_; }
+  inline txn_id_t GetTransactionId() { return txn_id_; }
 
-  inline std::thread::id get_thread_id() { return thread_id_; }
+  inline std::thread::id GetThreadId() { return thread_id_; }
 
-  inline void set_txn_mode(bool txn_mode) { txn_mode_ = txn_mode; }
-  inline bool get_txn_mode() { return txn_mode_; }
+  inline void SetTxnMode(bool txn_mode) { txn_mode_ = txn_mode; }
+  inline bool GetTxnMode() { return txn_mode_; }
 
-  inline void set_start_ts(timestamp_t start_ts) { start_ts_ = start_ts; }
-  inline timestamp_t get_start_ts() { return start_ts_; }
+  inline void SetStartTs(timestamp_t start_ts) { start_ts_ = start_ts; }
+  inline timestamp_t GetStartTs() { return start_ts_; }
 
-  inline IsolationLevel get_isolation_level() { return isolation_level_; }
+  inline IsolationLevel GetIsolationLevel() { return isolation_level_; }
 
-  inline TransactionState get_state() { return state_; }
-  inline void set_state(TransactionState state) { state_ = state; }
+  inline TransactionState GetState() { return state_; }
+  inline void SetState(TransactionState state) { state_ = state; }
 
-  inline lsn_t get_prev_lsn() { return prev_lsn_; }
-  inline void set_prev_lsn(lsn_t prev_lsn) { prev_lsn_ = prev_lsn; }
+  inline lsn_t GetPrevLsn() { return prev_lsn_; }
+  inline void SetPrevLsn(lsn_t prev_lsn) { prev_lsn_ = prev_lsn; }
 
-  inline std::shared_ptr<std::deque<WriteRecord *>> get_write_set() { return write_set_; }
+  inline std::shared_ptr<std::deque<WriteRecord *>> GetWriteSet() { return write_set_; }
   inline void AppendWriteRecord(WriteRecord *write_record) { write_set_->push_back(write_record); }
 
-  inline std::shared_ptr<std::deque<Page *>> get_index_deleted_page_set() { return index_deleted_page_set_; }
-  inline void append_index_deleted_page(Page *page) { index_deleted_page_set_->push_back(page); }
+  inline std::shared_ptr<std::deque<Page *>> GetIndexDeletedPageSet() { return index_deleted_page_set_; }
+  inline void AppendIndexDeletedPage(Page *page) { index_deleted_page_set_->push_back(page); }
 
-  inline std::shared_ptr<std::deque<Page *>> get_index_latch_page_set() { return index_latch_page_set_; }
-  inline void append_index_latch_page_set(Page *page) { index_latch_page_set_->push_back(page); }
+  inline std::shared_ptr<std::deque<Page *>> GetIndexLatchPageSet() { return index_latch_page_set_; }
+  inline void AppendIndexLatchPageSet(Page *page) { index_latch_page_set_->push_back(page); }
 
-  inline std::shared_ptr<std::unordered_set<LockDataId>> get_lock_set() { return lock_set_; }
+  inline std::shared_ptr<std::unordered_set<LockDataId>> GetLockSet() { return lock_set_; }
 
  private:
   bool txn_mode_;                   // 用于标识当前事务为显式事务还是单条SQL语句的隐式事务

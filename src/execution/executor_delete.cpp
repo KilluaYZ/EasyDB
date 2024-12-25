@@ -26,7 +26,7 @@ DeleteExecutor::DeleteExecutor(SmManager *sm_manager, const std::string &tab_nam
 
   // lock table
   if (context_ != nullptr) {
-    context_->lock_mgr_->lock_IX_on_table(context_->txn_, fh_->GetFd());
+    context_->lock_mgr_->LockIXOnTable(context_->txn_, fh_->GetFd());
   }
 }
 
@@ -55,7 +55,7 @@ std::unique_ptr<Tuple> DeleteExecutor::Next() {
       // Wait for GAP lock first
       if (context_ != nullptr) {
         Iid lower = ih->LowerBound(key.data());
-        context_->lock_mgr_->handle_index_gap_wait_die(context_->txn_, lower, fh_->GetFd());
+        context_->lock_mgr_->HandleIndexGapWaitDie(context_->txn_, lower, fh_->GetFd());
       }
       ih->DeleteEntry(key.data(), context_->txn_);
     }
@@ -64,10 +64,10 @@ std::unique_ptr<Tuple> DeleteExecutor::Next() {
     fh_->DeleteTuple(rid, context_);
 
     // // Log the delete operation
-    // DeleteLogRecord del_log_rec(context_->txn_->get_transaction_id(), *rec, rid, tab_name_);
-    // del_log_rec.prev_lsn_ = context_->txn_->get_prev_lsn();
+    // DeleteLogRecord del_log_rec(context_->txn_->GetTransactionId(), *rec, rid, tab_name_);
+    // del_log_rec.prev_lsn_ = context_->txn_->GetPrevLsn();
     // lsn_t lsn = context_->log_mgr_->add_log_to_buffer(&del_log_rec);
-    // context_->txn_->set_prev_lsn(lsn);
+    // context_->txn_->SetPrevLsn(lsn);
     // // set lsn in page header
     // fh_->SetPageLSN(rid.GetPageId(), lsn);
 

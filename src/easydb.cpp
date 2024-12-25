@@ -1,12 +1,18 @@
-/* Copyright (c) 2023 Renmin University of China
-RMDB is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
-        http://license.coscl.org.cn/MulanPSL2
-THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
-EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
-MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
-See the Mulan PSL v2 for more details. */
+/*-------------------------------------------------------------------------
+ *
+ * EasyDB
+ *
+ * easydb.cpp
+ *
+ * Identification: src/easydb.cpp
+ *
+ *-------------------------------------------------------------------------
+ */
+
+/*
+ * Original copyright:
+ * Copyright (c) 2023 Renmin University of China
+ */
 
 #include <netinet/in.h>
 #include <readline/history.h>
@@ -14,7 +20,6 @@ See the Mulan PSL v2 for more details. */
 #include <setjmp.h>
 #include <signal.h>
 #include <unistd.h>
-#include <atomic>
 #include "analyze/analyze.h"
 #include "common/errors.h"
 #include "common/portal.h"
@@ -60,12 +65,12 @@ void sigint_handler(int signo) {
 
 // 判断当前正在执行的是显式事务还是单条SQL语句的事务，并更新事务ID
 void SetTransaction(txn_id_t *txn_id, Context *context) {
-  context->txn_ = txn_manager->get_transaction(*txn_id);
-  if (context->txn_ == nullptr || context->txn_->get_state() == TransactionState::COMMITTED ||
-      context->txn_->get_state() == TransactionState::ABORTED) {
-    context->txn_ = txn_manager->begin(nullptr, context->log_mgr_);
-    *txn_id = context->txn_->get_transaction_id();
-    context->txn_->set_txn_mode(false);
+  context->txn_ = txn_manager->GetTransaction(*txn_id);
+  if (context->txn_ == nullptr || context->txn_->GetState() == TransactionState::COMMITTED ||
+      context->txn_->GetState() == TransactionState::ABORTED) {
+    context->txn_ = txn_manager->Begin(nullptr, context->log_mgr_);
+    *txn_id = context->txn_->GetTransactionId();
+    context->txn_->SetTxnMode(false);
   }
 }
 
@@ -150,7 +155,7 @@ void *client_handler(void *sock_fd) {
           offset = str.length();
 
           // 回滚事务
-          txn_manager->abort(context->txn_, log_manager.get());
+          txn_manager->Abort(context->txn_, log_manager.get());
           std::cout << e.GetInfo() << std::endl;
 
           if (sm_manager->IsEnableOutput()) {
@@ -188,10 +193,10 @@ void *client_handler(void *sock_fd) {
       break;
     }
     // 如果是单条语句，需要按照一个完整的事务来执行，所以执行完当前语句后，自动提交事务
-    if (context->txn_->get_txn_mode() == false) {
+    if (context->txn_->GetTxnMode() == false) {
       // 如果已经 abort，则无需提交事务
-      if (context->txn_->get_state() != TransactionState::ABORTED) {
-        txn_manager->commit(context->txn_, context->log_mgr_);
+      if (context->txn_->GetState() != TransactionState::ABORTED) {
+        txn_manager->Commit(context->txn_, context->log_mgr_);
       }
     }
 
@@ -202,7 +207,7 @@ void *client_handler(void *sock_fd) {
   // Clear
   delete[] data_send;  // release memory.
   // SetTransaction maybe allocate some txn
-  txn_manager->release_txn_of_thread(std::this_thread::get_id());
+  txn_manager->ReleaseTxnOfThread(std::this_thread::get_id());
   std::cout << "Terminating current client_connection..." << std::endl;
   close(fd);           // close a file descriptor.
   pthread_exit(NULL);  // terminate calling thread!

@@ -20,9 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/context.h"
 #include "common/errors.h"
 #include "common/exception.h"
-#include "common/macros.h"
 #include "record/record_printer.h"
-#include "record/rm_defs.h"
 #include "record/rm_scan.h"
 #include "storage/index/ix_defs.h"
 #include "storage/table/tuple.h"
@@ -249,7 +247,7 @@ void SmManager::CreateTable(const std::string &tab_name, const std::vector<ColDe
 
   // lock manager
   if (context != nullptr) {
-    context->lock_mgr_->lock_exclusive_on_table(context->txn_, fhs_[tab_name]->GetFd());
+    context->lock_mgr_->LockExclusiveOnTable(context->txn_, fhs_[tab_name]->GetFd());
   }
 
   FlushMeta();
@@ -267,7 +265,7 @@ void SmManager::DropTable(const std::string &tab_name, Context *context) {
 
   // lock manager
   if (context != nullptr) {
-    context->lock_mgr_->lock_exclusive_on_table(context->txn_, fhs_[tab_name]->GetFd());
+    context->lock_mgr_->LockExclusiveOnTable(context->txn_, fhs_[tab_name]->GetFd());
   }
 
   // remove record file and index file(if exist)
@@ -326,7 +324,7 @@ void SmManager::CreateIndex(const std::string &tab_name, const std::vector<std::
 
   // lock manager
   if (context != nullptr) {
-    context->lock_mgr_->lock_shared_on_table(context->txn_, fhs_[tab_name]->GetFd());
+    context->lock_mgr_->LockSharedOnTable(context->txn_, fhs_[tab_name]->GetFd());
   }
 
   // get colMeta
@@ -420,7 +418,7 @@ void SmManager::DropIndex(const std::string &tab_name, const std::vector<std::st
 
   // lock manager
   if (context != nullptr) {
-    context->lock_mgr_->lock_shared_on_table(context->txn_, fhs_[tab_name]->GetFd());
+    context->lock_mgr_->LockSharedOnTable(context->txn_, fhs_[tab_name]->GetFd());
   }
 
   auto index_name = ix_manager_->GetIndexName(tab_name, col_names);
@@ -518,15 +516,15 @@ void SmManager::RollbackInsert(const std::string &table_name, RID &rid, Context 
   fh->DeleteTuple(rid, context);
 
   // // TODO: DeleteLogRecord(CLR)
-  // DeleteLogRecord del_log_rec(context->txn_->get_transaction_id(), *record, rid, table_name);
-  // del_log_rec.prev_lsn_ = context->txn_->get_prev_lsn();
+  // DeleteLogRecord del_log_rec(context->txn_->GetTransactionId(), *record, rid, table_name);
+  // del_log_rec.prev_lsn_ = context->txn_->GetPrevLsn();
   // lsn_t lsn = context->log_mgr_->add_log_to_buffer(&del_log_rec);
-  // context->txn_->set_prev_lsn(lsn);
+  // context->txn_->SetPrevLsn(lsn);
   // // set lsn in page header
   // fh->set_page_lsn(rid.page_no, lsn);
 
   // // Set lsn(abort lsn) in page header(not CLR lsn)
-  // fh->SetPageLSN(rid.GetPageId(), context->txn_->get_prev_lsn());
+  // fh->SetPageLSN(rid.GetPageId(), context->txn_->GetPrevLsn());
 }
 
 /**
@@ -545,15 +543,15 @@ void SmManager::RollbackDelete(const std::string &table_name, RID &rid, Tuple &t
   fh->InsertTuple(rid, TupleMeta{0, false}, tuple, context);
 
   // // TODO: InsertLogRecord(CLR)
-  // InsertLogRecord insert_log_rec(context->txn_->get_transaction_id(), record, rid, table_name);
-  // insert_log_rec.prev_lsn_ = context->txn_->get_prev_lsn();
+  // InsertLogRecord insert_log_rec(context->txn_->GetTransactionId(), record, rid, table_name);
+  // insert_log_rec.prev_lsn_ = context->txn_->GetPrevLsn();
   // lsn_t lsn = context->log_mgr_->add_log_to_buffer(&insert_log_rec);
-  // context->txn_->set_prev_lsn(lsn);
+  // context->txn_->SetPrevLsn(lsn);
   // // set lsn in page header
   // fh->set_page_lsn(rid.page_no, lsn);
 
   // Set lsn(abort lsn) in page header(not CLR lsn)
-  fh->SetPageLSN(rid.GetPageId(), context->txn_->get_prev_lsn());
+  fh->SetPageLSN(rid.GetPageId(), context->txn_->GetPrevLsn());
 
   // insert the index entry back into the index file
   auto tab = db_.get_table(table_name);
@@ -599,21 +597,21 @@ void SmManager::RollbackUpdate(const std::string &table_name, RID &rid, Tuple &t
 
   // // TODO: UpdateLogRecord(CLR)
   // // Log: before update value because the object of new_record(a ptr) will be changed in 'update_record'
-  // UpdateLogRecord update_log_rec(context->txn_->get_transaction_id(), *new_record, record, rid, table_name);
+  // UpdateLogRecord update_log_rec(context->txn_->GetTransactionId(), *new_record, record, rid, table_name);
 
   // update the record to the old record
   // fh->UpdateTupleInPlace(TupleMeta{0, false}, tuple, rid, context);
   fh->UpdateTupleInPlace(TupleMeta{0, false}, tuple, rid, context);
 
   // // Log: after update
-  // update_log_rec.prev_lsn_ = context->txn_->get_prev_lsn();
+  // update_log_rec.prev_lsn_ = context->txn_->GetPrevLsn();
   // lsn_t lsn = context->log_mgr_->add_log_to_buffer(&update_log_rec);
-  // context->txn_->set_prev_lsn(lsn);
+  // context->txn_->SetPrevLsn(lsn);
   // // set lsn in page header
   // fh->set_page_lsn(rid.page_no, lsn);
 
   // Set lsn(abort lsn) in page header(not CLR lsn)
-  fh->SetPageLSN(rid.GetPageId(), context->txn_->get_prev_lsn());
+  fh->SetPageLSN(rid.GetPageId(), context->txn_->GetPrevLsn());
 
   // update the index entry in the index file
   for (auto index : tab.indexes) {
