@@ -10,9 +10,15 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
-#include "recovery/log_manager.h"
+#include <cstddef>
+#include <cstdlib>
+#include <nlohmann/json.hpp>
+#include <vector>
 #include "concurrency/lock_manager.h"
+#include "recovery/log_manager.h"
 #include "transaction/transaction.h"
+
+using json = nlohmann::json;
 
 namespace easydb {
 // class TransactionManager;
@@ -37,5 +43,54 @@ class Context {
   char *data_send_;
   int *offset_;
   bool ellipsis_;
+  json result_json;
+
+  void InitJson() {
+    SetJsonMsg("");
+    InitJsonData();
+  }
+
+  void SetJsonMsg(const std::string &msg) { result_json["msg"] = msg; }
+  void InitJsonData() {
+    result_json["data"] = json::array();
+    result_json["total"] = 0;
+  }
+  void AddJsonData(const std::vector<std::string> &row) {
+    result_json["data"].push_back(row);
+    // Update the total number of rows without the header row
+    result_json["total"] = result_json["data"].size() - 1;
+  }
+
+  void PrintJsonMsg() { std::cout << result_json["msg"] << std::endl; }
+  void PrintJson() { std::cout << result_json.dump(4) << std::endl; }
+
+  int SerializeJsonTo(json &json, std::vector<char> &buf) {
+    std::string json_str = json.dump(4);
+    int len = json_str.length();
+    buf.resize(len + 1);
+    memcpy(buf.data(), json_str.c_str(), len);
+    buf[len] = '\0';
+    return len;
+  }
+  int SerializeTo(std::vector<char> &buf) { return SerializeJsonTo(result_json, buf); }
+
+  int SerializeToWithLimit(std::vector<char> &buf, size_t max_size = 100) {
+    // Create a copy of the original JSON object to modify
+    auto limited_json = result_json;
+
+    auto &data_array = limited_json["data"];
+    // If the size of the "data" array(excluding the header row) is greater than max_size, slice it
+    if (data_array.size() > max_size + 1) {
+      // Create a new json array with the first max_size elements
+      auto sliced_data = json::array();
+      for (size_t i = 0; i < max_size + 1; ++i) {
+        sliced_data.push_back(data_array[i]);
+      }
+      limited_json["data"] = sliced_data;
+    }
+
+    return SerializeJsonTo(limited_json, buf);
+  }
 };
-};  // namespace easydb
+
+}  // namespace easydb
