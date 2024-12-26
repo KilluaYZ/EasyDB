@@ -810,7 +810,7 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
       char *token_end = std::find(token_start, line_end, '|');
       // Calculate the destination address in the page buffer
       // char *dest = page_data + (page_record_count * record_size) + tab.cols[i].offset;
-      int len = tab.cols[i].len;
+      // int len = tab.cols[i].len;
       auto type = tab.cols[i].type;
       Value _tmp_val;
       switch (type) {
@@ -861,7 +861,11 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
       // Move to the next token
       token_start = token_end + 1;
     }
-    auto _tmp_rid = fh_insert(fh, values, &tab.schema, context);
+    // auto _tmp_rid = fh_insert(fh, values, &tab.schema, context);
+
+    // no context for load data because context may be destroyed before load data finish
+    // when using async load data
+    fh_insert(fh, values, &tab.schema, nullptr);
 
     // // Extract the key for index
     // for (auto &index : tab.indexes) {
