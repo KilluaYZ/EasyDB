@@ -13,6 +13,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <vector>
 
 #define MAX_MEM_BUFFER_SIZE 8192
 #define PORT_DEFAULT 8765
@@ -124,32 +125,48 @@ int main(int argc, char *argv[]) {
 
     if (!command.empty()) {
       add_history(command.c_str());
-      if (is_exit_command(command)) {
-        printf("The client will be closed.\n");
-        break;
-      }
-
-      if ((send_bytes = write(sockfd, command.c_str(), command.length() + 1)) == -1) {
-        // fprintf(stderr, "send error: %d:%s \n", errno, strerror(errno));
-        std::cerr << "send error: " << errno << ":" << strerror(errno) << " \n" << std::endl;
-        exit(1);
-      }
-      int len = recv(sockfd, recv_buf, MAX_MEM_BUFFER_SIZE, 0);
-      if (len < 0) {
-        fprintf(stderr, "Connection was broken: %s\n", strerror(errno));
-        break;
-      } else if (len == 0) {
-        printf("Connection has been closed\n");
-        break;
-      } else {
-        for (int i = 0; i <= len; i++) {
-          if (recv_buf[i] == '\0') {
-            break;
-          } else {
-            printf("%c", recv_buf[i]);
-          }
+      // Split command if it contains ;
+      std::vector<std::string> commands;
+      std::string::size_type pos = 0;
+      while (pos != std::string::npos) {
+        std::string::size_type pos2 = command.find(';', pos);
+        if (pos2 == std::string::npos) {
+          commands.push_back(command.substr(pos));
+          break;
+        } else {
+          // include ; in the command
+          commands.push_back(command.substr(pos, pos2 + 1 - pos));
+          pos = pos2 + 1;
         }
-        memset(recv_buf, 0, MAX_MEM_BUFFER_SIZE);
+      }
+      for (auto cmd : commands) {
+        if (is_exit_command(cmd)) {
+          printf("The client will be closed.\n");
+          break;
+        }
+
+        if ((send_bytes = write(sockfd, cmd.c_str(), cmd.length() + 1)) == -1) {
+          // fprintf(stderr, "send error: %d:%s \n", errno, strerror(errno));
+          std::cerr << "send error: " << errno << ":" << strerror(errno) << " \n" << std::endl;
+          exit(1);
+        }
+        int len = recv(sockfd, recv_buf, MAX_MEM_BUFFER_SIZE, 0);
+        if (len < 0) {
+          fprintf(stderr, "Connection was broken: %s\n", strerror(errno));
+          break;
+        } else if (len == 0) {
+          printf("Connection has been closed\n");
+          break;
+        } else {
+          for (int i = 0; i <= len; i++) {
+            if (recv_buf[i] == '\0') {
+              break;
+            } else {
+              printf("%c", recv_buf[i]);
+            }
+          }
+          memset(recv_buf, 0, MAX_MEM_BUFFER_SIZE);
+        }
       }
     }
   }
