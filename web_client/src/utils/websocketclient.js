@@ -1,4 +1,4 @@
-let host_root_path = "localhost:8080/";
+let host_root_path = "killuayz.top:6032/";
 // let host_root_path = import.meta.env.VITE_APP_API_HOST;
 export class WebSocketClient {
     url_path = "ws://" + host_root_path + "echo";

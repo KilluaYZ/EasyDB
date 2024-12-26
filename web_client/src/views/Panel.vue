@@ -12,8 +12,13 @@
                 <span class="stat_text">查询时间(s): {{ TIME_COST }}</span>
                 <span class="stat_text">总记录数: {{ TOTAL_CNT }}</span>
             </el-row>
-            <el-row class="table">
-                <el-table-v2 :columns="TABLE_COLUMNS" :data="TABLE_DATA" :width="1200" :height="400" fixed />
+            <el-row class="table" style="height:600px">
+                <el-auto-resizer>
+                    <template #default="{ height, width }">
+                        <el-table-v2 :columns="TABLE_COLUMNS" :data="TABLE_DATA" :width="width" :height="height"
+                            fixed />
+                    </template>
+                </el-auto-resizer>
             </el-row>
         </el-row>
     </el-row>
@@ -79,6 +84,40 @@ const onClickQueryBtn = () => {
             message: "请输入SQL语句",
             type: 'warnning'
         })
+        return;
+    }
+    
+    if (SQL_QUERY.value.toLowerCase().startsWith("help")) {
+        /*let help_info = "Supported SQL syntax:\n"
+            + "  command ;\n"
+            + "command:\n"
+            + "  CREATE TABLE table_name (column_name type [, column_name type ...])\n"
+            + "  DROP TABLE table_name\n"
+            + "  CREATE INDEX table_name (column_name)\n"
+            + "  DROP INDEX table_name (column_name)\n"
+            + "  INSERT INTO table_name VALUES (value [, value ...])\n"
+            + "  DELETE FROM table_name [WHERE where_clause]\n"
+            + "  UPDATE table_name SET column_name = value [, column_name = value ...] [WHERE where_clause]\n"
+            + "  SELECT selector FROM table_name [WHERE where_clause]\n"
+            + "type:\n"
+            + "  {INT | FLOAT | CHAR(n)}\n"
+            + "where_clause:\n"
+            + "  condition [AND condition ...]\n"
+            + "condition:\n"
+            + "  column op {column | value}\n"
+            + "column:\n"
+            + "  [table_name.]column_name\n"
+            + "op:\n"
+            + "  {= | <> | < | > | <= | >=}\n"
+            + "selector:\n"
+            + "  {* | column [, column ...]}\n";*/
+        let help_info = "EasyDB支持大多数SQL语句，所以SQL怎么用，你也就怎么用！"
+        ElNotification({
+            title: "帮助信息",
+            message: help_info,
+            type: 'info'
+        })
+        return;
     }
 
     NProgress.start();
@@ -109,7 +148,7 @@ const onClickQueryBtn = () => {
 }
 
 const OnReceiveMsg = (resp) => {
-    console.log(resp)
+    // console.log(resp)
     time_end = performance.now();
     let data = resp.data.substring(0, resp.data.length - 1);
     let data_json = JSON.parse(data);
@@ -144,15 +183,15 @@ const deploy_table = (resp) => {
     let data = resp.data.splice(0, resp.data.length);
     let header = data[0];
     data.shift();
-    console.log(header);
-    console.log(data);
+    // console.log(header);
+    // console.log(data);
 
     header.forEach((item) => {
         TABLE_COLUMNS.value.push({
             key: item,
             dataKey: item,
             title: item,
-            width: 150
+            width: 200
         })
     })
 
@@ -170,7 +209,7 @@ const deploy_table = (resp) => {
     // console.log(TABLE_COLUMNS.value)
     // console.log(TABLE_DATA.value)
     let duration = (time_end - time_start) / 1000;
-    TIME_COST.value = duration;
+    TIME_COST.value = duration.toString().substring(0,5);
 }
 // onMounted(deploy_table);
 
@@ -181,7 +220,7 @@ const init_func = () => {
     query_input_dom.addEventListener('keydown', function (event) {
         // 检查key是否为'Enter'
         if (event.key === 'Enter') {
-            console.log('Enter key pressed');
+            // console.log('Enter key pressed');
             // 在这里执行你的函数
             onClickQueryBtn();
         }
@@ -224,7 +263,7 @@ onMounted(init_func)
         flex-direction: column;
 
         .stat {
-            justify-content: start;
+            justify-content: center;
 
             .stat_text {
                 font-size: 18px;
