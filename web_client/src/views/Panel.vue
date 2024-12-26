@@ -2,8 +2,9 @@
     <el-row class="container">
         <el-row class="query">
             <el-input v-model="SQL_QUERY" :autosize="{ minRows: 2 }" type="textarea" placeholder="请输入SQL语句"
-                class="query_input" :disabled="QUERY_DISABLE"/>
-            <el-button :icon="Search" circle type="primary" class="query_btn" @click="onClickQueryBtn" :disabled="QUERY_DISABLE"/>
+                class="query_input" :disabled="QUERY_DISABLE" />
+            <el-button :icon="Search" circle type="primary" class="query_btn" @click="onClickQueryBtn"
+                :disabled="QUERY_DISABLE" />
         </el-row>
 
         <el-row class="resp">
@@ -24,18 +25,23 @@ import { onMounted, ref } from "vue";
 import { Search } from '@element-plus/icons-vue';
 import 'nprogress/nprogress.css'
 import NProgress from 'nprogress'
+import { WebSocketClient } from "@/utils/websocketclient"
+import { ElNotification } from "element-plus"
 NProgress.configure({
-  easing: 'ease',
-  speed: 500,
-  showSpinner: true,
-  trickleSpeed: 200,
-  minimum: 0.3
+    easing: 'ease',
+    speed: 500,
+    showSpinner: true,
+    trickleSpeed: 200,
+    minimum: 0.3
 })
 const route = useRoute();
 const SQL_QUERY = ref('');
 const TIME_COST = ref(0);
 const TOTAL_CNT = ref(0);
 const QUERY_DISABLE = ref(false);
+const wck_client = new WebSocketClient()
+var time_start = null;
+var time_end = null;
 const generateColumns = (length = 10, prefix = 'column-', props?: any) =>
     Array.from({ length }).map((_, columnIndex) => ({
         ...props,
@@ -63,35 +69,71 @@ const generateData = (
         )
     })
 
+
 const onClickQueryBtn = () => {
+    time_start = performance.now();
     console.log(`用户查询： ${SQL_QUERY.value}`);
-   NProgress.start();
-  QUERY_DISABLE.value = true;
-    const query_promise = new Promise((resolve, reject) => {
-        setTimeout(() => {
-            let tmp_resp = {
-                "data": [
-                    ["name", "age", "class", "address"],
-                    ["xiaoming", 12, "class 1", "Hsdfhu"],
-                    ["alice", 16, "class 1", "Hsdfhu123123"],
-                    ["bob", 13, "class 1", "Hs12341dadfhu"],
-                    ["ceylan", 16, "class 2", "y12793rpufdsa"],
-                    ["danney", 77, "class 3", "jhq78too2eiwhdv"],
-                ],
-                "msg": ""
-            };
-            resolve(tmp_resp);
-        }, 1000);
-    })
+    if (SQL_QUERY.value === "") {
+        ElNotification({
+            title: "SQL语句为空",
+            message: "请输入SQL语句",
+            type: 'warnning'
+        })
+    }
 
-    query_promise.then((resp) => {
-        console.log(resp);
-        deploy_table(resp);
-        NProgress.done();
-      QUERY_DISABLE.value = false;
-
-    })
+    NProgress.start();
+    QUERY_DISABLE.value = true;
+    // const query_promise = new Promise((resolve, reject) => {
+    //     setTimeout(() => {
+    //         let tmp_resp = {
+    //             "data": [
+    //                 ["name", "age", "class", "address"],
+    //                 ["xiaoming", 12, "class 1", "Hsdfhu"],
+    //                 ["alice", 16, "class 1", "Hsdfhu123123"],
+    //                 ["bob", 13, "class 1", "Hs12341dadfhu"],
+    //                 ["ceylan", 16, "class 2", "y12793rpufdsa"],
+    //                 ["danney", 77, "class 3", "jhq78too2eiwhdv"],
+    //             ],
+    //             "msg": ""
+    //         };
+    //         resolve(tmp_resp);
+    //     }, 1000);
+    // })
+    wck_client.send(`${SQL_QUERY.value};`);
+    // query_promise.then((resp) => {
+    //     console.log(resp);
+    //     deploy_table(resp);
+    //     NProgress.done();
+    //     QUERY_DISABLE.value = false;
+    // })
 }
+
+const OnReceiveMsg = (resp) => {
+    console.log(resp)
+    time_end = performance.now();
+    let data = resp.data.substring(0, resp.data.length - 1);
+    let data_json = JSON.parse(data);
+    console.log(data_json);
+    if (data_json.msg === "success") {
+        if (data_json.data.length !== 0) {
+            deploy_table(data_json);
+        }
+        ElNotification({
+            title: "查询成功",
+            message: "你的查询已成功执行",
+            type: 'success'
+        })
+    } else {
+        ElNotification({
+            title: "查询失败",
+            message: `错误原因：${data_json.msg}`,
+            type: 'error'
+        })
+    }
+    NProgress.done();
+    QUERY_DISABLE.value = false;
+}
+
 
 const TABLE_COLUMNS = ref([])
 const TABLE_DATA = ref([])
@@ -112,6 +154,7 @@ const deploy_table = (resp) => {
     })
 
     let data_length = data.length;
+    TOTAL_CNT.value = data_length;
     for (let i = 0; i < data_length; i++) {
         let row = data[i];
         let row_length = row.length;
@@ -122,12 +165,28 @@ const deploy_table = (resp) => {
         TABLE_DATA.value.push(res);
     }
 
-    console.log(TABLE_COLUMNS.value)
-    console.log(TABLE_DATA.value)
+    // console.log(TABLE_COLUMNS.value)
+    // console.log(TABLE_DATA.value)
+    let duration = (time_end - time_start) / 1000;
+    TIME_COST.value = duration;
 }
 // onMounted(deploy_table);
 
+const init_func = () => {
+    wck_client.addOnMessageCallBackFunc(OnReceiveMsg);
+    wck_client.connect();
+    const query_input_dom = document.getElementsByClassName("query_input")[0];
+    query_input_dom.addEventListener('keydown', function (event) {
+        // 检查key是否为'Enter'
+        if (event.key === 'Enter') {
+            console.log('Enter key pressed');
+            // 在这里执行你的函数
+            onClickQueryBtn();
+        }
+    });
+}
 
+onMounted(init_func)
 
 </script>
 
