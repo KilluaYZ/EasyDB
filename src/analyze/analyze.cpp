@@ -34,7 +34,7 @@ std::shared_ptr<Query> Analyze::do_analyze(std::shared_ptr<ast::TreeNode> parse)
     /** TODO: 检查表是否存在 */
     for (auto tab_name : query->tables) {
       if (!sm_manager_->db_.is_table(tab_name)) {
-        throw TableExistsError(tab_name);
+        throw TableNotFoundError(tab_name);
       }
     }
 
@@ -112,7 +112,7 @@ std::shared_ptr<Query> Analyze::do_analyze(std::shared_ptr<ast::TreeNode> parse)
     /** TODO: 检查表是否存在 */
     // 处理tab_name
     if (!sm_manager_->db_.is_table(x->tab_name)) {
-      throw TableExistsError(x->tab_name);
+      throw TableNotFoundError(x->tab_name);
     }
     query->tables = {x->tab_name};
 
@@ -181,7 +181,7 @@ TabCol Analyze::check_column(const std::vector<ColMeta> &all_cols, TabCol target
   } else {
     /** TODO: Make sure target column exists */
     if (!sm_manager_->db_.is_table(target.tab_name)) {
-      throw TableExistsError(target.tab_name);
+      throw TableNotFoundError(target.tab_name);
     }
     for (auto &col : all_cols) {
       if (col.name == target.col_name && col.tab_name == target.tab_name) {
