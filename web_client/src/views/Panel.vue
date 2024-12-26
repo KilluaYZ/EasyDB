@@ -118,6 +118,7 @@ const OnReceiveMsg = (resp) => {
         if (data_json.data.length !== 0) {
             deploy_table(data_json);
         }
+        TOTAL_CNT.value = data_json.total;
         ElNotification({
             title: "查询成功",
             message: "你的查询已成功执行",
@@ -138,6 +139,8 @@ const OnReceiveMsg = (resp) => {
 const TABLE_COLUMNS = ref([])
 const TABLE_DATA = ref([])
 const deploy_table = (resp) => {
+    TABLE_COLUMNS.value = []
+    TABLE_DATA.value = []
     let data = resp.data.splice(0, resp.data.length);
     let header = data[0];
     data.shift();
@@ -154,7 +157,6 @@ const deploy_table = (resp) => {
     })
 
     let data_length = data.length;
-    TOTAL_CNT.value = data_length;
     for (let i = 0; i < data_length; i++) {
         let row = data[i];
         let row_length = row.length;
