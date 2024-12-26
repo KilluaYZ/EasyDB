@@ -86,9 +86,9 @@ const onClickQueryBtn = () => {
         })
         return;
     }
-
-    if (SQL_QUERY.value === "help" || SQL_QUERY.value === "HELP") {
-        let help_info = "Supported SQL syntax:\n"
+    
+    if (SQL_QUERY.value.toLowerCase().startsWith("help")) {
+        /*let help_info = "Supported SQL syntax:\n"
             + "  command ;\n"
             + "command:\n"
             + "  CREATE TABLE table_name (column_name type [, column_name type ...])\n"
@@ -110,7 +110,8 @@ const onClickQueryBtn = () => {
             + "op:\n"
             + "  {= | <> | < | > | <= | >=}\n"
             + "selector:\n"
-            + "  {* | column [, column ...]}\n";
+            + "  {* | column [, column ...]}\n";*/
+        let help_info = "EasyDB支持大多数SQL语句，所以SQL怎么用，你也就怎么用！"
         ElNotification({
             title: "帮助信息",
             message: help_info,
@@ -147,7 +148,7 @@ const onClickQueryBtn = () => {
 }
 
 const OnReceiveMsg = (resp) => {
-    console.log(resp)
+    // console.log(resp)
     time_end = performance.now();
     let data = resp.data.substring(0, resp.data.length - 1);
     let data_json = JSON.parse(data);
@@ -182,8 +183,8 @@ const deploy_table = (resp) => {
     let data = resp.data.splice(0, resp.data.length);
     let header = data[0];
     data.shift();
-    console.log(header);
-    console.log(data);
+    // console.log(header);
+    // console.log(data);
 
     header.forEach((item) => {
         TABLE_COLUMNS.value.push({
@@ -208,7 +209,7 @@ const deploy_table = (resp) => {
     // console.log(TABLE_COLUMNS.value)
     // console.log(TABLE_DATA.value)
     let duration = (time_end - time_start) / 1000;
-    TIME_COST.value = duration;
+    TIME_COST.value = duration.toString().substring(0,5);
 }
 // onMounted(deploy_table);
 
@@ -219,7 +220,7 @@ const init_func = () => {
     query_input_dom.addEventListener('keydown', function (event) {
         // 检查key是否为'Enter'
         if (event.key === 'Enter') {
-            console.log('Enter key pressed');
+            // console.log('Enter key pressed');
             // 在这里执行你的函数
             onClickQueryBtn();
         }

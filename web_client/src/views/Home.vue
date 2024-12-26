@@ -97,10 +97,10 @@ const option = reactive({
 function init_func() {
     var chartDom = document.getElementById('control-bar');
     var myChart = echarts.init(chartDom);
-    myChart.on('click', function (params) {
-        console.log(params.name)
-        window.location.replace('http://localhost:2000/' + encodeURIComponent(params.name));
-    });
+    // myChart.on('click', function (params) {
+    //     console.log(params.name)
+    //     window.location.replace('http://localhost:2000/' + encodeURIComponent(params.name));
+    // });
     option && myChart.setOption(option);
 }
 
