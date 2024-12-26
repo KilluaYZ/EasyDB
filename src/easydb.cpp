@@ -215,7 +215,8 @@ void *client_handler(void *sock_fd) {
 
     // context->PrintJsonMsg();
     // context->PrintJson();
-    context->SerializeTo(data_send_vec);
+    // context->SerializeTo(data_send_vec);
+    context->SerializeToWithLimit(data_send_vec, 100);
     // std::cout << data_send_vec.data() << std::endl;
 
     // 释放系统资源
