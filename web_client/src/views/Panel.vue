@@ -12,8 +12,13 @@
                 <span class="stat_text">查询时间(s): {{ TIME_COST }}</span>
                 <span class="stat_text">总记录数: {{ TOTAL_CNT }}</span>
             </el-row>
-            <el-row class="table">
-                <el-table-v2 :columns="TABLE_COLUMNS" :data="TABLE_DATA" :width="1200" :height="400" fixed />
+            <el-row class="table" style="height:600px">
+                <el-auto-resizer>
+                    <template #default="{ height, width }">
+                        <el-table-v2 :columns="TABLE_COLUMNS" :data="TABLE_DATA" :width="width" :height="height"
+                            fixed />
+                    </template>
+                </el-auto-resizer>
             </el-row>
         </el-row>
     </el-row>
@@ -79,6 +84,39 @@ const onClickQueryBtn = () => {
             message: "请输入SQL语句",
             type: 'warnning'
         })
+        return;
+    }
+
+    if (SQL_QUERY.value === "help" || SQL_QUERY.value === "HELP") {
+        let help_info = "Supported SQL syntax:\n"
+            + "  command ;\n"
+            + "command:\n"
+            + "  CREATE TABLE table_name (column_name type [, column_name type ...])\n"
+            + "  DROP TABLE table_name\n"
+            + "  CREATE INDEX table_name (column_name)\n"
+            + "  DROP INDEX table_name (column_name)\n"
+            + "  INSERT INTO table_name VALUES (value [, value ...])\n"
+            + "  DELETE FROM table_name [WHERE where_clause]\n"
+            + "  UPDATE table_name SET column_name = value [, column_name = value ...] [WHERE where_clause]\n"
+            + "  SELECT selector FROM table_name [WHERE where_clause]\n"
+            + "type:\n"
+            + "  {INT | FLOAT | CHAR(n)}\n"
+            + "where_clause:\n"
+            + "  condition [AND condition ...]\n"
+            + "condition:\n"
+            + "  column op {column | value}\n"
+            + "column:\n"
+            + "  [table_name.]column_name\n"
+            + "op:\n"
+            + "  {= | <> | < | > | <= | >=}\n"
+            + "selector:\n"
+            + "  {* | column [, column ...]}\n";
+        ElNotification({
+            title: "帮助信息",
+            message: help_info,
+            type: 'info'
+        })
+        return;
     }
 
     NProgress.start();
@@ -152,7 +190,7 @@ const deploy_table = (resp) => {
             key: item,
             dataKey: item,
             title: item,
-            width: 150
+            width: 200
         })
     })
 
@@ -224,7 +262,7 @@ onMounted(init_func)
         flex-direction: column;
 
         .stat {
-            justify-content: start;
+            justify-content: center;
 
             .stat_text {
                 font-size: 18px;
