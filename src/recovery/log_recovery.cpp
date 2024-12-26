@@ -536,7 +536,7 @@ void RecoveryManager::redo_delete(DeleteLogRecord *delete_log) {
     tab_name_with_index_.emplace(tab_name);
   }
   // Delete from table
-  fh->DeleteTuple(rid);
+  fh->DeleteTuple(rid, nullptr);
 
   // 3. Update the pageLSN
   page->SetLSN(delete_log->lsn_);
@@ -544,34 +544,34 @@ void RecoveryManager::redo_delete(DeleteLogRecord *delete_log) {
 }
 
 void RecoveryManager::redo_update(UpdateLogRecord *update_log) {
-  std::string tab_name(update_log->table_name_, update_log->table_name_size_);
-  int fd = disk_manager_->GetFileFd(tab_name);
-  PageId page_id{fd, update_log->rid_.GetPageId()};
+  // std::string tab_name(update_log->table_name_, update_log->table_name_size_);
+  // int fd = disk_manager_->GetFileFd(tab_name);
+  // PageId page_id{fd, update_log->rid_.GetPageId()};
 
-  auto fh = sm_manager_->fhs_.at(tab_name).get();
-  Page *page = buffer_pool_manager_->RecoverPage(page_id);
+  // auto fh = sm_manager_->fhs_.at(tab_name).get();
+  // Page *page = buffer_pool_manager_->RecoverPage(page_id);
 
-  // 1. Skip or not
-  if (redo_skip(update_log, page_id, page)) {
-    return;
-  }
+  // // 1. Skip or not
+  // if (redo_skip(update_log, page_id, page)) {
+  //   return;
+  // }
 
-  // 2. Redo the operation
-  auto &tab = sm_manager_->db_.get_table(tab_name);
-  int index_len = tab.indexes.size();
-  // auto& old_rec = update_log->old_value_;
-  auto &new_rec = update_log->new_value_;
-  RID rid = update_log->rid_;
-  // Update table
-  fh->UpdateRecord(rid, new_rec.data);
-  // Update index
-  if (index_len > 0) {
-    tab_name_with_index_.emplace(tab_name);
-  }
+  // // 2. Redo the operation
+  // auto &tab = sm_manager_->db_.get_table(tab_name);
+  // int index_len = tab.indexes.size();
+  // // auto& old_rec = update_log->old_value_;
+  // auto &new_rec = update_log->new_value_;
+  // RID rid = update_log->rid_;
+  // // Update table
+  // fh->UpdateRecord(rid, new_rec.data);
+  // // Update index
+  // if (index_len > 0) {
+  //   tab_name_with_index_.emplace(tab_name);
+  // }
 
-  // 3. Update the pageLSN
-  page->SetLSN(update_log->lsn_);
-  buffer_pool_manager_->UnpinPage(page_id, true);
+  // // 3. Update the pageLSN
+  // page->SetLSN(update_log->lsn_);
+  // buffer_pool_manager_->UnpinPage(page_id, true);
 }
 
 void RecoveryManager::redo_index() {
@@ -677,129 +677,129 @@ void RecoveryManager::undo() {
 }
 
 void RecoveryManager::undo_insert(InsertLogRecord *insert_log) {
-  // SmManager::rollback_insert
-  std::string table_name(insert_log->table_name_, insert_log->table_name_size_);
-  auto fh = sm_manager_->fhs_.at(table_name).get();
-  auto &record = insert_log->insert_value_;
-  RID rid = insert_log->rid_;
-  // Delete from index
-  for (auto &index : sm_manager_->db_.get_table(table_name).indexes) {
-    auto index_name = sm_manager_->GetIxManager()->GetIndexName(table_name, index.cols);
-    auto Iih = sm_manager_->ihs_.at(index_name).get();
-    char *key = new char[index.col_tot_len];
-    int offset = 0;
-    for (int i = 0; i < index.col_num; ++i) {
-      memcpy(key + offset, record.data + index.cols[i].offset, index.cols[i].len);
-      offset += index.cols[i].len;
-    }
-    Iih->DeleteEntry(key);
-    delete[] key;
-  }
-  // Delete from table
-  fh->DeleteTuple(rid);
+  // // SmManager::rollback_insert
+  // std::string table_name(insert_log->table_name_, insert_log->table_name_size_);
+  // auto fh = sm_manager_->fhs_.at(table_name).get();
+  // auto &record = insert_log->insert_value_;
+  // RID rid = insert_log->rid_;
+  // // Delete from index
+  // for (auto &index : sm_manager_->db_.get_table(table_name).indexes) {
+  //   auto index_name = sm_manager_->GetIxManager()->GetIndexName(table_name, index.cols);
+  //   auto Iih = sm_manager_->ihs_.at(index_name).get();
+  //   char *key = new char[index.col_tot_len];
+  //   int offset = 0;
+  //   for (int i = 0; i < index.col_num; ++i) {
+  //     memcpy(key + offset, record.data + index.cols[i].offset, index.cols[i].len);
+  //     offset += index.cols[i].len;
+  //   }
+  //   Iih->DeleteEntry(key);
+  //   delete[] key;
+  // }
+  // // Delete from table
+  // fh->DeleteTuple(rid, nullptr);
 
-  // // TODO: DeleteLogRecord(CLR)
-  // DeleteLogRecord del_log_rec(insert_log->log_tid_, record, rid, table_name);
-  // del_log_rec.prev_lsn_ = att_[insert_log->log_tid_];  // lastLSN in recovery
-  // lsn_t lsn = log_manager_->add_log_to_buffer(&del_log_rec);
-  // att_[insert_log->log_tid_] = lsn;
-  // // set lsn in page header
-  // fh->set_page_lsn(rid.GetPageId(), lsn);
+  // // // TODO: DeleteLogRecord(CLR)
+  // // DeleteLogRecord del_log_rec(insert_log->log_tid_, record, rid, table_name);
+  // // del_log_rec.prev_lsn_ = att_[insert_log->log_tid_];  // lastLSN in recovery
+  // // lsn_t lsn = log_manager_->add_log_to_buffer(&del_log_rec);
+  // // att_[insert_log->log_tid_] = lsn;
+  // // // set lsn in page header
+  // // fh->set_page_lsn(rid.GetPageId(), lsn);
 
-  // Set lsn(abort lsn) in page header(not CLR lsn)
-  fh->SetPageLSN(rid.GetPageId(), att_[insert_log->log_tid_]);
+  // // Set lsn(abort lsn) in page header(not CLR lsn)
+  // fh->SetPageLSN(rid.GetPageId(), att_[insert_log->log_tid_]);
 }
 
 void RecoveryManager::undo_delete(DeleteLogRecord *delete_log) {
-  // SmManager::rollback_delete
-  std::string table_name(delete_log->table_name_, delete_log->table_name_size_);
-  auto fh = sm_manager_->fhs_.at(table_name).get();
-  auto &record = delete_log->delete_value_;
-  RID rid = delete_log->rid_;
-  // Insert into table
-  // ziyang comment
-  // fh->InsertRecord(rid, record.data);
-  // Insert into index
-  for (auto &index : sm_manager_->db_.get_table(table_name).indexes) {
-    auto index_name = sm_manager_->GetIxManager()->GetIndexName(table_name, index.cols);
-    auto Iih = sm_manager_->ihs_.at(index_name).get();
-    char *key = new char[index.col_tot_len];
-    int offset = 0;
-    for (int i = 0; i < index.col_num; ++i) {
-      memcpy(key + offset, record.data + index.cols[i].offset, index.cols[i].len);
-      offset += index.cols[i].len;
-    }
-    auto is_insert = Iih->InsertEntry(key, rid);
-    if (is_insert == -1) {
-      // should not happen because this is logged
-      throw InternalError("RecoveryManager::undo_delete: index entry not found");
-    }
-    delete[] key;
-  }
+  // // SmManager::rollback_delete
+  // std::string table_name(delete_log->table_name_, delete_log->table_name_size_);
+  // auto fh = sm_manager_->fhs_.at(table_name).get();
+  // auto &record = delete_log->delete_value_;
+  // RID rid = delete_log->rid_;
+  // // Insert into table
+  // // ziyang comment
+  // // fh->InsertRecord(rid, record.data);
+  // // Insert into index
+  // for (auto &index : sm_manager_->db_.get_table(table_name).indexes) {
+  //   auto index_name = sm_manager_->GetIxManager()->GetIndexName(table_name, index.cols);
+  //   auto Iih = sm_manager_->ihs_.at(index_name).get();
+  //   char *key = new char[index.col_tot_len];
+  //   int offset = 0;
+  //   for (int i = 0; i < index.col_num; ++i) {
+  //     memcpy(key + offset, record.data + index.cols[i].offset, index.cols[i].len);
+  //     offset += index.cols[i].len;
+  //   }
+  //   auto is_insert = Iih->InsertEntry(key, rid);
+  //   if (is_insert == -1) {
+  //     // should not happen because this is logged
+  //     throw InternalError("RecoveryManager::undo_delete: index entry not found");
+  //   }
+  //   delete[] key;
+  // }
 
-  // // TODO: InsertLogRecord(CLR)
-  // InsertLogRecord insert_log_rec(delete_log->log_tid_, record, rid, table_name);
-  // insert_log_rec.prev_lsn_ = att_[delete_log->log_tid_];  // lastLSN in recovery
-  // lsn_t lsn = log_manager_->add_log_to_buffer(&insert_log_rec);
-  // att_[delete_log->log_tid_] = lsn;
-  // // set lsn in page header
-  // fh->set_page_lsn(rid.GetPageId(), lsn);
+  // // // TODO: InsertLogRecord(CLR)
+  // // InsertLogRecord insert_log_rec(delete_log->log_tid_, record, rid, table_name);
+  // // insert_log_rec.prev_lsn_ = att_[delete_log->log_tid_];  // lastLSN in recovery
+  // // lsn_t lsn = log_manager_->add_log_to_buffer(&insert_log_rec);
+  // // att_[delete_log->log_tid_] = lsn;
+  // // // set lsn in page header
+  // // fh->set_page_lsn(rid.GetPageId(), lsn);
 
-  // Set lsn(abort lsn) in page header(not CLR lsn)
-  fh->SetPageLSN(rid.GetPageId(), att_[delete_log->log_tid_]);
+  // // Set lsn(abort lsn) in page header(not CLR lsn)
+  // fh->SetPageLSN(rid.GetPageId(), att_[delete_log->log_tid_]);
 }
 
 void RecoveryManager::undo_update(UpdateLogRecord *update_log) {
-  // SmManager::rollback_update
-  std::string table_name(update_log->table_name_, update_log->table_name_size_);
-  auto fh = sm_manager_->fhs_.at(table_name).get();
-  auto &old_record = update_log->old_value_;
-  auto &new_record = update_log->new_value_;
-  RID rid = update_log->rid_;
+  // // SmManager::rollback_update
+  // std::string table_name(update_log->table_name_, update_log->table_name_size_);
+  // auto fh = sm_manager_->fhs_.at(table_name).get();
+  // auto &old_record = update_log->old_value_;
+  // auto &new_record = update_log->new_value_;
+  // RID rid = update_log->rid_;
 
-  // Update table
-  fh->UpdateRecord(rid, old_record.data);
-  // Update index
-  for (auto &index : sm_manager_->db_.get_table(table_name).indexes) {
-    auto index_name = sm_manager_->GetIxManager()->GetIndexName(table_name, index.cols);
-    auto Iih = sm_manager_->ihs_.at(index_name).get();
-    char *old_key = new char[index.col_tot_len];
-    char *new_key = new char[index.col_tot_len];
-    int offset = 0;
-    for (int i = 0; i < index.col_num; ++i) {
-      memcpy(old_key + offset, old_record.data + index.cols[i].offset, index.cols[i].len);
-      memcpy(new_key + offset, new_record.data + index.cols[i].offset, index.cols[i].len);
-      offset += index.cols[i].len;
-    }
-    // check if the key is the same as before
-    if (memcmp(old_key, new_key, index.col_tot_len) == 0) {
-      delete[] old_key;
-      delete[] new_key;
-      continue;
-    }
-    // check if the new key duplicated
-    auto is_insert = Iih->InsertEntry(old_key, rid);
-    if (is_insert == -1) {
-      // should not happen because this is logged
-      throw InternalError("RecoveryManager::undo_update: index entry not found");
-    }
-    Iih->DeleteEntry(new_key);
-    delete[] old_key;
-    delete[] new_key;
-  }
+  // // Update table
+  // fh->UpdateRecord(rid, old_record.data);
+  // // Update index
+  // for (auto &index : sm_manager_->db_.get_table(table_name).indexes) {
+  //   auto index_name = sm_manager_->GetIxManager()->GetIndexName(table_name, index.cols);
+  //   auto Iih = sm_manager_->ihs_.at(index_name).get();
+  //   char *old_key = new char[index.col_tot_len];
+  //   char *new_key = new char[index.col_tot_len];
+  //   int offset = 0;
+  //   for (int i = 0; i < index.col_num; ++i) {
+  //     memcpy(old_key + offset, old_record.data + index.cols[i].offset, index.cols[i].len);
+  //     memcpy(new_key + offset, new_record.data + index.cols[i].offset, index.cols[i].len);
+  //     offset += index.cols[i].len;
+  //   }
+  //   // check if the key is the same as before
+  //   if (memcmp(old_key, new_key, index.col_tot_len) == 0) {
+  //     delete[] old_key;
+  //     delete[] new_key;
+  //     continue;
+  //   }
+  //   // check if the new key duplicated
+  //   auto is_insert = Iih->InsertEntry(old_key, rid);
+  //   if (is_insert == -1) {
+  //     // should not happen because this is logged
+  //     throw InternalError("RecoveryManager::undo_update: index entry not found");
+  //   }
+  //   Iih->DeleteEntry(new_key);
+  //   delete[] old_key;
+  //   delete[] new_key;
+  // }
 
-  // // TODO: UpdateLogRecord(CLR)
-  // // Note: log after the update, because old_record & new_record will not be changed
-  // // after the update, which is different from rollback_update
-  // UpdateLogRecord update_log_rec(update_log->log_tid_, new_record, old_record, rid, table_name);
-  // update_log_rec.prev_lsn_ = att_[update_log->log_tid_];  // lastLSN in recovery
-  // lsn_t lsn = log_manager_->add_log_to_buffer(&update_log_rec);
-  // att_[update_log->log_tid_] = lsn;
-  // // set lsn in page header
-  // fh->set_page_lsn(rid.GetPageId(), lsn);
+  // // // TODO: UpdateLogRecord(CLR)
+  // // // Note: log after the update, because old_record & new_record will not be changed
+  // // // after the update, which is different from rollback_update
+  // // UpdateLogRecord update_log_rec(update_log->log_tid_, new_record, old_record, rid, table_name);
+  // // update_log_rec.prev_lsn_ = att_[update_log->log_tid_];  // lastLSN in recovery
+  // // lsn_t lsn = log_manager_->add_log_to_buffer(&update_log_rec);
+  // // att_[update_log->log_tid_] = lsn;
+  // // // set lsn in page header
+  // // fh->set_page_lsn(rid.GetPageId(), lsn);
 
-  // Set lsn(abort lsn) in page header(not CLR lsn)
-  fh->SetPageLSN(rid.GetPageId(), att_[update_log->log_tid_]);
+  // // Set lsn(abort lsn) in page header(not CLR lsn)
+  // fh->SetPageLSN(rid.GetPageId(), att_[update_log->log_tid_]);
 }
 
 }  // namespace easydb

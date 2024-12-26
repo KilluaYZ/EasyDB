@@ -1,19 +1,24 @@
-/* Copyright (c) 2023 Renmin University of China
-RMDB is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
-        http://license.coscl.org.cn/MulanPSL2
-THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
-EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
-MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
-See the Mulan PSL v2 for more details. */
+/*-------------------------------------------------------------------------
+ *
+ * EasyDB
+ *
+ * transaction_manager.h
+ *
+ * Identification: src/include/transaction/transaction_manager.h
+ *
+ *-------------------------------------------------------------------------
+ */
+
+/*
+ * Original copyright:
+ * Copyright (c) 2023 Renmin University of China
+ */
 
 #pragma once
 
 #include <atomic>
 #include <unordered_map>
 
-#include "common/context.h"
 #include "concurrency/lock_manager.h"
 #include "recovery/log_manager.h"
 #include "system/sm_manager.h"
@@ -37,26 +42,26 @@ class TransactionManager {
 
   ~TransactionManager() = default;
 
-  Transaction *begin(Transaction *txn, LogManager *log_manager);
+  Transaction *Begin(Transaction *txn, LogManager *log_manager);
 
-  void commit(Transaction *txn, LogManager *log_manager);
+  void Commit(Transaction *txn, LogManager *log_manager);
 
-  void abort(Transaction *txn, LogManager *log_manager);
+  void Abort(Transaction *txn, LogManager *log_manager);
 
-  void create_static_checkpoint(Transaction *txn, LogManager *log_manager);
+  void CreateStaticCheckpoint(Transaction *txn, LogManager *log_manager);
 
-  ConcurrencyMode get_concurrency_mode() { return concurrency_mode_; }
+  ConcurrencyMode GetConcurrencyMode() { return concurrency_mode_; }
 
-  void set_concurrency_mode(ConcurrencyMode concurrency_mode) { concurrency_mode_ = concurrency_mode; }
+  void SetConcurrencyMode(ConcurrencyMode concurrency_mode) { concurrency_mode_ = concurrency_mode; }
 
-  LockManager *get_lock_manager() { return lock_manager_; }
+  LockManager *GetLockManager() { return lock_manager_; }
 
   /**
    * @description: 获取事务ID为txn_id的事务对象
    * @return {Transaction*} 事务对象的指针
    * @param {txn_id_t} txn_id 事务ID
    */
-  Transaction *get_transaction(txn_id_t txn_id) {
+  Transaction *GetTransaction(txn_id_t txn_id) {
     if (txn_id == INVALID_TXN_ID) return nullptr;
 
     std::unique_lock<std::mutex> lock(latch_);
@@ -64,16 +69,16 @@ class TransactionManager {
     auto *res = TransactionManager::txn_map[txn_id];
     lock.unlock();
     assert(res != nullptr);
-    assert(res->get_thread_id() == std::this_thread::get_id());
+    assert(res->GetThreadId() == std::this_thread::get_id());
 
     return res;
   }
 
   // release txn of the thread in the map
-  void release_txn_of_thread(std::thread::id thread_id) {
+  void ReleaseTxnOfThread(std::thread::id thread_id) {
     std::unique_lock<std::mutex> lock(latch_);
     for (auto it = txn_map.begin(); it != txn_map.end();) {
-      if (it->second->get_thread_id() == thread_id) {
+      if (it->second->GetThreadId() == thread_id) {
         delete it->second;
         it = txn_map.erase(it);
       } else {

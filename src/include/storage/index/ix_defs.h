@@ -17,8 +17,8 @@
 
 #include "common/config.h"
 #include "common/errors.h"
-#include "defs.h"
 #include "type/type_id.h"
+#include "type/value.h"
 
 namespace easydb {
 
@@ -64,6 +64,16 @@ inline int ix_compare(const char *a, const char *b, const std::vector<ColType> &
     offset += col_lens[i];
   }
   return 0;
+}
+
+// wrapper function for memcpy to handle different data types
+inline void ix_memcpy(char *dest, Value &value, int len) {
+  if (value.GetTypeId() == TYPE_CHAR || value.GetTypeId() == TYPE_VARCHAR) {
+    memcpy(dest, value.GetData(), len);
+  } else {
+    assert(uint32_t(len) == Type(value.GetTypeId()).GetTypeSize(value.GetTypeId()));
+    value.SerializeTo(dest);
+  }
 }
 
 class IxFileHdr {

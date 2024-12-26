@@ -33,14 +33,18 @@ void RmScan::Next() {
   auto page_no = rid_.GetPageId();
   auto slot_no = rid_.GetSlotNum() + 1;
 
+  bool found_valid_record = false;
   // If we have not reached the end of the file
-  if (page_no < file_handle_->file_hdr_.num_pages) {
+  while (page_no < file_handle_->file_hdr_.num_pages) {
     RmPageHandle page_handle = file_handle_->FetchPageHandle(page_no);
     uint32_t num_records = page_handle.GetNumTuples();
 
     while (slot_no < num_records) {
       // If not deleted, we have found a valid record
-      if (!page_handle.IsTupleDeleted({page_no, slot_no})) break;
+      if (!page_handle.IsTupleDeleted({page_no, slot_no})) {
+        found_valid_record = true;
+        break;
+      }
       // Move to the next slot
       slot_no++;
     };
@@ -52,6 +56,11 @@ void RmScan::Next() {
     if (slot_no == num_records) {
       page_no++;
       slot_no = 0;
+    }
+
+    // If we have found a valid record, break out of the loop
+    if (found_valid_record) {
+      break;
     }
   }
   rid_.Set(page_no, slot_no);

@@ -10,7 +10,9 @@
  */
 
 #include "record/rm_file_handle.h"
+#include "common/exception.h"
 #include "common/macros.h"
+#include "common/rid.h"
 
 namespace easydb {
 
@@ -24,7 +26,8 @@ auto RmPageHandle::GetNextTupleOffset(const TupleMeta &meta, const Tuple &tuple)
   }
   auto tuple_offset = slot_end_offset - tuple.GetLength();
   auto offset_size = TABLE_PAGE_HEADER_SIZE + TUPLE_INFO_SIZE * (page_hdr_->num_records + 1);
-  if (tuple_offset < offset_size) {
+  // Note that we donnot use (tuple_offset < offset_size) because slot_end_offset may < tuple.GetLength()
+  if (slot_end_offset < offset_size + tuple.GetLength()) {
     return std::nullopt;
   }
   return tuple_offset;
@@ -82,7 +85,11 @@ void RmPageHandle::UpdateTupleInPlaceUnsafe(const TupleMeta &meta, const Tuple &
     throw easydb::Exception("Tuple ID out of range");
   }
   auto &[offset, size, old_meta] = tuple_info_[tuple_id];
-  if (size != tuple.GetLength()) {
+  // if (size != tuple.GetLength()) {
+  //   throw easydb::Exception("Tuple size mismatch");
+  // }
+  // If the tuple is larger than the old one, we throw an exception
+  if (size < tuple.GetLength()) {
     throw easydb::Exception("Tuple size mismatch");
   }
   if (!old_meta.is_deleted_ && meta.is_deleted_) {
@@ -97,14 +104,16 @@ auto RmPageHandle::IsTupleDeleted(const RID &rid) -> bool {
   return meta.is_deleted_;
 }
 
-auto RmFileHandle::InsertTuple(const TupleMeta &meta, const Tuple &tuple) -> std::optional<RID> {
+auto RmFileHandle::InsertTuple(const TupleMeta &meta, const Tuple &tuple, Context *context) -> std::optional<RID> {
   // 1. Fetch the current first free page handle
   RmPageHandle page_handle = CreatePageHandle();
   int page_no = page_handle.page->GetPageId().page_no;
+  std::optional<uint16_t> tuple_offset;
 
   // 2. Find a free slot in the page handle
   while (true) {
-    if (page_handle.GetNextTupleOffset(meta, tuple) != std::nullopt) {
+    tuple_offset = page_handle.GetNextTupleOffset(meta, tuple);
+    if (tuple_offset != std::nullopt) {
       break;
     }
 
@@ -116,18 +125,51 @@ auto RmFileHandle::InsertTuple(const TupleMeta &meta, const Tuple &tuple) -> std
     buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), false);
 
     page_handle = std::move(new_page_handle);
+    page_no = page_handle.page->GetPageId().page_no;
   }
 
   // 3. Insert the tuple to the free slot
-  auto slot_no = *page_handle.InsertTuple(meta, tuple);
+  // auto slot_no = *page_handle.InsertTuple(meta, tuple);
+  auto slot_no = page_handle.page_hdr_->num_records;
+  auto rid = RID(page_no, slot_no);
+  // lock manager
+  if (context != nullptr) {
+    context->lock_mgr_->LockExclusiveOnRecord(context->txn_, rid, fd_);
+  }
+
+  page_handle.tuple_info_[slot_no] = std::make_tuple(*tuple_offset, tuple.GetLength(), meta);
+  page_handle.page_hdr_->num_records++;
+  memcpy(page_handle.page_start_ + *tuple_offset, tuple.data_.data(), tuple.GetLength());
 
   // Unpin the page that was pinned in create_page_handle
   buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), true);
 
-  return RID(page_no, slot_no);
+  return rid;
 }
 
-auto RmFileHandle::DeleteTuple(RID rid) -> bool {
+auto RmFileHandle::InsertTuple(RID rid, const TupleMeta &meta, const Tuple &tuple, Context *context) -> bool {
+  // lock manager
+  if (context != nullptr) {
+    context->lock_mgr_->LockExclusiveOnRecord(context->txn_, rid, fd_);
+  }
+  RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
+  auto [old_meta, old_tup] = page_handle.GetTuple(rid);
+  if (old_meta.is_deleted_) {
+    old_meta.is_deleted_ = false;
+    page_handle.UpdateTupleMeta(old_meta, rid);
+  } else {
+    throw Exception("RmFileHandle::InsertTuple(Rollback) Error: Tuple already exists");
+  }
+  buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), true);
+  return true;
+}
+
+auto RmFileHandle::DeleteTuple(RID rid, Context *context) -> bool {
+  // lock manager
+  if (context != nullptr) {
+    context->lock_mgr_->LockExclusiveOnRecord(context->txn_, rid, fd_);
+  }
+
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
   auto [meta, tuple] = page_handle.GetTuple(rid);
   if (meta.is_deleted_) {
@@ -139,9 +181,13 @@ auto RmFileHandle::DeleteTuple(RID rid) -> bool {
   return true;
 }
 
-auto RmFileHandle::UpdateTupleInPlace(const TupleMeta &meta, const Tuple &tuple, RID rid,
+auto RmFileHandle::UpdateTupleInPlace(const TupleMeta &meta, const Tuple &tuple, RID rid, Context *context,
                                       std::function<bool(const TupleMeta &meta, const Tuple &table, RID rid)> &&check)
     -> bool {
+  // lock manager
+  if (context != nullptr) {
+    context->lock_mgr_->LockExclusiveOnRecord(context->txn_, rid, fd_);
+  }
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
   auto [old_meta, old_tup] = page_handle.GetTuple(rid);
   if (check == nullptr || check(old_meta, old_tup, rid)) {
@@ -153,13 +199,21 @@ auto RmFileHandle::UpdateTupleInPlace(const TupleMeta &meta, const Tuple &tuple,
   return false;
 }
 
-void RmFileHandle::UpdateTupleMeta(const TupleMeta &meta, RID rid) {
+void RmFileHandle::UpdateTupleMeta(const TupleMeta &meta, RID rid, Context *context) {
+  // lock manager
+  if (context != nullptr) {
+    context->lock_mgr_->LockExclusiveOnRecord(context->txn_, rid, fd_);
+  }
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
   page_handle.UpdateTupleMeta(meta, rid);
   buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), true);
 }
 
-auto RmFileHandle::GetTuple(RID rid) -> std::pair<TupleMeta, Tuple> {
+auto RmFileHandle::GetTuple(RID rid, Context *context) -> std::pair<TupleMeta, Tuple> {
+  // lock manager
+  if (context != nullptr) {
+    context->lock_mgr_->LockSharedOnRecord(context->txn_, rid, fd_);
+  }
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
   auto [meta, tuple] = page_handle.GetTuple(rid);
   buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), false);
@@ -167,7 +221,11 @@ auto RmFileHandle::GetTuple(RID rid) -> std::pair<TupleMeta, Tuple> {
   return std::make_pair(meta, std::move(tuple));
 }
 
-auto RmFileHandle::GetTupleMeta(RID rid) -> TupleMeta {
+auto RmFileHandle::GetTupleMeta(RID rid, Context *context) -> TupleMeta {
+  // lock manager
+  if (context != nullptr) {
+    context->lock_mgr_->LockSharedOnRecord(context->txn_, rid, fd_);
+  }
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
   TupleMeta meat = page_handle.GetTupleMeta(rid);
   buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), false);
@@ -181,58 +239,58 @@ auto RmFileHandle::GetTupleMeta(RID rid) -> TupleMeta {
  * @return {unique_ptr<RmRecord>} rid对应的记录对象指针
  */
 //  std::unique_ptr<RmRecord> RmFileHandle::get_record(const RID &rid, Context *context)
-auto RmFileHandle::GetRecord(const RID &rid) -> std::unique_ptr<RmRecord> {
-  // Todo:
-  // 1. 获取指定记录所在的page handle
-  // 2. 初始化一个指向RmRecord的指针（赋值其内部的data和size）
-  // return nullptr;
-
-  //   // lock manager
-  //   if (context != nullptr) {
-  //     context->lock_mgr_->lock_shared_on_record(context->txn_, rid, fd_);
-  //   }
-
-  // 1. Fetch the page handle for the page that contains the record
-  RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
-
-  // 2. Initialize a unique pointer to RmRecord
-  auto [meta, tuple] = page_handle.GetTuple(rid);
-  tuple.rid_ = rid;
-  // return std::make_pair(meta, std::move(tuple));
-  auto record = std::make_unique<RmRecord>(tuple.GetLength(), tuple.data_.data());
-
-  // Unpin the page
-  buffer_pool_manager_->UnpinPage({fd_, rid.GetPageId()}, false);
-
-  return record;
-}
+// auto RmFileHandle::GetRecord(const RID &rid) -> std::unique_ptr<RmRecord> {
+//   // Todo:
+//   // 1. 获取指定记录所在的page handle
+//   // 2. 初始化一个指向RmRecord的指针（赋值其内部的data和size）
+//   // return nullptr;
+//   //   // lock manager
+//   //   if (context != nullptr) {
+//   //     context->lock_mgr_->LockSharedOnRecord(context->txn_, rid, fd_);
+//   //   }
+//   // 1. Fetch the page handle for the page that contains the record
+//   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
+//   // 2. Initialize a unique pointer to RmRecord
+//   auto [meta, tuple] = page_handle.GetTuple(rid);
+//   tuple.rid_ = rid;
+//   // return std::make_pair(meta, std::move(tuple));
+//   auto record = std::make_unique<RmRecord>(tuple.GetLength(), tuple.data_.data());
+//   // Unpin the page
+//   buffer_pool_manager_->UnpinPage({fd_, rid.GetPageId()}, false);
+//   return record;
+// }
 
 /**
  * @description: 获取当前表中记录号为rid的记录
  * @param {RID&} rid 记录号，指定记录的位置
+ * @param {Context*} context
  * @return {unique_ptr<Tuple>} rid对应的记录对象指针
  */
-auto RmFileHandle::GetTupleValue(const RID &rid) -> std::unique_ptr<Tuple> {
+auto RmFileHandle::GetTupleValue(const RID &rid, Context *context) -> std::unique_ptr<Tuple> {
+  // lock manager
+  if (context != nullptr) {
+    context->lock_mgr_->LockSharedOnRecord(context->txn_, rid, fd_);
+  }
+
   // 1. Fetch the page handle for the page that contains the record
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
 
-  // 2. Initialize a unique pointer to RmRecord
+  // 2. Initialize a unique pointer to Tuple
   auto [meta, tuple] = page_handle.GetTuple(rid);
-  tuple.rid_ = rid;
 
   // Unpin the page
   buffer_pool_manager_->UnpinPage({fd_, rid.GetPageId()}, false);
 
   return std::make_unique<Tuple>(tuple);
-
-  // // return std::make_pair(meta, std::move(tuple));
-  // auto record = std::make_unique<RmRecord>(tuple.GetLength(), tuple.data_.data());
-
-  // return record;
 }
 
 auto RmFileHandle::GetKeyTuple(const Schema &schema, const Schema &key_schema, const std::vector<uint32_t> &key_attrs,
-                               const RID &rid) -> Tuple {
+                               const RID &rid, Context *context) -> Tuple {
+  // lock manager
+  if (context != nullptr) {
+    context->lock_mgr_->LockSharedOnRecord(context->txn_, rid, fd_);
+  }
+
   // 1. Fetch the page handle for the page that contains the record
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
 
@@ -295,12 +353,12 @@ auto RmFileHandle::GetKeyTuple(const Schema &schema, const Schema &key_schema, c
  * @param {Context*} context
  */
 // void RmFileHandle::update_record(const RID &rid, char *buf, Context *context) {
-void RmFileHandle::UpdateRecord(const RID &rid, char *buf) {
-  // Todo:
-  // 1. 获取指定记录所在的page handle
-  // 2. 更新记录
-  throw InternalError("RmFileHandle::update_record removed, use UpdateTupleInPlace instead.");
-}
+// void RmFileHandle::UpdateRecord(const RID &rid, char *buf) {
+//   // Todo:
+//   // 1. 获取指定记录所在的page handle
+//   // 2. 更新记录
+//   throw InternalError("RmFileHandle::update_record removed, use UpdateTupleInPlace instead.");
+// }
 
 /**
  * 以下函数为辅助函数，仅提供参考，可以选择完成如下函数，也可以删除如下函数，在单元测试中不涉及如下函数接口的直接调用

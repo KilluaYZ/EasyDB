@@ -51,7 +51,7 @@ class RID {
 
   inline void SetPageId(page_id_t page_id) { page_id_ = page_id; }
 
-  inline void SetSlotNum(slot_id_t slot_num) { slot_num_ = slot_num_; }
+  inline void SetSlotNum(slot_id_t slot_num) { slot_num_ = slot_num; }
 
   inline auto ToString() const -> std::string {
     std::stringstream os;

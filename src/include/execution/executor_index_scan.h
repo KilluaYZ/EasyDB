@@ -67,8 +67,7 @@ class IndexScanExecutor : public AbstractExecutor {
 
   std::unique_ptr<Tuple> Next() override {
     // assert(!IsEnd());
-    return fh_->GetTupleValue(rid_);
-    // return fh_->GetTupleValue(rid_, context_);
+    return fh_->GetTupleValue(rid_, context_);
   }
 
  private:

@@ -1,12 +1,18 @@
-/* Copyright (c) 2023 Renmin University of China
-RMDB is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
-        http://license.coscl.org.cn/MulanPSL2
-THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
-EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
-MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
-See the Mulan PSL v2 for more details. */
+/*-------------------------------------------------------------------------
+ *
+ * EasyDB
+ *
+ * lock_manager.h
+ *
+ * Identification: src/include/concurrency/lock_manager.h
+ *
+ *-------------------------------------------------------------------------
+ */
+
+/*
+ * Original copyright:
+ * Copyright (c) 2023 Renmin University of China
+ */
 
 #pragma once
 
@@ -14,7 +20,6 @@ See the Mulan PSL v2 for more details. */
 #include <functional>
 #include <list>
 #include <mutex>
-#include "storage/index/ix_scan.h"
 #include "transaction/transaction.h"
 
 namespace easydb {
@@ -52,30 +57,30 @@ class LockManager {
 
   ~LockManager() { lock_table_.clear(); }
 
-  bool lock_shared_on_record(Transaction *txn, const RID &rid, int tab_fd);
+  bool LockSharedOnRecord(Transaction *txn, const RID &rid, int tab_fd);
 
-  bool lock_gap_on_index(Transaction *txn, const Iid &rid, int tab_fd);
+  bool LockGapOnIndex(Transaction *txn, const Iid &rid, int tab_fd);
 
-  void handle_index_gap_wait_die(Transaction *txn, const Iid &rid, int tab_fd);
+  void HandleIndexGapWaitDie(Transaction *txn, const Iid &rid, int tab_fd);
 
-  bool lock_exclusive_on_record(Transaction *txn, const RID &rid, int tab_fd);
+  bool LockExclusiveOnRecord(Transaction *txn, const RID &rid, int tab_fd);
 
-  bool lock_shared_on_table(Transaction *txn, int tab_fd);
+  bool LockSharedOnTable(Transaction *txn, int tab_fd);
 
-  bool lock_exclusive_on_table(Transaction *txn, int tab_fd);
+  bool LockExclusiveOnTable(Transaction *txn, int tab_fd);
 
-  bool lock_IS_on_table(Transaction *txn, int tab_fd);
+  bool LockISOnTable(Transaction *txn, int tab_fd);
 
-  bool lock_IX_on_table(Transaction *txn, int tab_fd);
+  bool LockIXOnTable(Transaction *txn, int tab_fd);
 
-  bool unlock(Transaction *txn, LockDataId lock_data_id);
+  bool Unlock(Transaction *txn, LockDataId lock_data_id);
 
-  bool check_txn_state_lock(Transaction *txn);
+  bool CheckTxnStateLock(Transaction *txn);
 
-  bool check_txn_state_unlock(Transaction *txn);
+  bool CheckTxnStateUnlock(Transaction *txn);
 
-  inline void wait_die(Transaction *txn, LockRequest &req_holder, LockRequestQueue &queue,
-                       std::unique_lock<std::mutex> &lock, std::function<bool()> wake);
+  inline void WaitDie(Transaction *txn, LockRequest &req_holder, LockRequestQueue &queue,
+                      std::unique_lock<std::mutex> &lock, std::function<bool()> wake);
 
  private:
   std::mutex latch_;                                             // 用于锁表的并发

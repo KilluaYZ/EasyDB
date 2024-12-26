@@ -9,7 +9,6 @@
  *-------------------------------------------------------------------------
  */
 
-#pragma once
 #include "storage/index/ix_extendible_hash_index_handle.h"
 #include <cmath>
 #include "murmur3/MurmurHash3.h"
@@ -220,7 +219,7 @@ page_id_t IxExtendibleHashIndexHandle::InsertEntry(const char *key, const RID &v
   // std::scoped_lock lock{root_latch_};
   int index = HashFunction(key, global_depth);
   // std::cerr << "[INDEX ----- InsertEntry] index = " << index << " rid = {" << value.GetPageId() << ","
-            // << value.GetSlotNum() << "}" << std::endl;
+  // << value.GetSlotNum() << "}" << std::endl;
   IxBucketHandle *target_bucket = FindBucketPage(index);
   if (!target_bucket->IsFull()) {
     // bucket is not full, just insert.
@@ -393,7 +392,8 @@ IxBucketHandle *IxExtendibleHashIndexHandle::FindBucketPage(int index) {
  * 与Record的处理不同，Record将未插入满的记录页认为是free_page
  */
 IxBucketHandle *IxExtendibleHashIndexHandle::CreateBucket(int index, const char *key, int new_local_depth) {
-  // std::cerr << "[INDEX ----- CreateBucket] index = " << index << " new_local_depth = " << new_local_depth << std::endl;
+  // std::cerr << "[INDEX ----- CreateBucket] index = " << index << " new_local_depth = " << new_local_depth <<
+  // std::endl;
   IxBucketHandle *directory_bucket = FetchBucket(file_hdr_->directory_page_);
 
   IxBucketHandle *bucket;

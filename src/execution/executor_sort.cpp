@@ -6,7 +6,6 @@
  *-------------------------------------------------------------------------
  */
 
-#pragma once
 #include "execution/executor_sort.h"
 
 namespace easydb {

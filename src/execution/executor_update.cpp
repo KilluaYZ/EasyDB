@@ -24,10 +24,10 @@ UpdateExecutor::UpdateExecutor(SmManager *sm_manager, const std::string &tab_nam
   rids_ = rids;
   context_ = context;
 
-  // // lock table
-  // if (context_ != nullptr) {
-  //   context_->lock_mgr_->lock_IX_on_table(context_->txn_, fh_->GetFd());
-  // }
+  // lock table
+  if (context_ != nullptr) {
+    context_->lock_mgr_->LockIXOnTable(context_->txn_, fh_->GetFd());
+  }
 }
 
 std::unique_ptr<Tuple> UpdateExecutor::Next() {
@@ -36,8 +36,7 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
   for (int i = 0; i < rid_size; i++) {
     RID rid = rids_[i];
     // get records and construct updated value buf
-    // auto rec = fh_->GetTupleValue(rid, context_);
-    auto tuple = fh_->GetTupleValue(rid);
+    auto tuple = fh_->GetTupleValue(rid, context_);
     auto old_values = tuple->GetValueVec(&tab_.schema);
     auto new_values = old_values;
 
@@ -74,8 +73,8 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
         auto id = ids[i];
         auto val_d = old_values[id];
         auto val_i = new_values[id];
-        memcpy(key_d + offset, val_d.GetData(), val_d.GetStorageSize());
-        memcpy(key_i + offset, val_i.GetData(), val_i.GetStorageSize());
+        ix_memcpy(key_d + offset, val_d, index.cols[i].len);
+        ix_memcpy(key_i + offset, val_i, index.cols[i].len);
         offset += index.cols[i].len;
       }
       // check if the key is the same as before
@@ -83,15 +82,14 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
         continue;
       }
 
-      //   // Wait for GAP lock before insert
-      //   if (context_ != nullptr) {
-      //     Iid lower = ih->LowerBound(key_i);
-      //     context_->lock_mgr_->handle_index_gap_wait_die(context_->txn_, lower, fh_->GetFd());
-      //   }
+      // Wait for GAP lock before insert
+      if (context_ != nullptr) {
+        Iid lower = ih->LowerBound(key_i);
+        context_->lock_mgr_->HandleIndexGapWaitDie(context_->txn_, lower, fh_->GetFd());
+      }
 
       // check if the new key duplicated
-      //   auto is_insert = ih->InsertEntry(key_i, rid, context_->txn_);
-      auto is_insert = ih->InsertEntry(key_i, rid);
+      auto is_insert = ih->InsertEntry(key_i, rid, context_->txn_);
       if (is_insert == -1) {
         std::vector<std::string> col_names;
         for (auto col : index.cols) {
@@ -100,33 +98,34 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
         throw IndexExistsError(tab_name_, col_names);
       }
 
-      //   // Wait for GAP lock before delete
-      //   if (context_ != nullptr) {
-      //     Iid lower = ih->LowerBound(key_d);
-      //     context_->lock_mgr_->handle_index_gap_wait_die(context_->txn_, lower, fh_->GetFd());
-      //   }
+      // Wait for GAP lock before delete
+      if (context_ != nullptr) {
+        Iid lower = ih->LowerBound(key_d);
+        context_->lock_mgr_->HandleIndexGapWaitDie(context_->txn_, lower, fh_->GetFd());
+      }
 
-      //   ih->DeleteEntry(key_d, context_->txn_);
-      ih->DeleteEntry(key_d);
+      ih->DeleteEntry(key_d, context_->txn_);
+      delete[] key_d;
+      delete[] key_i;
     }
 
     // // Log the update operation(before update old value: *rec)
-    // UpdateLogRecord update_log_rec(context_->txn_->get_transaction_id(), *rec, buf, rid, tab_name_);
+    // UpdateLogRecord update_log_rec(context_->txn_->GetTransactionId(), *rec, buf, rid, tab_name_);
 
     // update records
     // fh_->UpdateTupleInPlace(TupleMeta{0, false}, new_tuple, context_);
-    fh_->UpdateTupleInPlace(TupleMeta{0, false}, new_tuple, rid);
+    fh_->UpdateTupleInPlace(TupleMeta{0, false}, new_tuple, rid, context_);
 
     // // Log the update operation(after update)
-    // update_log_rec.prev_lsn_ = context_->txn_->get_prev_lsn();
+    // update_log_rec.prev_lsn_ = context_->txn_->GetPrevLsn();
     // lsn_t lsn = context_->log_mgr_->add_log_to_buffer(&update_log_rec);
-    // context_->txn_->set_prev_lsn(lsn);
+    // context_->txn_->SetPrevLsn(lsn);
     // // set lsn in page header
     // fh_->SetPageLSN(rid.page_no, lsn);
 
-    // // Update context_ for rollback
-    // WriteRecord *write_record = new WriteRecord(WType::UPDATE_TUPLE, tab_name_, rid, *rec);
-    // context_->txn_->append_write_record(write_record);
+    // Update context_ for rollback
+    WriteRecord *write_record = new WriteRecord(WType::UPDATE_TUPLE, tab_name_, rid, *tuple);
+    context_->txn_->AppendWriteRecord(write_record);
   }
 
   return nullptr;

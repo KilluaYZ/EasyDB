@@ -11,9 +11,9 @@
 
 #pragma once
 #include <cstring>
-#include "common/config.h"
-#include "storage/page/page.h"
-#include "storage/table/tuple.h"
+// #include "common/config.h"
+// #include "storage/page/page.h"
+// #include "storage/table/tuple.h"
 
 namespace easydb {
 

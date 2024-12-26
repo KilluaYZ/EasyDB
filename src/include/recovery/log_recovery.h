@@ -99,18 +99,18 @@ class RecoveryManager {
     printf("+-------- RecoveryManager --------+\n");
     printf("| ATT: %lu\n", att_.size());
     for (auto &[txn_id, lsn] : att_) {
-      printf("|   %d -> %d\n", txn_id, lsn);
+      printf("|   %ld -> %d\n", txn_id, lsn);
     }
     printf("| Aborted Txn (set of aborted txn in ATT): %lu\n", aborted_txns_.size());
     for (auto &txn_id : aborted_txns_) {
-      printf("|   txn_id: %d\n", txn_id);
+      printf("|   txn_id: %ld\n", txn_id);
     }
     printf("| DPT: %lu\n", dpt_.size());
     for (auto &[page_id, rec_lsn] : dpt_) {
       printf("|   %d,%d -> %d\n", page_id.fd, page_id.page_no, rec_lsn);
     }
     printf("| Min rec lsn: %d\n", min_rec_lsn_);
-    printf("| Last txn id: %d\n", last_txn_id_);
+    printf("| Last txn id: %ld\n", last_txn_id_);
     printf("| Last lsn: %d\n", last_lsn_);
     printf("+---------------------------------+\n");
   }

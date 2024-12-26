@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include "sm_meta.h"
 #include "storage/index/ix_defs.h"
 #include "storage/index/ix_manager.h"
+#include "storage/table/tuple.h"
 #include "transaction/txn_defs.h"
 
 namespace easydb {
@@ -105,9 +106,9 @@ class SmManager {
 
   void RollbackInsert(const std::string &table_name, RID &rid, Context *context);
 
-  void RollbackDelete(const std::string &table_name, RID &rid, RmRecord &record, Context *context);
+  void RollbackDelete(const std::string &table_name, RID &rid, Tuple &record, Context *context);
 
-  void RollbackUpdate(const std::string &table_name, RID &rid, RmRecord &record, Context *context);
+  void RollbackUpdate(const std::string &table_name, RID &rid, Tuple &record, Context *context);
 
   // split string by delimiter
   void Split(const std::string &s, char delimiter, std::vector<std::string> &tokens);
