@@ -37,6 +37,7 @@ set(EASYDB_LIBS
         )
 
 find_package(Threads REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
 set(EASYDB_THIRDPARTY_LIBS
         easydb_murmur3

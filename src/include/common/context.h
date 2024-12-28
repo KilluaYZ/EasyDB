@@ -62,7 +62,7 @@ class Context {
     result_json["total"] = 0;
   }
   void AddJsonData(const std::vector<std::string> &row) {
-    result_json["data"].push_back(row);
+    result_json["data"].emplace_back(row);
     // Update the total number of rows without the header row
     result_json["total"] = result_json["data"].size() - 1;
   }
@@ -81,21 +81,23 @@ class Context {
   int SerializeTo(std::vector<char> &buf) { return SerializeJsonTo(result_json, buf); }
 
   int SerializeToWithLimit(std::vector<char> &buf, size_t max_size = 100) {
-    // Create a copy of the original JSON object to modify
-    auto limited_json = result_json;
-
-    auto &data_array = limited_json["data"];
+    auto &data_array = result_json["data"];
     // If the size of the "data" array(excluding the header row) is greater than max_size, slice it
     if (data_array.size() > max_size + 1) {
-      // Create a new json array with the first max_size elements
-      auto sliced_data = json::array();
-      for (size_t i = 0; i < max_size + 1; ++i) {
-        sliced_data.push_back(data_array[i]);
-      }
-      limited_json["data"] = sliced_data;
-    }
+      // Create a new json object with a limited size of "data" array
+      auto limited_json = json();
+      limited_json["msg"] = result_json["msg"];
+      limited_json["data"] = json::array();
+      limited_json["total"] = result_json["total"];
 
-    return SerializeJsonTo(limited_json, buf);
+      // Copy the first max_size rows(excluding the header row) to the new json object
+      for (size_t i = 0; i < max_size + 1; ++i) {
+        limited_json["data"].emplace_back(data_array[i]);
+      }
+
+      return SerializeJsonTo(limited_json, buf);
+    }
+    return SerializeTo(buf);
   }
 };
 
