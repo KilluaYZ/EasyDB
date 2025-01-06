@@ -191,7 +191,7 @@ void MergeJoinExecutor::iterate_helper() {
 }
 
 void MergeJoinExecutor::index_iterate_helper() {
-  if (left_idx_ >= left_buffer_.size() || right_idx_ >= right_buffer_.size()) {
+  if (left_idx_ >= left_buffer_.size() && right_idx_ >= right_buffer_.size()) {
     isend = true;
     return;
   }
@@ -213,14 +213,16 @@ void MergeJoinExecutor::index_iterate_helper() {
     initialize_flag_ = true;
   } else {
     rhs_v = current_right_tup_.GetValue(&right_->schema(), right_sel_colu_.GetName());
-    Value next_right_v = right_buffer_[right_idx_].GetValue(&right_->schema(), right_sel_colu_.GetName());
+    Value next_right_v;
+    if (right_idx_ < right_buffer_.size())
+      next_right_v = right_buffer_[right_idx_].GetValue(&right_->schema(), right_sel_colu_.GetName());
 
-    if (rhs_v != next_right_v) {
+    if (right_idx_ >= right_buffer_.size() || rhs_v != next_right_v) {
       current_left_tup_ = left_buffer_[left_idx_];
       left_idx_++;
 
       lhs_v = current_left_tup_.GetValue(&left_->schema(), left_sel_colu_.GetName());
-      if (last_left_val_.GetTypeId() != TYPE_EMPTY && last_left_val_ == lhs_v) {
+      if (last_left_val_.GetTypeId() != TYPE_EMPTY && last_left_val_ == lhs_v && right_idx_ < right_buffer_.size()) {
         right_idx_ = last_right_idx_;
         current_right_tup_ = right_buffer_[right_idx_];
         rhs_v = current_right_tup_.GetValue(&right_->schema(), right_sel_colu_.GetName());
