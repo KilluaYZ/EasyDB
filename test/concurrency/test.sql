@@ -21,3 +21,7 @@ load /home/ziyang/works/db2024/DB2024/tmp/benchmark_data/orders.tbl into orders;
 load /home/ziyang/works/db2024/DB2024/tmp/benchmark_data/part.tbl into part; 
 load /home/ziyang/works/db2024/DB2024/tmp/benchmark_data/lineitem.tbl into lineitem; 
 commit;
+
+
+select * from concurrency_test where id > 2 and id < 4;     
+insert into concurrency_test values (3, 'xiaoyang', 100.0);

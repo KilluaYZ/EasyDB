@@ -127,9 +127,9 @@ const OnReceiveMsg = (resp) => {
     let data_json = JSON.parse(data);
     console.log(data_json);
     if (data_json.msg === "success") {
-        if (data_json.data.length !== 0) {
+        // if (data_json.data.length !== 0) {
             deploy_table(data_json);
-        }
+        // }
         TOTAL_CNT.value = data_json.total;
         ElNotification({
             title: "查询成功",
@@ -159,7 +159,12 @@ const TABLE_DATA = ref([])
 const deploy_table = (resp) => {
     TABLE_COLUMNS.value = []
     TABLE_DATA.value = []
+
+
     let data = resp.data.splice(0, resp.data.length);
+    if(data.length === 0){
+        data = [[]]
+    }
     let header = data[0];
     data.shift();
     // console.log(header);

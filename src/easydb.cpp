@@ -29,7 +29,7 @@
 #include "recovery/log_recovery.h"
 
 // #define SOCK_PORT 8765
-#define MAX_CONN_LIMIT 8
+#define MAX_CONN_LIMIT 256
 using namespace easydb;
 
 int SOCK_PORT = 8765;
