@@ -4,8 +4,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON) # Require C++17 support.
 # set(CLANG_SEARCH_PATH "/usr/local/bin" "/usr/bin" "/usr/local/opt/llvm/bin" "/usr/local/opt/llvm@14/bin")
 
-set(CMAKE_C_COMPILER "/usr/bin/clang")
-set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
+# set(CMAKE_C_COMPILER "/usr/bin/clang")
+# set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 
 project(EasyDB
         LANGUAGES C CXX

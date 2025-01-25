@@ -1,4 +1,5 @@
 #include <netdb.h>
+#include <stdio.h>
 #include <netinet/in.h>
 #include <readline/history.h>
 #include <readline/readline.h>
@@ -8,7 +9,6 @@
 #include <sys/un.h>
 #include <termios.h>
 #include <unistd.h>
-
 #include <cassert>
 #include <iostream>
 #include <memory>
