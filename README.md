@@ -95,4 +95,4 @@ npm install
 npm run dev
 ```
 
-然后访问http://localhost:2000/就可以打开web界面。
+然后访问 http://localhost:2000/ 就可以打开web界面。
