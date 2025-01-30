@@ -10,7 +10,7 @@ EasyDB是一个数据库，支持大多数SQL语句。
 编译环境的构建使用了Nix Flake，所以在使用之前需要进行相应配置。运行以下命令即可安装Nix：
 
 ```shell
-$ sh <(curl -L https://nixos.org/nix/install) --daemon
+sh <(curl -L https://nixos.org/nix/install) --daemon
 ```
 
 修改`/etc/nix/nix.conf`，在其中添加下面的内容，即可开启Flake
