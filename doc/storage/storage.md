@@ -1,16 +1,6 @@
 <h1 style="display: flex; justify-content: center">存储管理实验报告</h1>
 
-# 1. 实验分工安排
-
-周强俊：文件组织管理、报告撰写
-
-唐雨馨：缓冲区管理、报告撰写
-
-周智淦：LRU淘汰算法实现、报告撰写
-
-字阳：测试、报告撰写
-
-# 2.系统环境
+# 1. 系统环境
 
 系统：Ubuntu-24.04
 
@@ -20,7 +10,7 @@ glibc版本：2.39
 
 cmake版本：3.28.3
 
-# 3. 实验设计与实现
+# 2. 实验设计与实现
 
 ## 3.1 文件组织管理
 
@@ -310,7 +300,7 @@ auto BufferPoolManager::FetchPage(PageId page_id) -> Page *
 auto BufferPoolManager::UnpinPage(PageId page_id, bool is_dirty) -> bool
 ```
 
-# 4 使用手册
+# 3 使用手册
 
 ## 4.1 编译
 
@@ -337,7 +327,7 @@ cd build/test
 ./comprehensive_test 2> comprehensive_test.log
 ```
 
-# 5 测试方案与结果
+# 4 测试方案与结果
 
 ## 5.1 测试设计与实现
 
@@ -478,7 +468,7 @@ auto rid = fh_->InsertRecord(rec.data);
 
 综上，我们的存储管理模块实现了目标功能。
 
-# 6 实验总结
+# 5 实验总结
 
 在本次数据库系统实验中，我们团队成功实现了一个高效且功能完备的数据文件组织与管理模块。通过合理的实验分工，我们确保了每个成员都能在其擅长的领域内发挥最大的潜力。
 
