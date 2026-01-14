@@ -192,9 +192,19 @@ const deploy_table = (resp) => {
 }
 // onMounted(deploy_table);
 
-const init_func = () => {
+const init_func = async () => {
     wck_client.addOnMessageCallBackFunc(OnReceiveMsg);
-    wck_client.connect();
+    try {
+        await wck_client.connect();
+        console.log("WebSocket connection established");
+    } catch (error) {
+        console.error("Failed to establish WebSocket connection:", error);
+        ElNotification({
+            title: "连接失败",
+            message: "无法连接到服务器，请检查网络连接",
+            type: 'error'
+        })
+    }
     const query_input_dom = document.getElementsByClassName("query_input")[0];
     query_input_dom.addEventListener('keydown', function (event) {
         // 检查key是否为'Ctrl+Enter'
