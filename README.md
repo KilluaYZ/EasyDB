@@ -1,4 +1,8 @@
-# EasyDB
+<div align="center">
+  <img src="./doc/images/icon.png" alt="EasyDB Icon" width="200">
+</div>
+
+---
 
 EasyDB 是一个功能完备的关系型数据库管理系统（RDBMS），采用 C++ 实现，支持大多数标准 SQL 语句。该系统实现了数据库系统的核心功能，包括存储管理、查询处理、事务管理、并发控制和故障恢复等模块。
 
