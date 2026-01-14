@@ -115,3 +115,5 @@ generated/
 
 # Nix Output
 result
+
+test.db/
