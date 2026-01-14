@@ -35,6 +35,8 @@
           shellHook = ''
             export CC=${pkgs.clang}/bin/clang
             export CXX=${pkgs.clang}/bin/clang++
+            export ASAN_SYMBOLIZER_PATH=${pkgs.clang}/bin/llvm-symbolizer
+            export ASAN_OPTIONS=detect_leaks=0:abort_on_error=1:disable_coredump=0
           '';
         };
       };
@@ -53,6 +55,8 @@
           cmakeFlags = [
             "-DCMAKE_C_COMPILER=${pkgs.clang}/bin/clang"
             "-DCMAKE_CXX_COMPILER=${pkgs.clang}/bin/clang++"
+            "-DCMAKE_BUILD_TYPE=Debug"
+            "-DEASYDB_ENABLE_ASAN=ON"
           ];
 
           installPhase = ''
