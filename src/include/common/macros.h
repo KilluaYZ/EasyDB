@@ -18,8 +18,8 @@
 
 #include <cassert>
 #include <exception>
-#include <stdexcept>
 #include <optional>
+#include <stdexcept>
 
 namespace easydb {
 

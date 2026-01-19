@@ -89,8 +89,8 @@ class IxFileHdr {
   int keys_size_;                   // keys_size = (btree_order + 1) * col_tot_len
   // first_leaf初始化之后没有进行修改，只不过是在测试文件中遍历叶子结点的时候用了
   page_id_t first_leaf_;  // 首叶节点对应的页号，在上层IxManager的open函数进行初始化，初始化为root page_no
-  page_id_t last_leaf_;  // 尾叶节点对应的页号
-  int tot_len_;          // 记录结构体的整体长度(IxFileHdr的size)
+  page_id_t last_leaf_;   // 尾叶节点对应的页号
+  int tot_len_;           // 记录结构体的整体长度(IxFileHdr的size)
 
   IxFileHdr() { tot_len_ = col_num_ = 0; }
 
@@ -281,10 +281,10 @@ class IxPageHdr {
  public:
   page_id_t next_free_page_no;  // unused
   page_id_t parent;             // 父亲节点所在页面的叶号
-  int num_key;          // # current keys (always equals to #child - 1) 已插入的keys数量，key_idx∈[0,num_key)
-  bool is_leaf;         // 是否为叶节点
-  page_id_t prev_leaf;  // previous leaf node's page_no, effective only when is_leaf is true
-  page_id_t next_leaf;  // next leaf node's page_no, effective only when is_leaf is true
+  int num_key;                  // # current keys (always equals to #child - 1) 已插入的keys数量，key_idx∈[0,num_key)
+  bool is_leaf;                 // 是否为叶节点
+  page_id_t prev_leaf;          // previous leaf node's page_no, effective only when is_leaf is true
+  page_id_t next_leaf;          // next leaf node's page_no, effective only when is_leaf is true
 };
 
 class IxExtendibleHashPageHdr {

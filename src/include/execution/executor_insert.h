@@ -27,7 +27,7 @@ class InsertExecutor : public AbstractExecutor {
   std::vector<Value> values_;  // 需要插入的数据
   RmFileHandle *fh_;           // 表的数据文件句柄
   std::string tab_name_;       // 表名称
-  RID rid_;  // 插入的位置，由于系统默认插入时不指定位置，因此当前rid_在插入后才赋值
+  RID rid_;                    // 插入的位置，由于系统默认插入时不指定位置，因此当前rid_在插入后才赋值
   SmManager *sm_manager_;
 
  public:

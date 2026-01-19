@@ -236,7 +236,6 @@ class SmManager {
       return -1;
     return table_attr_sum_[table_name][attr_name];
   }
-
 };
 
 }  // namespace easydb

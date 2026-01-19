@@ -10,11 +10,10 @@
  */
 
 #pragma once
+#include "common/rid.h"
 #include "record/rm_scan.h"
 #include "storage/index/ix_defs.h"
 #include "storage/index/ix_index_handle.h"
-#include "record/rm_scan.h"
-#include "common/rid.h"
 
 namespace easydb {
 

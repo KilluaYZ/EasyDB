@@ -108,7 +108,7 @@ Tuple::Tuple(int size, char *data) {
   memcpy(this->data_.data(), data, size);
 }
 
-Tuple::Tuple(int size,const char *data) {
+Tuple::Tuple(int size, const char *data) {
   this->data_.resize(size);
   memcpy(this->data_.data(), data, size);
 }
@@ -145,8 +145,8 @@ auto Tuple::GetValueVec(const Schema *schema) const -> std::vector<Value> {
   return values;
 }
 
-auto Tuple::KeyFromTuple(const Schema &schema, const Schema &key_schema,
-                         const std::vector<uint32_t> &key_attrs) const -> Tuple {
+auto Tuple::KeyFromTuple(const Schema &schema, const Schema &key_schema, const std::vector<uint32_t> &key_attrs) const
+    -> Tuple {
   std::vector<Value> values;
   values.reserve(key_attrs.size());
   for (auto idx : key_attrs) {

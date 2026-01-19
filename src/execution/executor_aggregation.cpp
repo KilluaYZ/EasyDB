@@ -226,23 +226,23 @@ Value AggregationExecutor::aggregation_to_value(Column target_colu) {
   switch (type) {
     // case AggregationType::NO_AGG:
     case AggregationType::SUM_AGG:
-      if(target_colu.GetType() == TypeId::TYPE_INT){
+      if (target_colu.GetType() == TypeId::TYPE_INT) {
         return Value(target_colu.GetType(), int(sm_manager_->GetTableAttrSum(tab_name_, col_name)));
-      }else{
+      } else {
         return Value(target_colu.GetType(), sm_manager_->GetTableAttrSum(tab_name_, col_name));
       }
     case AggregationType::COUNT_AGG:
       return Value(TypeId::TYPE_INT, sm_manager_->GetTableCount(tab_name_));
     case AggregationType::MAX_AGG:
-      if(target_colu.GetType() == TypeId::TYPE_INT){
+      if (target_colu.GetType() == TypeId::TYPE_INT) {
         return Value(target_colu.GetType(), int(sm_manager_->GetTableAttrMax(tab_name_, col_name)));
-      }else{
+      } else {
         return Value(target_colu.GetType(), sm_manager_->GetTableAttrMax(tab_name_, col_name));
       }
     case AggregationType::MIN_AGG:
-      if(target_colu.GetType() == TypeId::TYPE_INT){
+      if (target_colu.GetType() == TypeId::TYPE_INT) {
         return Value(target_colu.GetType(), int(sm_manager_->GetTableAttrMin(tab_name_, col_name)));
-      }else{
+      } else {
         return Value(target_colu.GetType(), sm_manager_->GetTableAttrMin(tab_name_, col_name));
       }
     default:

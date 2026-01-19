@@ -47,8 +47,8 @@ namespace easydb {
 
 /* 表数据文件中每个页面的页头，记录每个页面的元信息 */
 struct RmPageHdr {
-  page_id_t next_page_id;  // 当前页面满了之后，下一个包含空闲空间的页面号（初始化为-1）
-  uint16_t num_records;    // 当前页面中当前已经存储的记录个数（初始化为0）
+  page_id_t next_page_id;        // 当前页面满了之后，下一个包含空闲空间的页面号（初始化为-1）
+  uint16_t num_records;          // 当前页面中当前已经存储的记录个数（初始化为0）
   uint16_t num_deleted_records;  // 当前页面中已经删除的记录个数（初始化为0）
   // num_records 只增不减，删除记录则增 num_deleted_records，标记相应的slot为已删除
 
@@ -128,7 +128,7 @@ class RmPageHandle {
   Page *page;                 // 页面的实际数据，包括页面存储的数据、元信息等
   // 元组信息，包括slot号(offset)、大小(size)、元数据
   using TupleInfo = std::tuple<uint16_t, uint16_t, TupleMeta>;
-  RmPageHdr *page_hdr_;  // page->data的第一部分，存储页面元信息，指针指向首地址，长度为sizeof(RmPageHdr)
+  RmPageHdr *page_hdr_;    // page->data的第一部分，存储页面元信息，指针指向首地址，长度为sizeof(RmPageHdr)
   TupleInfo *tuple_info_;  // page->data的第二部分，存储页面的元组信息，长度为num_records * sizeof(TupleInfo)
   // char *bitmap;  // page->data的第二部分，存储页面的bitmap，指针指向首地址，长度为file_hdr->bitmap_size
   // char *slots;  // page->data的第三部分，存储表的记录，指针指向首地址，每个slot的长度为file_hdr->record_size

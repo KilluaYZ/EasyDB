@@ -134,7 +134,7 @@ class IxManager {
     delete[] data;
   }
 
-  void CreateExtendibleHashIndex(const std::string &filename, const std::vector<ColMeta> &index_cols){
+  void CreateExtendibleHashIndex(const std::string &filename, const std::vector<ColMeta> &index_cols) {
     std::string ix_name = GetIndexName(filename, index_cols);
     // Create index file
     disk_manager_->CreateFile(ix_name);
@@ -235,7 +235,8 @@ class IxManager {
     return std::make_unique<IxIndexHandle>(disk_manager_, buffer_pool_manager_, fd);
   }
 
-  IxExtendibleHashIndexHandle* OpenExtendibleHashIndex(const std::string &filename, const std::vector<ColMeta> &index_cols){
+  IxExtendibleHashIndexHandle *OpenExtendibleHashIndex(const std::string &filename,
+                                                       const std::vector<ColMeta> &index_cols) {
     std::string ix_name = GetIndexName(filename, index_cols);
     int fd = disk_manager_->OpenFile(ix_name);
     IxExtendibleHashIndexHandle *tp = new IxExtendibleHashIndexHandle(disk_manager_, buffer_pool_manager_, fd);
@@ -251,7 +252,7 @@ class IxManager {
     disk_manager_->CloseFile(ih->fd_);
   }
 
-  void CloseExtendibleHashIndex(const IxExtendibleHashIndexHandle* ih){
+  void CloseExtendibleHashIndex(const IxExtendibleHashIndexHandle *ih) {
     char *data = new char[ih->file_hdr_->tot_len_];
     ih->file_hdr_->serialize(data);
     disk_manager_->WritePage(ih->fd_, IX_FILE_HDR_PAGE, data, ih->file_hdr_->tot_len_);
@@ -260,7 +261,6 @@ class IxManager {
     disk_manager_->CloseFile(ih->fd_);
     delete[] data;
   }
-  
 };
 
 }  // namespace easydb

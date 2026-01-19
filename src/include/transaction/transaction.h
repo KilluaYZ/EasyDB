@@ -22,8 +22,8 @@
 #include <unordered_set>
 
 #include "common/config.h"
-#include "transaction/txn_defs.h"
 #include "storage/page/page.h"
+#include "transaction/txn_defs.h"
 
 namespace easydb {
 

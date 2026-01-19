@@ -34,24 +34,24 @@ class SortExecutor : public AbstractExecutor {
   bool is_desc_;
   bool isend_ = false;
   std::vector<size_t> used_tuple;
-  char * current_data_;
+  char *current_data_;
   // std::unique_ptr<Tuple> current_tuple;
 
   std::unique_ptr<MergeSorter> sorter;
 
  public:
   SortExecutor(std::unique_ptr<AbstractExecutor> prev, TabCol sel_cols, bool is_desc);
-  
+
   ~SortExecutor();
 
   void beginTuple() override;
 
   void nextTuple() override;
 
-  std::unique_ptr<Tuple> Next() override { 
+  std::unique_ptr<Tuple> Next() override {
     Tuple tp;
     tp.DeserializeFrom(current_data_);
-    return std::make_unique<Tuple>(tp); 
+    return std::make_unique<Tuple>(tp);
   }
   // std::unique_ptr<RmRecord> Next() override { return std::move(current_tuple); }
 

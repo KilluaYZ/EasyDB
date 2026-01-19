@@ -573,7 +573,7 @@ void Planner::reorder_conds_based_on_table_size(std::shared_ptr<Query> query) {
     int a_size = (get_table_size(a.lhs_col.tab_name) * get_table_size(a.rhs_col.tab_name)) /
                  get_max_distinct_size(a.lhs_col.tab_name, a.lhs_col.col_name, a.rhs_col.tab_name, a.rhs_col.col_name);
     int b_size = (get_table_size(b.lhs_col.tab_name) * get_table_size(b.rhs_col.tab_name)) /
-                 get_max_distinct_size(b.lhs_col.tab_name,b.lhs_col.col_name, b.rhs_col.tab_name,b.rhs_col.col_name);
+                 get_max_distinct_size(b.lhs_col.tab_name, b.lhs_col.col_name, b.rhs_col.tab_name, b.rhs_col.col_name);
     return a_size < b_size;
   });
 

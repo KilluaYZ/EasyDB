@@ -453,4 +453,4 @@ ArithOp Analyze::convert_sv_arith_op(ast::SvArithOp op) {
       {ast::SV_OP_PLUS, OP_PLUS}, {ast::SV_OP_MINUS, OP_MINUS}, {ast::SV_OP_MUL, OP_MULTI}, {ast::SV_OP_DIV, OP_DIV}};
   return m.at(op);
 }
-}
+}  // namespace easydb

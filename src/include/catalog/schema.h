@@ -113,7 +113,7 @@ class Schema {
 
   auto GetPhysicalSize() const -> uint32_t;
 
-  void SetPhysicalSize() ;
+  void SetPhysicalSize();
 
  private:
   /** Fixed-length column size, i.e. the number of bytes used by one tuple. */

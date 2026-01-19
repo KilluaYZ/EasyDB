@@ -252,7 +252,8 @@ struct SelectStmt : public TreeNode {
   std::shared_ptr<GroupBy> group;
   std::vector<std::shared_ptr<BinaryExpr>> having;
 
-  SelectStmt() : has_sort(false), has_group(false), has_having(false), is_unique(false), order(nullptr), group(nullptr) {}
+  SelectStmt()
+      : has_sort(false), has_group(false), has_having(false), is_unique(false), order(nullptr), group(nullptr) {}
   SelectStmt(std::shared_ptr<void> &ptr) {
     auto selectStmtPtr = std::static_pointer_cast<SelectStmt>(ptr);
     if (selectStmtPtr) {
@@ -271,8 +272,7 @@ struct SelectStmt : public TreeNode {
   }
   SelectStmt(std::vector<std::shared_ptr<Col>> cols_, std::vector<std::string> tabs_,
              std::vector<std::shared_ptr<BinaryExpr>> conds_, std::shared_ptr<GroupBy> group_,
-             std::vector<std::shared_ptr<BinaryExpr>> having_, std::shared_ptr<OrderBy> order_,
-             bool is_unique_=false)
+             std::vector<std::shared_ptr<BinaryExpr>> having_, std::shared_ptr<OrderBy> order_, bool is_unique_ = false)
       : cols(std::move(cols_)),
         tabs(std::move(tabs_)),
         conds(std::move(conds_)),

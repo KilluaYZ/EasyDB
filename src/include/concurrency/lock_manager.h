@@ -47,7 +47,7 @@ class LockManager {
   class LockRequestQueue {
    public:
     std::list<LockRequest> request_queue_;  // 加锁队列
-    std::condition_variable cv_;  // 条件变量，用于唤醒正在等待加锁的申请，在no-wait策略下无需使用
+    std::condition_variable cv_;            // 条件变量，用于唤醒正在等待加锁的申请，在no-wait策略下无需使用
     GroupLockMode group_lock_mode_ = GroupLockMode::NON_LOCK;  // 加锁队列的锁模式
     // TODO - OPT: 记录first_lock_pos(group_lock_mode_)，优化 wait-die 中的判断
   };

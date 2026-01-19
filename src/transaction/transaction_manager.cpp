@@ -14,7 +14,6 @@
  * Copyright (c) 2023 Renmin University of China
  */
 
-
 #include "transaction/transaction_manager.h"
 
 #include "common/context.h"

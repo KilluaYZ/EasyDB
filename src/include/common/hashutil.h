@@ -49,14 +49,14 @@ class HashUtil {
   /** @return the hash of the value */
   static inline auto HashValue(const Value *val) -> hash_t {
     switch (val->GetTypeId()) {
-    //   case TypeId::TINYINT: {
-    //     auto raw = static_cast<int64_t>(val->GetAs<int8_t>());
-    //     return Hash<int64_t>(&raw);
-    //   }
-    //   case TypeId::SMALLINT: {
-    //     auto raw = static_cast<int64_t>(val->GetAs<int16_t>());
-    //     return Hash<int64_t>(&raw);
-    //   }
+        //   case TypeId::TINYINT: {
+        //     auto raw = static_cast<int64_t>(val->GetAs<int8_t>());
+        //     return Hash<int64_t>(&raw);
+        //   }
+        //   case TypeId::SMALLINT: {
+        //     auto raw = static_cast<int64_t>(val->GetAs<int16_t>());
+        //     return Hash<int64_t>(&raw);
+        //   }
       case TypeId::TYPE_INT: {
         auto raw = static_cast<int64_t>(val->GetAs<int32_t>());
         return Hash<int64_t>(&raw);
@@ -65,15 +65,15 @@ class HashUtil {
         auto raw = static_cast<int64_t>(val->GetAs<int64_t>());
         return Hash<int64_t>(&raw);
       }
-    //   case TypeId::BOOLEAN: {
-    //     auto raw = val->GetAs<bool>();
-    //     return Hash<bool>(&raw);
-    //   }
+        //   case TypeId::BOOLEAN: {
+        //     auto raw = val->GetAs<bool>();
+        //     return Hash<bool>(&raw);
+        //   }
       case TypeId::TYPE_FLOAT: {
         auto raw = val->GetAs<double>();
         return Hash<double>(&raw);
       }
-        case TypeId::TYPE_DOUBLE: {
+      case TypeId::TYPE_DOUBLE: {
         auto raw = val->GetAs<double>();
         return Hash<double>(&raw);
       }

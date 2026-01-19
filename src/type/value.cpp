@@ -341,7 +341,9 @@ auto Value::GetColumn() const -> Column {
     case TypeId::TYPE_CHAR:
     case TypeId::TYPE_VARCHAR:
       // case TypeId::TYPE_VECTOR:
-      { return Column{"<val>", GetTypeId(), GetStorageSize()}; }
+      {
+        return Column{"<val>", GetTypeId(), GetStorageSize()};
+      }
     default:
       return Column{"<val>", GetTypeId()};
   }
