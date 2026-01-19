@@ -57,6 +57,7 @@
             "-DCMAKE_CXX_COMPILER=${pkgs.clang}/bin/clang++"
             "-DCMAKE_BUILD_TYPE=Debug"
             "-DEASYDB_ENABLE_ASAN=ON"
+            "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
           ];
 
           installPhase = ''
@@ -64,6 +65,10 @@
             mkdir -p $out/
             cp -r bin $out/
             cp -r test $out/
+            # 复制 compile_commands.json 到输出目录，方便 clangd 使用
+            if [ -f compile_commands.json ]; then
+              cp compile_commands.json $out/
+            fi
             runHook postInstall
           '';
         };
