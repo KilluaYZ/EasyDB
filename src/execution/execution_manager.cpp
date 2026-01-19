@@ -53,7 +53,11 @@ const char *help_info =
     "selector:\n"
     "  {* | column [, column ...]}\n";
 
-// 主要负责执行DDL语句
+/**
+ * @description: 主要负责执行DDL语句（数据定义语言）
+ * @param plan 执行计划指针
+ * @param context 上下文指针，包含事务、锁管理器等信息
+ */
 void QlManager::run_mutli_query(std::shared_ptr<Plan> plan, Context *context) {
   if (auto x = std::dynamic_pointer_cast<DDLPlan>(plan)) {
     switch (x->tag) {
@@ -80,7 +84,12 @@ void QlManager::run_mutli_query(std::shared_ptr<Plan> plan, Context *context) {
   }
 }
 
-// 执行help; show tables; desc table; begin; commit; abort;语句
+/**
+ * @description: 执行工具类语句，包括help、show tables、desc table、begin、commit、abort等
+ * @param plan 执行计划指针
+ * @param txn_id 事务ID指针
+ * @param context 上下文指针
+ */
 void QlManager::run_cmd_utility(std::shared_ptr<Plan> plan, txn_id_t *txn_id, Context *context) {
   if (auto x = std::dynamic_pointer_cast<OtherPlan>(plan)) {
     switch (x->tag) {
@@ -164,7 +173,12 @@ void QlManager::run_cmd_utility(std::shared_ptr<Plan> plan, txn_id_t *txn_id, Co
   }
 }
 
-// 执行select语句，select语句的输出除了需要返回客户端外，还需要写入output.txt文件中
+/**
+ * @description: 执行select语句，select语句的输出除了需要返回客户端外，还需要写入output.txt文件中
+ * @param executorTreeRoot 执行器树根节点
+ * @param sel_cols 选择的列信息
+ * @param context 上下文指针
+ */
 void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, std::vector<TabCol> sel_cols,
                             Context *context) {
   std::vector<std::string> captions;
@@ -244,10 +258,12 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
   RecordPrinter::print_record_count(num_rec, context);
 }
 
-/*
-execute select stmt in subquery
-
-*/
+/**
+ * @description: 在子查询中执行select语句
+ * @param executorTreeRoot 执行器树根节点
+ * @param sel_col 选择的列信息
+ * @return 返回查询结果的Value向量
+ */
 std::vector<Value> subquery_select_from(std::shared_ptr<AbstractExecutor> executorTreeRoot, TabCol sel_col) {
   std::vector<Value> outputs;
   // 执行query_plan
@@ -285,7 +301,10 @@ std::vector<Value> subquery_select_from(std::shared_ptr<AbstractExecutor> execut
   return outputs;
 }
 
-// 执行DML语句
+/**
+ * @description: 执行DML语句（数据操作语言），包括INSERT、UPDATE、DELETE
+ * @param exec 执行器指针
+ */
 void QlManager::run_dml(std::unique_ptr<AbstractExecutor> exec) { exec->Next(); }
 
 }  // namespace easydb

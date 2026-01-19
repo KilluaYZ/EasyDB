@@ -45,7 +45,11 @@ Type *Type::k_types[] = {
     //  new VectorType()
 };
 
-// Get the size of this data type in bytes
+/**
+ * @description: 获取指定数据类型的大小（字节数）
+ * @param type_id 类型ID
+ * @return 类型大小（字节数）
+ */
 auto Type::GetTypeSize(const TypeId type_id) -> uint64_t {
   switch (type_id) {
     // case BOOLEAN:
@@ -116,6 +120,11 @@ auto Type::IsCoercableFrom(const TypeId type_id) const -> bool {
   }  // END SWITCH
 }
 
+/**
+ * @description: 将类型ID转换为字符串
+ * @param type_id 类型ID
+ * @return 类型名称字符串
+ */
 auto Type::TypeIdToString(const TypeId type_id) -> std::string {
   switch (type_id) {
     case TYPE_EMPTY:
@@ -144,6 +153,11 @@ auto Type::TypeIdToString(const TypeId type_id) -> std::string {
   }
 }
 
+/**
+ * @description: 获取指定类型的最小值
+ * @param type_id 类型ID
+ * @return 该类型的最小值
+ */
 auto Type::GetMinValue(TypeId type_id) -> Value {
   switch (type_id) {
     // case BOOLEAN:
@@ -169,6 +183,11 @@ auto Type::GetMinValue(TypeId type_id) -> Value {
   throw Exception(ExceptionType::MISMATCH_TYPE, "Cannot get minimal value.");
 }
 
+/**
+ * @description: 获取指定类型的最大值
+ * @param type_id 类型ID
+ * @return 该类型的最大值
+ */
 auto Type::GetMaxValue(TypeId type_id) -> Value {
   switch (type_id) {
     // case BOOLEAN:

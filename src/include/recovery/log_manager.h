@@ -23,23 +23,59 @@ See the Mulan PSL v2 for more details. */
 
 namespace easydb {
 
-/* 日志记录对应操作的类型 */
-enum LogType : int { UPDATE = 0, INSERT, DELETE, BEGIN, COMMIT, ABORT, CHECKPOINT };
-static std::string LogTypeStr[] = {"UPDATE", "INSERT", "DELETE", "BEGIN", "COMMIT", "ABORT", "CHECKPOINT"};
-// Note that we don't write CLRs when undoing, so we can't survive failures during restarts.
-// When rolling back, it's usually the same. But now we write "Update" logs when rolling back
-// and *then* write ABORT log when finishing it, so we can treat it as COMMIT.
-// To support CLRs, we also need to support TXN-END.
+/**
+ * @brief 日志记录对应操作的类型枚举
+ * @note 定义了系统中所有类型的日志记录
+ */
+enum LogType : int {
+  UPDATE = 0,     /**< 更新操作日志 */
+  INSERT,         /**< 插入操作日志 */
+  DELETE,         /**< 删除操作日志 */
+  BEGIN,          /**< 事务开始日志 */
+  COMMIT,         /**< 事务提交日志 */
+  ABORT,          /**< 事务中止日志 */
+  CHECKPOINT      /**< 检查点日志 */
+};
 
+/** @brief 日志类型到字符串的映射数组，用于调试输出 */
+static std::string LogTypeStr[] = {"UPDATE", "INSERT", "DELETE", "BEGIN", "COMMIT", "ABORT", "CHECKPOINT"};
+
+// 注意：我们在撤销时不写CLR（补偿日志记录），所以在重启期间无法在故障中存活。
+// 回滚时通常也是如此。但现在我们在回滚时写"Update"日志，然后在完成时写ABORT日志，
+// 所以我们可以将其视为COMMIT。
+// 要支持CLR，我们还需要支持TXN-END。
+
+/**
+ * @brief 日志记录基类
+ * 
+ * LogRecord 是所有日志记录类型的基类，定义了日志记录的通用格式和操作。
+ * 所有具体的日志记录类型（如InsertLogRecord、UpdateLogRecord等）都继承此类。
+ */
 class LogRecord {
  public:
-  LogType log_type_;     /* 日志对应操作的类型 */
-  lsn_t lsn_;            /* 当前日志的lsn */
-  uint32_t log_tot_len_; /* 整个日志记录的长度 */
-  txn_id_t log_tid_;     /* 创建当前日志的事务ID */
-  lsn_t prev_lsn_;       /* 事务创建的前一条日志记录的lsn，用于undo */
+  /** @brief 日志对应操作的类型 */
+  LogType log_type_;
+  
+  /** @brief 当前日志的LSN（日志序列号） */
+  lsn_t lsn_;
+  
+  /** @brief 整个日志记录的长度（字节数） */
+  uint32_t log_tot_len_;
+  
+  /** @brief 创建当前日志的事务ID */
+  txn_id_t log_tid_;
+  
+  /**
+   * @brief 事务创建的前一条日志记录的LSN
+   * @note 用于undo操作，通过prev_lsn_链可以回溯事务的所有操作
+   */
+  lsn_t prev_lsn_;
 
-  // 把日志记录序列化到dest中
+  /**
+   * @brief 把日志记录序列化到dest中
+   * @param dest 目标缓冲区指针
+   * @note 将日志记录的各个字段按顺序写入缓冲区
+   */
   virtual void serialize(char *dest) const {
     memcpy(dest + OFFSET_LOG_TYPE, &log_type_, sizeof(LogType));
     memcpy(dest + OFFSET_LSN, &lsn_, sizeof(lsn_t));
@@ -47,7 +83,11 @@ class LogRecord {
     memcpy(dest + OFFSET_LOG_TID, &log_tid_, sizeof(txn_id_t));
     memcpy(dest + OFFSET_PREV_LSN, &prev_lsn_, sizeof(lsn_t));
   }
-  // 从src中反序列化出一条日志记录
+  /**
+   * @brief 从src中反序列化出一条日志记录
+   * @param src 源缓冲区指针
+   * @note 从缓冲区读取日志记录的各个字段
+   */
   virtual void deserialize(const char *src) {
     log_type_ = *reinterpret_cast<const LogType *>(src);
     lsn_ = *reinterpret_cast<const lsn_t *>(src + OFFSET_LSN);
@@ -55,7 +95,10 @@ class LogRecord {
     log_tid_ = *reinterpret_cast<const txn_id_t *>(src + OFFSET_LOG_TID);
     prev_lsn_ = *reinterpret_cast<const lsn_t *>(src + OFFSET_PREV_LSN);
   }
-  // used for debug
+  /**
+   * @brief 格式化打印日志记录（用于调试）
+   * @note 输出日志记录的所有字段信息
+   */
   virtual void format_print() {
     std::cout << "log type in father_function: " << LogTypeStr[log_type_] << "\n";
     printf("Print Log Record:\n");
@@ -68,8 +111,17 @@ class LogRecord {
   virtual ~LogRecord() {}
 };
 
+/**
+ * @brief 事务开始日志记录类
+ * 
+ * BeginLogRecord 记录事务的开始，包含事务ID信息。
+ */
 class BeginLogRecord : public LogRecord {
  public:
+  /**
+   * @brief 默认构造函数
+   * @note 初始化所有字段为默认值
+   */
   BeginLogRecord() {
     log_type_ = LogType::BEGIN;
     lsn_ = INVALID_LSN;
@@ -77,10 +129,23 @@ class BeginLogRecord : public LogRecord {
     log_tid_ = INVALID_TXN_ID;
     prev_lsn_ = INVALID_LSN;
   }
+  
+  /**
+   * @brief 根据事务ID构造Begin日志记录
+   * @param txn_id 事务ID
+   */
   BeginLogRecord(txn_id_t txn_id) : BeginLogRecord() { log_tid_ = txn_id; }
-  // 序列化Begin日志记录到dest中
+  
+  /**
+   * @brief 序列化Begin日志记录到dest中
+   * @param dest 目标缓冲区指针
+   */
   void serialize(char *dest) const override { LogRecord::serialize(dest); }
-  // 从src中反序列化出一条Begin日志记录
+  
+  /**
+   * @brief 从src中反序列化出一条Begin日志记录
+   * @param src 源缓冲区指针
+   */
   void deserialize(const char *src) override { LogRecord::deserialize(src); }
   virtual void format_print() override {
     std::cout << "log type in son_function: " << LogTypeStr[log_type_] << "\n";
@@ -89,10 +154,15 @@ class BeginLogRecord : public LogRecord {
 };
 
 /**
- * TODO: commit操作的日志记录
+ * @brief 事务提交日志记录类
+ * 
+ * CommitLogRecord 记录事务的提交，表示事务成功完成。
  */
 class CommitLogRecord : public LogRecord {
  public:
+  /**
+   * @brief 默认构造函数
+   */
   CommitLogRecord() {
     log_type_ = LogType::COMMIT;
     lsn_ = INVALID_LSN;
@@ -100,13 +170,27 @@ class CommitLogRecord : public LogRecord {
     log_tid_ = INVALID_TXN_ID;
     prev_lsn_ = INVALID_LSN;
   }
+  
+  /**
+   * @brief 根据事务ID和前一个LSN构造Commit日志记录
+   * @param txn_id 事务ID
+   * @param prev_lsn 前一个LSN
+   */
   CommitLogRecord(txn_id_t txn_id, lsn_t prev_lsn) : CommitLogRecord() {
     log_tid_ = txn_id;
     prev_lsn_ = prev_lsn;
   }
-  // Serialize commit log fields to dest
+  
+  /**
+   * @brief 序列化commit日志字段到dest中
+   * @param dest 目标缓冲区指针
+   */
   void serialize(char *dest) const override { LogRecord::serialize(dest); }
-  // Deserialize commit log fields from src
+  
+  /**
+   * @brief 从src中反序列化commit日志字段
+   * @param src 源缓冲区指针
+   */
   void deserialize(const char *src) override { LogRecord::deserialize(src); }
   void format_print() override {
     std::cout << "log type in son_function: " << LogTypeStr[log_type_] << "\n";
@@ -115,10 +199,15 @@ class CommitLogRecord : public LogRecord {
 };
 
 /**
- * TODO: abort操作的日志记录
+ * @brief 事务中止日志记录类
+ * 
+ * AbortLogRecord 记录事务的中止，表示事务因错误或冲突而被回滚。
  */
 class AbortLogRecord : public LogRecord {
  public:
+  /**
+   * @brief 默认构造函数
+   */
   AbortLogRecord() {
     log_type_ = LogType::ABORT;
     lsn_ = INVALID_LSN;
@@ -126,13 +215,27 @@ class AbortLogRecord : public LogRecord {
     log_tid_ = INVALID_TXN_ID;
     prev_lsn_ = INVALID_LSN;
   }
+  
+  /**
+   * @brief 根据事务ID和前一个LSN构造Abort日志记录
+   * @param txn_id 事务ID
+   * @param prev_lsn 前一个LSN
+   */
   AbortLogRecord(txn_id_t txn_id, lsn_t prev_lsn) : AbortLogRecord() {
     log_tid_ = txn_id;
     prev_lsn_ = prev_lsn;
   }
-  // Serialize abort log fields to dest
+  
+  /**
+   * @brief 序列化abort日志字段到dest中
+   * @param dest 目标缓冲区指针
+   */
   void serialize(char *dest) const override { LogRecord::serialize(dest); }
-  // Deserialize abort log fields from src
+  
+  /**
+   * @brief 从src中反序列化abort日志字段
+   * @param src 源缓冲区指针
+   */
   void deserialize(const char *src) override { LogRecord::deserialize(src); }
   void format_print() override {
     std::cout << "log type in son_function: " << LogTypeStr[log_type_] << "\n";
@@ -140,8 +243,17 @@ class AbortLogRecord : public LogRecord {
   }
 };
 
+/**
+ * @brief 插入操作日志记录类
+ * 
+ * InsertLogRecord 记录插入操作，包含插入的记录值、记录ID和表名。
+ * 用于事务回滚时删除插入的记录。
+ */
 class InsertLogRecord : public LogRecord {
  public:
+  /**
+   * @brief 默认构造函数
+   */
   InsertLogRecord() {
     log_type_ = LogType::INSERT;
     lsn_ = INVALID_LSN;
@@ -150,6 +262,14 @@ class InsertLogRecord : public LogRecord {
     prev_lsn_ = INVALID_LSN;
     table_name_ = nullptr;
   }
+  
+  /**
+   * @brief 根据插入信息构造Insert日志记录
+   * @param txn_id 事务ID
+   * @param insert_value 插入的记录值
+   * @param rid 记录ID
+   * @param table_name 表名
+   */
   InsertLogRecord(txn_id_t txn_id, RmRecord &insert_value, RID &rid, std::string table_name) : InsertLogRecord() {
     log_tid_ = txn_id;
     insert_value_ = insert_value;
@@ -163,7 +283,11 @@ class InsertLogRecord : public LogRecord {
     log_tot_len_ += sizeof(size_t) + table_name_size_;
   }
 
-  // 把insert日志记录序列化到dest中
+  /**
+   * @brief 把insert日志记录序列化到dest中
+   * @param dest 目标缓冲区指针
+   * @note 序列化格式：日志头部 + 记录大小 + 记录数据 + RID + 表名大小 + 表名
+   */
   void serialize(char *dest) const override {
     LogRecord::serialize(dest);
     int offset = OFFSET_LOG_DATA;
@@ -177,7 +301,10 @@ class InsertLogRecord : public LogRecord {
     offset += sizeof(size_t);
     memcpy(dest + offset, table_name_, table_name_size_);
   }
-  // 从src中反序列化出一条Insert日志记录
+  /**
+   * @brief 从src中反序列化出一条Insert日志记录
+   * @param src 源缓冲区指针
+   */
   void deserialize(const char *src) override {
     LogRecord::deserialize(src);
     insert_value_.Deserialize(src + OFFSET_LOG_DATA);
@@ -196,20 +323,33 @@ class InsertLogRecord : public LogRecord {
     printf("insert rid: %d, %d\n", rid_.GetPageId(), rid_.GetSlotNum());
     printf("table name: %s\n", table_name_);
   }
-  // destructor
+  /**
+   * @brief 析构函数
+   * @note 释放表名字符数组的内存
+   */
   ~InsertLogRecord() override {
     delete[] table_name_;
     table_name_ = nullptr;
   }
 
-  RmRecord insert_value_;   // 插入的记录
-  RID rid_;                 // 记录插入的位置
-  char *table_name_;        // 插入记录的表名称
-  size_t table_name_size_;  // 表名称的大小
+  /** @brief 插入的记录 */
+  RmRecord insert_value_;
+  
+  /** @brief 记录插入的位置 */
+  RID rid_;
+  
+  /** @brief 插入记录的表名称 */
+  char *table_name_;
+  
+  /** @brief 表名称的大小（字节数） */
+  size_t table_name_size_;
 };
 
 /**
- * TODO: delete操作的日志记录
+ * @brief 删除操作日志记录类
+ * 
+ * DeleteLogRecord 记录删除操作，包含被删除的记录值、记录ID和表名。
+ * 用于事务回滚时恢复被删除的记录。
  */
 class DeleteLogRecord : public LogRecord {
  public:
@@ -234,7 +374,10 @@ class DeleteLogRecord : public LogRecord {
     log_tot_len_ += sizeof(size_t) + table_name_size_;
   }
 
-  // Serialize delete log fields to dest
+  /**
+   * @brief 序列化delete日志字段到dest中
+   * @param dest 目标缓冲区指针
+   */
   void serialize(char *dest) const override {
     LogRecord::serialize(dest);
     int offset = OFFSET_LOG_DATA;
@@ -249,7 +392,10 @@ class DeleteLogRecord : public LogRecord {
     memcpy(dest + offset, table_name_, table_name_size_);
   }
 
-  // Deserialize delete log fields from src
+  /**
+   * @brief 从src中反序列化delete日志字段
+   * @param src 源缓冲区指针
+   */
   void deserialize(const char *src) override {
     LogRecord::deserialize(src);
     delete_value_.Deserialize(src + OFFSET_LOG_DATA);
@@ -270,20 +416,33 @@ class DeleteLogRecord : public LogRecord {
     printf("table name: %s\n", table_name_);
   }
 
-  // destructor
+  /**
+   * @brief 析构函数
+   * @note 释放表名字符数组的内存
+   */
   ~DeleteLogRecord() override {
     delete[] table_name_;
     table_name_ = nullptr;
   }
 
-  RmRecord delete_value_;   // Deleted record
-  RID rid_;                 // Record location
-  char *table_name_;        // Table name
-  size_t table_name_size_;  // Table name size
+  /** @brief 被删除的记录 */
+  RmRecord delete_value_;
+  
+  /** @brief 记录位置 */
+  RID rid_;
+  
+  /** @brief 表名 */
+  char *table_name_;
+  
+  /** @brief 表名大小（字节数） */
+  size_t table_name_size_;
 };
 
 /**
- * TODO: update操作的日志记录
+ * @brief 更新操作日志记录类
+ * 
+ * UpdateLogRecord 记录更新操作，包含旧值、新值、记录ID和表名。
+ * 用于事务回滚时将记录恢复为旧值。
  */
 class UpdateLogRecord : public LogRecord {
  public:
@@ -310,7 +469,11 @@ class UpdateLogRecord : public LogRecord {
     log_tot_len_ += sizeof(size_t) + table_name_size_;
   }
 
-  // Serialize update log fields to dest
+  /**
+   * @brief 序列化update日志字段到dest中
+   * @param dest 目标缓冲区指针
+   * @note 序列化格式：日志头部 + 旧值大小 + 旧值数据 + 新值大小 + 新值数据 + RID + 表名大小 + 表名
+   */
   void serialize(char *dest) const override {
     LogRecord::serialize(dest);
     int offset = OFFSET_LOG_DATA;
@@ -329,7 +492,10 @@ class UpdateLogRecord : public LogRecord {
     memcpy(dest + offset, table_name_, table_name_size_);
   }
 
-  // Deserialize update log fields from src
+  /**
+   * @brief 从src中反序列化update日志字段
+   * @param src 源缓冲区指针
+   */
   void deserialize(const char *src) override {
     LogRecord::deserialize(src);
     old_value_.Deserialize(src + OFFSET_LOG_DATA);
@@ -353,22 +519,41 @@ class UpdateLogRecord : public LogRecord {
     printf("table name: %s\n", table_name_);
   }
 
-  // destructor
+  /**
+   * @brief 析构函数
+   * @note 释放表名字符数组的内存
+   */
   ~UpdateLogRecord() override {
     delete[] table_name_;
     table_name_ = nullptr;
   }
 
-  RmRecord old_value_;      // Old record value
-  RmRecord new_value_;      // New record value
-  RID rid_;                 // Record location
-  char *table_name_;        // Table name
-  size_t table_name_size_;  // Table name size
+  /** @brief 旧记录值 */
+  RmRecord old_value_;
+  
+  /** @brief 新记录值 */
+  RmRecord new_value_;
+  
+  /** @brief 记录位置 */
+  RID rid_;
+  
+  /** @brief 表名 */
+  char *table_name_;
+  
+  /** @brief 表名大小（字节数） */
+  size_t table_name_size_;
 };
 
 /**
- * checkpoint操作的日志记录
- * @note: log 不再改变时 add_log_to_buffer
+ * @brief 检查点操作的日志记录类
+ * 
+ * CheckpointLogRecord 记录检查点信息，包含：
+ * - 活跃事务表（ATT）：所有活跃事务及其最后LSN
+ * - 已中止事务列表：所有已中止的事务ID
+ * - 脏页表（DPT）：所有脏页及其LSN
+ * - 最小恢复LSN：用于恢复的起始位置
+ * 
+ * @note 日志不再改变时调用add_log_to_buffer
  */
 class CheckpointLogRecord : public LogRecord {
  public:
@@ -397,7 +582,11 @@ class CheckpointLogRecord : public LogRecord {
     log_tot_len_ += sizeof(lsn_t) + sizeof(size_t) * 5 + tab_name_offset_size_ * sizeof(size_t);
   }
 
-  // Serialize checkpoint log fields to dest
+  /**
+   * @brief 序列化checkpoint日志字段到dest中
+   * @param dest 目标缓冲区指针
+   * @note 序列化格式：日志头部 + ATT + 已中止事务列表 + DPT + 最小恢复LSN + 表名信息
+   */
   void serialize(char *dest) const override {
     LogRecord::serialize(dest);
     int offset = OFFSET_LOG_DATA;
@@ -434,7 +623,10 @@ class CheckpointLogRecord : public LogRecord {
     offset += tab_name_str_.length();
   }
 
-  // Deserialize checkpoint log fields from src
+  /**
+   * @brief 从src中反序列化checkpoint日志字段
+   * @param src 源缓冲区指针
+   */
   void deserialize(const char *src) override {
     LogRecord::deserialize(src);
     int offset = OFFSET_LOG_DATA;
@@ -548,56 +740,160 @@ class CheckpointLogRecord : public LogRecord {
     log_tot_len_ += sizeof(size_t) + tab_name.length();
   }
 
-  // att: txn_id -> last_lsn
+  /**
+   * @brief 活跃事务表（ATT）：事务ID到最后一个LSN的映射
+   * @note att_size_: ATT中事务的数量
+   *       att_vec_: ATT的向量表示，每个元素是(txn_id, last_lsn)对
+   */
   size_t att_size_;
   std::vector<std::pair<txn_id_t, lsn_t>> att_vec_;
+  
+  /**
+   * @brief 已中止事务列表
+   * @note aborted_txns_size_: 已中止事务的数量
+   *       aborted_txns_vec_: 已中止事务ID的向量
+   */
   size_t aborted_txns_size_;
   std::vector<txn_id_t> aborted_txns_vec_;
-  // dpt: (tab_name_idx from 0..dpt_size_-1, page_no) -> rec_lsn
+  
+  /**
+   * @brief 脏页表（DPT）：页面ID到恢复LSN的映射
+   * @note dpt_size_: DPT中页面的数量
+   *       dpt_vec_: DPT的向量表示，每个元素是(page_no, rec_lsn)对
+   *       表名索引从0到dpt_size_-1
+   */
   size_t dpt_size_;
   std::vector<std::pair<page_id_t, lsn_t>> dpt_vec_;
+  
+  /**
+   * @brief 最小恢复LSN
+   * @note 用于确定恢复的起始位置，是所有脏页LSN的最小值
+   */
   lsn_t min_rec_lsn_;
+  
+  /**
+   * @brief 表名偏移量信息
+   * @note tab_name_offset_size_: 偏移量数组的大小（等于dpt_size_ + 1）
+   *       tab_name_offset_vec_: 表名字符串中每个表名的偏移量（初始化为{0}）
+   *       tab_name_str_size_: 表名字符串的总长度
+   *       tab_name_str_: 所有表名连接成的字符串
+   */
   size_t tab_name_offset_size_;
   std::vector<size_t> tab_name_offset_vec_;  // Note: initialized to {0}
   size_t tab_name_str_size_;
   std::string tab_name_str_;
 };
 
-/* 日志缓冲区，只有一个buffer，因此需要阻塞地去把日志写入缓冲区中 */
-
+/**
+ * @brief 日志缓冲区类
+ * 
+ * LogBuffer 用于暂存日志记录，减少磁盘I/O次数。
+ * 由于只有一个缓冲区，因此需要阻塞地将日志写入缓冲区中。
+ */
 class LogBuffer {
  public:
+  /**
+   * @brief 构造函数，初始化缓冲区
+   * @note 将offset_设置为0，缓冲区清零
+   */
   LogBuffer() {
     offset_ = 0;
     memset(buffer_, 0, sizeof(buffer_));
   }
 
+  /**
+   * @brief 检查缓冲区是否已满（无法容纳指定大小的日志）
+   * @param append_size 要追加的日志大小（字节数）
+   * @return true 如果缓冲区已满，false 否则
+   */
   bool is_full(int append_size) {
     if (offset_ + append_size > LOG_BUFFER_SIZE) return true;
     return false;
   }
 
+  /**
+   * @brief 日志缓冲区数组
+   * @note 大小为LOG_BUFFER_SIZE + 1，多出的1字节用于安全边界
+   */
   char buffer_[LOG_BUFFER_SIZE + 1];
-  int offset_;  // 写入log的offset
+  
+  /**
+   * @brief 写入日志的偏移量
+   * @note 表示缓冲区中下一个日志记录的写入位置
+   */
+  int offset_;
 };
 
-/* 日志管理器，负责把日志写入日志缓冲区，以及把日志缓冲区中的内容写入磁盘中 */
+/**
+ * @brief 日志管理器类
+ * 
+ * LogManager 负责：
+ * - 将日志写入日志缓冲区
+ * - 将日志缓冲区中的内容写入磁盘
+ * - 管理全局LSN的分配
+ */
 class LogManager {
   friend class RecoveryManager;
 
  public:
+  /**
+   * @brief 构造函数
+   * @param disk_manager 磁盘管理器指针
+   */
   LogManager(DiskManager *disk_manager) { disk_manager_ = disk_manager; }
 
+  /**
+   * @brief 将日志记录添加到缓冲区
+   * @param log_record 日志记录指针
+   * @return 分配给日志记录的LSN
+   * @note 
+   *   - 如果缓冲区已满，先刷新到磁盘
+   *   - 分配新的LSN并设置到日志记录
+   *   - 将日志记录序列化到缓冲区
+   */
   lsn_t add_log_to_buffer(LogRecord *log_record);
+  
+  /**
+   * @brief 将日志缓冲区刷新到磁盘
+   * @note 将缓冲区中的所有日志写入磁盘文件，并更新persist_lsn_
+   */
   void flush_log_to_disk();
 
+  /**
+   * @brief 获取日志缓冲区
+   * @return 日志缓冲区的指针
+   */
   LogBuffer *get_log_buffer() { return &log_buffer_; }
 
  private:
-  std::atomic<lsn_t> global_lsn_{0};  // 全局lsn，递增，用于为每条记录分发lsn
-  std::mutex latch_;                  // 用于对log_buffer_的互斥访问
-  LogBuffer log_buffer_;              // 日志缓冲区
-  lsn_t persist_lsn_;                 // 记录已经持久化到磁盘中的最后一条日志的日志号
+  /**
+   * @brief 全局LSN（日志序列号）
+   * @note 原子变量，递增，用于为每条日志记录分发唯一的LSN
+   */
+  std::atomic<lsn_t> global_lsn_{0};
+  
+  /**
+   * @brief 保护log_buffer_的互斥锁
+   * @note 用于确保多线程环境下日志缓冲区操作的线程安全性
+   */
+  std::mutex latch_;
+  
+  /**
+   * @brief 日志缓冲区
+   * @note 用于暂存日志记录，减少磁盘I/O次数
+   */
+  LogBuffer log_buffer_;
+  
+  /**
+   * @brief 已持久化到磁盘的最后一条日志的LSN
+   * @note 用于跟踪哪些日志已经安全地写入磁盘
+   */
+  lsn_t persist_lsn_;
+  
+  /**
+   * @brief 磁盘管理器指针
+   * @note 用于执行日志文件的磁盘I/O操作
+   */
   DiskManager *disk_manager_;
 };
 

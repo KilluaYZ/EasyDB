@@ -12,6 +12,13 @@
 
 namespace easydb {
 
+/**
+ * @description: 顺序扫描执行器的构造函数
+ * @param sm_manager 系统管理器指针
+ * @param tab_name 表名
+ * @param conds 查询条件
+ * @param context 上下文指针
+ */
 SeqScanExecutor::SeqScanExecutor(SmManager *sm_manager, std::string tab_name, std::vector<Condition> conds,
                                  Context *context) {
   sm_manager_ = sm_manager;
@@ -34,6 +41,9 @@ SeqScanExecutor::SeqScanExecutor(SmManager *sm_manager, std::string tab_name, st
   }
 }
 
+/**
+ * @description: 初始化顺序扫描，定位到第一个满足条件的记录
+ */
 void SeqScanExecutor::beginTuple() {
   scan_ = std::make_unique<RmScan>(fh_);
   rid_ = scan_->GetRid();
@@ -43,6 +53,9 @@ void SeqScanExecutor::beginTuple() {
   }
 }
 
+/**
+ * @description: 移动到下一个满足条件的记录
+ */
 void SeqScanExecutor::nextTuple() {
   do {
     scan_->Next();
@@ -52,11 +65,15 @@ void SeqScanExecutor::nextTuple() {
 
 std::unique_ptr<Tuple> SeqScanExecutor::Next() { return fh_->GetTupleValue(rid_, context_); }
 
+/**
+ * @description: 判断当前记录是否满足所有查询条件（包括子查询）
+ * @return 如果所有条件都满足返回true，否则返回false
+ */
 bool SeqScanExecutor::predicate() {
   auto tuple = *this->Next();
   bool satisfy = true;
-  // return true only all the conditions were true
-  // i.e. all conditions are connected with 'and' operator
+  // 只有当所有条件都为true时才返回true
+  // 即所有条件都用'and'操作符连接
   for (auto &cond : conds_) {
     // check subquery
     if (cond.is_rhs_stmt && !cond.is_rhs_exe_processed) {

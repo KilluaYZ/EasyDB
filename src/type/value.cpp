@@ -26,6 +26,16 @@
 
 namespace easydb {
 
+/**
+ * @brief 拷贝构造函数
+ * @param other 要复制的源值对象
+ * 
+ * 实现逻辑：
+ * - 对于定长类型：直接复制value_联合体
+ * - 对于变长类型（CHAR、VARCHAR）：
+ *   - 如果manage_data_为true，分配新内存并复制数据
+ *   - 如果manage_data_为false，直接复制指针（不管理内存）
+ */
 Value::Value(const Value &other) {
   type_id_ = other.type_id_;
   size_ = other.size_;
@@ -51,12 +61,22 @@ Value::Value(const Value &other) {
   }
 }
 
+/**
+ * @brief 赋值运算符（使用copy-and-swap惯用法）
+ * @param other 要赋值的源值对象（按值传递）
+ * @return 当前对象的引用
+ * @note 通过Swap函数交换内容，利用RAII自动管理资源
+ */
 auto Value::operator=(Value other) -> Value & {
   Swap(*this, other);
   return *this;
 }
 
-// BOOLEAN and TINYINT
+/**
+ * @brief 根据int8_t值构造值（用于BOOLEAN和TINYINT类型）
+ * @param type 类型ID
+ * @param i 8位整数值
+ */
 Value::Value(TypeId type, int8_t i) : Value(type) {
   switch (type) {
     // case TypeId::TYPE_BOOLEAN:
@@ -272,7 +292,12 @@ Value::Value(TypeId type, const std::vector<double> &data) : Value(type) {
   }
 }
 
-// delete allocated char array space
+/**
+ * @brief 析构函数，释放分配的字符数组空间
+ * 
+ * 如果manage_data_为true且类型为变长类型（CHAR、VARCHAR），
+ * 释放value_.varlen_指向的内存。
+ */
 Value::~Value() {
   switch (type_id_) {
     case TypeId::TYPE_CHAR:
@@ -287,6 +312,16 @@ Value::~Value() {
   }
 }
 
+/**
+ * @brief 检查两个值是否可比较
+ * @param o 另一个值对象
+ * @return true 如果两个值可以进行比较，false 否则
+ * 
+ * 比较规则：
+ * - 数值类型（INT、LONG、FLOAT、DOUBLE）可以相互比较
+ * - 字符串类型（CHAR、VARCHAR）可以与任何类型比较（通过类型转换）
+ * - 其他类型通常不能比较
+ */
 auto Value::CheckComparable(const Value &o) const -> bool {
   switch (GetTypeId()) {
     // case TypeId::TYPE_BOOLEAN:
@@ -323,6 +358,10 @@ auto Value::CheckComparable(const Value &o) const -> bool {
   return false;
 }
 
+/**
+ * @brief 检查值是否为整数类型
+ * @return true 如果是整数类型（INT、LONG），false 否则
+ */
 auto Value::CheckInteger() const -> bool {
   switch (GetTypeId()) {
     // case TypeId::TYPE_TINYINT:
@@ -336,6 +375,11 @@ auto Value::CheckInteger() const -> bool {
   return false;
 }
 
+/**
+ * @brief 获取值的列对象表示
+ * @return 表示此值的列对象
+ * @note 用于查询计划中创建临时列
+ */
 auto Value::GetColumn() const -> Column {
   switch (GetTypeId()) {
     case TypeId::TYPE_CHAR:

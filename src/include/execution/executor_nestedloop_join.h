@@ -22,21 +22,65 @@
 
 namespace easydb {
 
+/**
+ * @brief 嵌套循环连接执行器类
+ * 
+ * NestedLoopJoinExecutor 实现嵌套循环连接操作，对两个表的元组进行笛卡尔积，
+ * 然后根据连接条件过滤结果。支持排序优化以提高性能。
+ */
 class NestedLoopJoinExecutor : public AbstractExecutor {
  private:
-  std::unique_ptr<AbstractExecutor> left_;   // 左儿子节点（需要join的表）
-  std::unique_ptr<AbstractExecutor> right_;  // 右儿子节点（需要join的表）
-  std::string left_tab_name_;                // 表名称
-  std::string right_tab_name_;               // 表名称
-  std::string join_tab_name_;                // join后的表名称
-  size_t len_;                               // join后获得的每条记录的长度
+  /**
+   * @brief 左子节点执行器（需要join的表）
+   */
+  std::unique_ptr<AbstractExecutor> left_;
+  
+  /**
+   * @brief 右子节点执行器（需要join的表）
+   */
+  std::unique_ptr<AbstractExecutor> right_;
+  
+  /**
+   * @brief 左表名称
+   */
+  std::string left_tab_name_;
+  
+  /**
+   * @brief 右表名称
+   */
+  std::string right_tab_name_;
+  
+  /**
+   * @brief join后的表名称
+   */
+  std::string join_tab_name_;
+  
+  /**
+   * @brief join后获得的每条记录的长度（字节数）
+   */
+  size_t len_;
   // std::vector<ColMeta> cols_;                // join后获得的记录的字段
-  Schema schema_;  // scan后生成的记录的字段
+  
+  /**
+   * @brief join后生成的记录的字段模式
+   */
+  Schema schema_;
 
-  std::vector<Condition> fed_conds_;  // join条件
+  /**
+   * @brief join条件列表
+   */
+  std::vector<Condition> fed_conds_;
+  
+  /**
+   * @brief 是否到达末尾标志
+   */
   bool isend;
 
   // RmRecord joined_records_;
+  
+  /**
+   * @brief 连接后的记录
+   */
   Tuple joined_records_;
 
   // std::vector<RmRecord> left_buffer_;
@@ -44,20 +88,66 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
   // ColMeta left_sel_col_;
   // ColMeta right_sel_col_;
 
+  /**
+   * @brief 左表元组缓冲区
+   */
   std::vector<Tuple> left_buffer_;
+  
+  /**
+   * @brief 右表元组缓冲区
+   */
   std::vector<Tuple> right_buffer_;
+  
+  /**
+   * @brief 左表连接列
+   */
   Column left_sel_colu_;
+  
+  /**
+   * @brief 右表连接列
+   */
   Column right_sel_colu_;
+  
+  /**
+   * @brief 左表排序器（用于排序优化）
+   */
   std::unique_ptr<MergeSorter> leftSorter_;
+  
+  /**
+   * @brief 左表缓冲区索引
+   */
   int left_idx_;
+  
+  /**
+   * @brief 右表缓冲区索引
+   */
   int right_idx_;
+  
+  /**
+   * @brief 左表缓冲区长度
+   */
   int left_len_;
+  
+  /**
+   * @brief 右表缓冲区长度
+   */
   int right_len_;
 
+  /**
+   * @brief 块大小（4KB）
+   * @note 用于分块处理大数据集
+   */
   int block_size = 4096;  // 4kb
 
+  /**
+   * @brief 缓冲区记录数量
+   */
   int buffer_record_count = 10;
 
+  /**
+   * @brief 是否需要排序标志
+   * @note 如果连接列已排序，可以使用更高效的算法
+   */
   bool need_sort_ = false;
 
  public:

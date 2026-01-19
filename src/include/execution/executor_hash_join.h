@@ -14,9 +14,24 @@
 
 namespace easydb {
 
+/**
+ * @brief 哈希连接键结构体
+ * 
+ * HashJoinKey 用于哈希连接操作，存储连接列的值。
+ * 支持多列连接（多个值组成一个键）。
+ */
 struct HashJoinKey {
+  /**
+   * @brief 连接列的值向量
+   * @note 每个元素对应一个连接列的值
+   */
   std::vector<Value> values_;
 
+  /**
+   * @brief 相等运算符重载
+   * @param other 另一个HashJoinKey对象
+   * @return true 如果两个键的所有值都相等
+   */
   bool operator==(const HashJoinKey &other) const {
     if (values_.size() != other.values_.size()) {
       return false;
@@ -50,36 +65,104 @@ struct hash<easydb::HashJoinKey> {
 
 namespace easydb {
 
+/**
+ * @brief 哈希连接执行器类
+ * 
+ * HashJoinExecutor 实现哈希连接操作，使用哈希表加速等值连接。
+ * 如果连接条件不是等值条件，则回退到嵌套循环连接。
+ * 
+ * 算法流程：
+ * 1. Build阶段：将左表的所有元组构建哈希表
+ * 2. Probe阶段：遍历右表，在哈希表中查找匹配的元组
+ */
 class HashJoinExecutor : public AbstractExecutor {
  private:
+  /**
+   * @brief 左子节点执行器
+   */
   std::unique_ptr<AbstractExecutor> left_;
+  
+  /**
+   * @brief 右子节点执行器
+   */
   std::unique_ptr<AbstractExecutor> right_;
+  
+  /**
+   * @brief 左表名称
+   */
   std::string left_tab_name_;
+  
+  /**
+   * @brief 右表名称
+   */
   std::string right_tab_name_;
+  
+  /**
+   * @brief join后的表名称
+   */
   std::string join_tab_name_;
+  
+  /**
+   * @brief join后获得的每条记录的长度（字节数）
+   */
   size_t len_;
+  
+  /**
+   * @brief join后生成的记录的字段模式
+   */
   Schema schema_;
+  
+  /**
+   * @brief 连接条件列表
+   */
   std::vector<Condition> conds_;
+  
+  /**
+   * @brief 是否到达末尾标志
+   */
   bool isend_;
 
-  // Hash table data structure
+  /**
+   * @brief 哈希表数据结构
+   * @note Key: 连接键，Value: 左表元组
+   *       使用multimap支持一对多连接
+   */
   std::unordered_multimap<HashJoinKey, Tuple> hash_table_;
 
-  // Join columns
-  std::vector<Column> left_join_cols_;
-  std::vector<Column> right_join_cols_;
+  /**
+   * @brief 连接列列表
+   */
+  std::vector<Column> left_join_cols_;   /**< 左表连接列 */
+  std::vector<Column> right_join_cols_;  /**< 右表连接列 */
 
-  // Iterators for hash join
-  std::unordered_multimap<HashJoinKey, Tuple>::iterator match_iter_;
-  std::unordered_multimap<HashJoinKey, Tuple>::iterator match_end_;
+  /**
+   * @brief 哈希连接迭代器
+   */
+  std::unordered_multimap<HashJoinKey, Tuple>::iterator match_iter_;  /**< 当前匹配的迭代器 */
+  std::unordered_multimap<HashJoinKey, Tuple>::iterator match_end_;  /**< 匹配范围的结束迭代器 */
+  
+  /**
+   * @brief 当前探测的右表元组
+   */
   Tuple current_probe_tuple_;
 
-  // For nested loop join fallback
+  /**
+   * @brief 是否使用嵌套循环连接（回退方案）
+   * @note 如果连接条件不是等值条件，则使用嵌套循环连接
+   */
   bool use_nested_loop_;
-  size_t left_idx_;
-  size_t right_idx_;
-  std::vector<Tuple> left_buffer_;
-  std::vector<Tuple> right_buffer_;
+  
+  /**
+   * @brief 嵌套循环连接的索引
+   */
+  size_t left_idx_;   /**< 左表缓冲区索引 */
+  size_t right_idx_;  /**< 右表缓冲区索引 */
+  
+  /**
+   * @brief 嵌套循环连接的缓冲区
+   */
+  std::vector<Tuple> left_buffer_;   /**< 左表元组缓冲区 */
+  std::vector<Tuple> right_buffer_;  /**< 右表元组缓冲区 */
 
  public:
   HashJoinExecutor(std::unique_ptr<AbstractExecutor> left, std::unique_ptr<AbstractExecutor> right,

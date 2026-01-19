@@ -11,6 +11,9 @@ See the Mulan PSL v2 for more details. */
 
 namespace ast {
 
+/**
+ * @description: 解析树根节点，存储SQL语句解析后的抽象语法树
+ */
 std::shared_ptr<TreeNode> parse_tree;
 
 }

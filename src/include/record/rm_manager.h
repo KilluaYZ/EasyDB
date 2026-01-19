@@ -18,20 +18,43 @@
 #include "rm_file_handle.h"
 
 namespace easydb {
-/* 记录管理器，用于管理表的数据文件，进行文件的创建、打开、删除、关闭 */
+
+/**
+ * @brief 记录管理器类，用于管理表的数据文件
+ * 
+ * RmManager 负责表数据文件的创建、打开、删除、关闭等操作。
+ * 它封装了底层磁盘管理器和缓冲池管理器的操作，提供高级的文件管理接口。
+ */
 class RmManager {
  private:
+  /** @brief 磁盘管理器指针，用于执行磁盘I/O操作 */
   DiskManager *disk_manager_;
+  
+  /** @brief 缓冲池管理器指针，用于管理页面缓存 */
   BufferPoolManager *buffer_pool_manager_;
 
  public:
+  /**
+   * @brief 构造函数
+   * @param disk_manager 磁盘管理器指针
+   * @param buffer_pool_manager 缓冲池管理器指针
+   */
   RmManager(DiskManager *disk_manager, BufferPoolManager *buffer_pool_manager)
       : disk_manager_(disk_manager), buffer_pool_manager_(buffer_pool_manager) {}
 
   /**
-   * @description: 创建表的数据文件并初始化相关信息
-   * @param {string&} filename 要创建的文件名称
-   * @param {int} record_size 表中记录的大小
+   * @brief 创建表的数据文件并初始化相关信息
+   * @param filename 要创建的文件名称
+   * @param record_size 表中记录的大小（字节数）
+   * @throws InvalidRecordSizeError 如果记录大小无效
+   * 
+   * 实现步骤：
+   * 1. 验证记录大小的有效性
+   * 2. 创建磁盘文件
+   * 3. 打开文件获取文件描述符
+   * 4. 初始化文件头（RmFileHdr）
+   * 5. 将文件头写入磁盘文件的第0页
+   * 6. 关闭文件
    */
   void CreateFile(const std::string &filename, int record_size) {
     if (record_size < 1 || record_size > RM_MAX_RECORD_SIZE) {
@@ -58,24 +81,32 @@ class RmManager {
   }
 
   /**
-   * @description: 删除表的数据文件
-   * @param {string&} filename 要删除的文件名称
+   * @brief 删除表的数据文件
+   * @param filename 要删除的文件名称
+   * @throws Exception 如果文件不存在或删除失败
    */
   void DestoryFile(const std::string &filename) { disk_manager_->DestroyFile(filename); }
 
-  // 注意这里打开文件，创建并返回了record file handle的指针
   /**
-   * @description: 打开表的数据文件，并返回文件句柄
-   * @param {string&} filename 要打开的文件名称
-   * @return {unique_ptr<RmFileHandle>} 文件句柄的指针
+   * @brief 打开表的数据文件，并返回文件句柄
+   * @param filename 要打开的文件名称
+   * @return 文件句柄的智能指针
+   * @note 注意：这里打开文件，创建并返回了record file handle的指针
+   *       调用者负责管理返回的智能指针的生命周期
    */
   std::unique_ptr<RmFileHandle> OpenFile(const std::string &filename) {
     int fd = disk_manager_->OpenFile(filename);
     return std::make_unique<RmFileHandle>(disk_manager_, buffer_pool_manager_, fd);
   }
+  
   /**
-   * @description: 关闭表的数据文件
-   * @param {RmFileHandle*} file_handle 要关闭文件的句柄
+   * @brief 关闭表的数据文件
+   * @param file_handle 要关闭文件的句柄指针
+   * 
+   * 实现步骤：
+   * 1. 将文件头写回磁盘（更新元数据）
+   * 2. 将缓冲区的所有页面刷新到磁盘（必须在close_file前面）
+   * 3. 关闭文件描述符
    */
   void CloseFile(const RmFileHandle *file_handle) {
     disk_manager_->WritePage(file_handle->fd_, RM_FILE_HDR_PAGE, (char *)&file_handle->file_hdr_,

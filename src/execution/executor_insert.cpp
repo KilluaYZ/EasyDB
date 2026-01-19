@@ -15,6 +15,13 @@
 
 namespace easydb {
 
+/**
+ * @description: 插入执行器的构造函数
+ * @param sm_manager 系统管理器指针
+ * @param tab_name 表名
+ * @param values 要插入的值列表
+ * @param context 上下文指针
+ */
 InsertExecutor::InsertExecutor(SmManager *sm_manager, const std::string &tab_name, std::vector<Value> values,
                                Context *context) {
   sm_manager_ = sm_manager;
@@ -33,8 +40,12 @@ InsertExecutor::InsertExecutor(SmManager *sm_manager, const std::string &tab_nam
   }
 };
 
+/**
+ * @description: 执行插入操作，将元组插入到表中并更新相关索引
+ * @return 返回nullptr，因为插入操作不返回元组
+ */
 std::unique_ptr<Tuple> InsertExecutor::Next() {
-  // Construct the tuple
+  // 构造元组
   Tuple tuple{values_, &tab_.schema};
   // Keep the key to avoid copy again when insert into index
   std::vector<std::vector<char>> keys;

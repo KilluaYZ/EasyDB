@@ -25,6 +25,9 @@
 
 namespace easydb {
 
+/**
+ * @description: 时间戳类型的构造函数
+ */
 TimestampType::TimestampType() : Type(TypeId::TYPE_DATE) {}
 
 auto TimestampType::CompareEquals(const Value &left, const Value &right) const -> CmpBool {
@@ -97,7 +100,11 @@ auto TimestampType::Max(const Value &left, const Value &right) const -> Value {
   return right.Copy();
 }
 
-// Debug
+/**
+ * @description: 将时间戳值转换为字符串格式
+ * @param val 要转换的时间戳值
+ * @return 格式化的时间戳字符串
+ */
 auto TimestampType::ToString(const Value &val) const -> std::string {
   if (val.IsNull()) {
     return "timestamp_null";
@@ -138,17 +145,30 @@ auto TimestampType::ToString(const Value &val) const -> std::string {
   return std::string(std::string(str) + std::string(zone));
 }
 
+/**
+ * @description: 将时间戳值序列化到存储空间
+ * @param val 要序列化的值
+ * @param storage 存储空间指针
+ */
 void TimestampType::SerializeTo(const Value &val, char *storage) const {
   *reinterpret_cast<uint64_t *>(storage) = val.value_.timestamp_;
 }
 
-// Deserialize a value of the given type from the given storage space.
+/**
+ * @description: 从存储空间反序列化时间戳值
+ * @param storage 存储空间指针
+ * @return 反序列化后的时间戳值
+ */
 auto TimestampType::DeserializeFrom(const char *storage) const -> Value {
   uint64_t val = *reinterpret_cast<const uint64_t *>(storage);
   return {type_id_, val};
 }
 
-// Create a copy of this value
+/**
+ * @description: 复制时间戳值
+ * @param val 要复制的值
+ * @return 复制后的值
+ */
 auto TimestampType::Copy(const Value &val) const -> Value { return {val}; }
 
 auto TimestampType::CastAs(const Value &val, const TypeId type_id) const -> Value {

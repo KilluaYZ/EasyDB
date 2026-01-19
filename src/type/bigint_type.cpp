@@ -63,8 +63,16 @@ namespace easydb {
       break;                                                                           \
   }  // SWITCH
 
+/**
+ * @description: 大整数类型的构造函数
+ */
 BigintType::BigintType() : IntegerParentType(TYPE_LONG) {}
 
+/**
+ * @description: 判断值是否为零
+ * @param val 要检查的值
+ * @return 如果为零返回true，否则返回false
+ */
 auto BigintType::IsZero(const Value &val) const -> bool { return (val.value_.bigint_ == 0); }
 
 auto BigintType::Add(const Value &left, const Value &right) const -> Value {
@@ -252,6 +260,11 @@ auto BigintType::CompareGreaterThanEquals(const Value &left, const Value &right)
   throw Exception("type error");
 }
 
+/**
+ * @description: 将值转换为字符串
+ * @param val 要转换的值
+ * @return 字符串表示
+ */
 auto BigintType::ToString(const Value &val) const -> std::string {
   assert(val.CheckInteger());
 
@@ -261,16 +274,30 @@ auto BigintType::ToString(const Value &val) const -> std::string {
   return std::to_string(val.value_.bigint_);
 }
 
+/**
+ * @description: 将值序列化到存储空间
+ * @param val 要序列化的值
+ * @param storage 存储空间指针
+ */
 void BigintType::SerializeTo(const Value &val, char *storage) const {
   *reinterpret_cast<int64_t *>(storage) = val.value_.bigint_;
 }
 
-// Deserialize a value of the given type from the given storage space.
+/**
+ * @description: 从存储空间反序列化值
+ * @param storage 存储空间指针
+ * @return 反序列化后的值
+ */
 auto BigintType::DeserializeFrom(const char *storage) const -> Value {
   int64_t val = *reinterpret_cast<const int64_t *>(storage);
   return {type_id_, val};
 }
 
+/**
+ * @description: 复制值
+ * @param val 要复制的值
+ * @return 复制后的值
+ */
 auto BigintType::Copy(const Value &val) const -> Value { return {TypeId::TYPE_LONG, val.value_.bigint_}; }
 
 auto BigintType::CastAs(const Value &val, const TypeId type_id) const -> Value {

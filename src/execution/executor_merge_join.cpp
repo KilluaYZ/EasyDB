@@ -12,6 +12,13 @@
 
 namespace easydb {
 
+/**
+ * @description: 归并连接执行器的构造函数
+ * @param left 左子执行器
+ * @param right 右子执行器
+ * @param conds 连接条件
+ * @param use_index 是否使用索引
+ */
 MergeJoinExecutor::MergeJoinExecutor(std::unique_ptr<AbstractExecutor> left, std::unique_ptr<AbstractExecutor> right,
                                      std::vector<Condition> conds, bool use_index) {
   left_ = std::move(left);
@@ -62,6 +69,9 @@ MergeJoinExecutor::~MergeJoinExecutor() {
   delete[] current_right_data_;
 }
 
+/**
+ * @description: 初始化归并连接，对左右两个输入进行排序（如果未使用索引）
+ */
 void MergeJoinExecutor::beginTuple() {
   if (use_index_) {
     for (left_->beginTuple(); !left_->IsEnd(); left_->nextTuple()) {
@@ -113,6 +123,9 @@ void MergeJoinExecutor::beginTuple() {
   nextTuple();
 }
 
+/**
+ * @description: 移动到下一个连接结果
+ */
 void MergeJoinExecutor::nextTuple() {
   // if (use_index_) {
   //   index_iterate_helper();
@@ -271,6 +284,10 @@ void MergeJoinExecutor::index_iterate_helper() {
   }
 }
 
+/**
+ * @description: 连接左右两个元组，生成连接结果
+ * @return 连接后的元组
+ */
 Tuple MergeJoinExecutor::concat_records() {
   // if (use_index_) {
   auto left_value_vec = current_left_tup_.GetValueVec(&left_->schema());

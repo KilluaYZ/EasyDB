@@ -14,6 +14,14 @@
 
 namespace easydb {
 
+/**
+ * @description: 删除执行器的构造函数
+ * @param sm_manager 系统管理器指针
+ * @param tab_name 表名
+ * @param conds 删除条件
+ * @param rids 要删除的记录ID列表
+ * @param context 上下文指针
+ */
 DeleteExecutor::DeleteExecutor(SmManager *sm_manager, const std::string &tab_name, std::vector<Condition> conds,
                                std::vector<RID> rids, Context *context) {
   sm_manager_ = sm_manager;
@@ -30,9 +38,13 @@ DeleteExecutor::DeleteExecutor(SmManager *sm_manager, const std::string &tab_nam
   }
 }
 
+/**
+ * @description: 执行删除操作，删除指定的记录并更新相关索引
+ * @return 返回nullptr，因为删除操作不返回元组
+ */
 std::unique_ptr<Tuple> DeleteExecutor::Next() {
   // auto indexHandle = sm_manager_->ihs_;
-  // traverse records to be deleted
+  // 遍历要删除的记录
   int rid_size = rids_.size();
   for (int i = 0; i < rid_size; i++) {
     RID rid = rids_[i];

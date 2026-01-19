@@ -33,6 +33,12 @@
 
 namespace easydb {
 
+/**
+ * @description: 聚合执行器的构造函数
+ * @param sm_manager 系统管理器指针
+ * @param prev 前一个执行器
+ * @param sel_col_ 选择的列信息，包含聚合函数类型
+ */
 AggregationExecutor::AggregationExecutor(SmManager *sm_manager, std::unique_ptr<AbstractExecutor> prev,
                                          std::vector<TabCol> sel_col_) {
   //  std::vector<TabCol> group_cols, std::vector<Condition> having_conds) {
@@ -103,6 +109,9 @@ AggregationExecutor::AggregationExecutor(SmManager *sm_manager, std::unique_ptr<
   // }
 }
 
+/**
+ * @description: 初始化聚合执行器，开始处理元组
+ */
 void AggregationExecutor::beginTuple() {
   // do nothing
 
@@ -136,6 +145,9 @@ void AggregationExecutor::beginTuple() {
   // }
 }
 
+/**
+ * @description: 移动到下一个元组，对于聚合执行器来说，处理完所有数据后设置结束标志
+ */
 void AggregationExecutor::nextTuple() {
   // do nothing
   isend_ = true;
@@ -145,6 +157,10 @@ void AggregationExecutor::nextTuple() {
   // } while (!IsEnd() && !predicate(it->second));
 }
 
+/**
+ * @description: 获取下一个聚合结果元组
+ * @return 包含聚合结果的元组指针
+ */
 std::unique_ptr<Tuple> AggregationExecutor::Next() {
   // std::vector<Tuple> records = it->second;
   std::vector<Value> value_vec;
@@ -218,6 +234,11 @@ std::unique_ptr<Tuple> AggregationExecutor::Next() {
 //   return satisfy;
 // }
 
+/**
+ * @description: 将聚合操作转换为Value值
+ * @param target_colu 目标列信息，包含聚合类型
+ * @return 聚合结果的Value值
+ */
 Value AggregationExecutor::aggregation_to_value(Column target_colu) {
   AggregationType type = target_colu.GetAggregationType();
   std::string col_name = target_colu.GetName();
@@ -333,6 +354,11 @@ Value AggregationExecutor::aggregation_to_value(Column target_colu) {
 //   }
 // }
 
+/**
+ * @description: 根据聚合类型生成新的列名
+ * @param col 列信息
+ * @return 生成的列名字符串
+ */
 std::string AggregationExecutor::generate_new_name(TabCol col) {
   if (col.new_col_name != "") {
     return col.new_col_name;

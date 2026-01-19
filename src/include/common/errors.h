@@ -20,21 +20,52 @@
 #include <vector>
 
 namespace easydb {
+
+/**
+ * @brief EasyDB错误基类，继承自std::exception
+ * 
+ * EASYDBError 是所有EasyDB特定错误的基类，提供了统一的错误消息格式。
+ */
 class EASYDBError : public std::exception {
  public:
+  /**
+   * @brief 默认构造函数，创建带有默认错误消息的错误对象
+   */
   EASYDBError() : _msg("Error: ") {}
 
+  /**
+   * @brief 根据消息字符串构造错误对象
+   * @param msg 错误消息（会自动添加"Error: "前缀）
+   */
   EASYDBError(const std::string &msg) : _msg("Error: " + msg) {}
 
+  /**
+   * @brief 获取错误消息（C风格字符串）
+   * @return 错误消息的C风格字符串指针
+   */
   const char *what() const noexcept override { return _msg.c_str(); }
 
+  /**
+   * @brief 获取错误消息的长度
+   * @return 错误消息的字符长度
+   */
   int get_msg_len() { return _msg.length(); }
 
+  /** @brief 错误消息字符串 */
   std::string _msg;
 };
 
+/**
+ * @brief 内部错误类
+ * 
+ * 用于表示系统内部的错误，通常不应该被用户看到。
+ */
 class InternalError : public EASYDBError {
  public:
+  /**
+   * @brief 构造内部错误
+   * @param msg 错误消息
+   */
   InternalError(const std::string &msg) : EASYDBError(msg) {}
 };
 

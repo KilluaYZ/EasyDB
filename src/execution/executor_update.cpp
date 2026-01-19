@@ -13,6 +13,15 @@
 
 namespace easydb {
 
+/**
+ * @description: 更新执行器的构造函数
+ * @param sm_manager 系统管理器指针
+ * @param tab_name 表名
+ * @param set_clauses 更新子句列表
+ * @param conds 更新条件
+ * @param rids 要更新的记录ID列表
+ * @param context 上下文指针
+ */
 UpdateExecutor::UpdateExecutor(SmManager *sm_manager, const std::string &tab_name, std::vector<SetClause> set_clauses,
                                std::vector<Condition> conds, std::vector<RID> rids, Context *context) {
   sm_manager_ = sm_manager;
@@ -30,8 +39,12 @@ UpdateExecutor::UpdateExecutor(SmManager *sm_manager, const std::string &tab_nam
   }
 }
 
+/**
+ * @description: 执行更新操作，更新指定的记录并维护相关索引
+ * @return 返回nullptr，因为更新操作不返回元组
+ */
 std::unique_ptr<Tuple> UpdateExecutor::Next() {
-  // traverse records to be updated
+  // 遍历要更新的记录
   int rid_size = rids_.size();
   for (int i = 0; i < rid_size; i++) {
     RID rid = rids_[i];

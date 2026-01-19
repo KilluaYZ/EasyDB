@@ -15,6 +15,12 @@
 
 namespace easydb {
 
+/**
+ * @description: 投影执行器的构造函数
+ * @param prev 前一个执行器
+ * @param sel_cols 要投影的列信息
+ * @param is_unique 是否去重
+ */
 ProjectionExecutor::ProjectionExecutor(std::unique_ptr<AbstractExecutor> prev, const std::vector<TabCol> &sel_cols,
                                        bool is_unique) {
   prev_ = std::move(prev);
@@ -50,6 +56,9 @@ ProjectionExecutor::ProjectionExecutor(std::unique_ptr<AbstractExecutor> prev, c
   }
 }
 
+/**
+ * @description: 初始化投影执行器，开始处理第一个元组
+ */
 void ProjectionExecutor::beginTuple() {
   prev_->beginTuple();
   if (is_unique_) {
@@ -77,6 +86,9 @@ void ProjectionExecutor::beginTuple() {
   }
 }
 
+/**
+ * @description: 移动到下一个元组，如果启用去重则跳过重复的元组
+ */
 void ProjectionExecutor::nextTuple() {
   prev_->nextTuple();
   if (IsEnd()) {
@@ -103,6 +115,10 @@ void ProjectionExecutor::nextTuple() {
   }
 }
 
+/**
+ * @description: 获取下一个投影后的元组
+ * @return 投影后的元组指针
+ */
 std::unique_ptr<Tuple> ProjectionExecutor::Next() {
   if (IsEnd()) {
     return nullptr;
@@ -110,6 +126,10 @@ std::unique_ptr<Tuple> ProjectionExecutor::Next() {
   return std::make_unique<Tuple>(projection_records_);
 }
 
+/**
+ * @description: 对元组进行投影操作，选择指定的列
+ * @return 投影后的元组
+ */
 Tuple ProjectionExecutor::projectRecord() {
   auto prev_tuple_ptr = prev_->Next();
   if (!prev_tuple_ptr) {
@@ -121,6 +141,11 @@ Tuple ProjectionExecutor::projectRecord() {
   return proj_tuple;
 }
 
+/**
+ * @description: 根据聚合类型生成新的列名
+ * @param col 列信息
+ * @return 生成的列名字符串
+ */
 std::string ProjectionExecutor::generate_new_name(const TabCol &col) {
   if (!col.new_col_name.empty()) {
     return col.new_col_name;

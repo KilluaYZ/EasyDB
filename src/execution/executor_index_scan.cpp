@@ -18,6 +18,14 @@
 
 namespace easydb {
 
+/**
+ * @description: 索引扫描执行器的构造函数
+ * @param sm_manager 系统管理器指针
+ * @param tab_name 表名
+ * @param conds 查询条件
+ * @param index_col_names 索引列名列表
+ * @param context 上下文指针
+ */
 IndexScanExecutor::IndexScanExecutor(SmManager *sm_manager, std::string tab_name, std::vector<Condition> conds,
                                      std::vector<std::string> index_col_names, Context *context) {
   sm_manager_ = sm_manager;
@@ -74,6 +82,9 @@ IndexScanExecutor::IndexScanExecutor(SmManager *sm_manager, std::string tab_name
   }
 }
 
+/**
+ * @description: 初始化索引扫描，找到索引的上下界，并定位到第一个满足条件的记录
+ */
 void IndexScanExecutor::beginTuple() {
   // 找到索引的lower bound和upper bound (遍历cond)
   // 初始化scan_ 并扫描
@@ -199,6 +210,9 @@ void IndexScanExecutor::beginTuple() {
   delete[] key_upper;
 }
 
+/**
+ * @description: 移动到下一个满足条件的记录
+ */
 void IndexScanExecutor::nextTuple() {
   // TODO:
   // 使用scan_ 找到下一个满足条件的记录
@@ -217,7 +231,10 @@ void IndexScanExecutor::nextTuple() {
   }
 }
 
-// return true only all the conditions were true
+/**
+ * @description: 判断当前记录是否满足所有查询条件
+ * @return 如果所有条件都满足返回true，否则返回false
+ */
 bool IndexScanExecutor::predicate() {
   // std::cout << "IndexScanExecutor predicate" << std::endl;
   auto tuple = *this->Next();

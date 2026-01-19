@@ -20,6 +20,10 @@
 #include "type/integer_parent_type.h"
 
 namespace easydb {
+/**
+ * @description: 整数父类型的构造函数
+ * @param type 类型ID
+ */
 IntegerParentType::IntegerParentType(TypeId type) : NumericType(type) {}
 
 auto IntegerParentType::Min(const Value &left, const Value &right) const -> Value {

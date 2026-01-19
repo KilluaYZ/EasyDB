@@ -10,6 +10,12 @@
 
 namespace easydb {
 
+/**
+ * @description: 排序执行器的构造函数
+ * @param prev 前一个执行器
+ * @param sel_cols 排序的列信息
+ * @param is_desc 是否降序排列
+ */
 SortExecutor::SortExecutor(std::unique_ptr<AbstractExecutor> prev, TabCol sel_cols, bool is_desc) {
   prev_ = std::move(prev);
   schema_ = prev_->schema();
@@ -25,6 +31,9 @@ SortExecutor::SortExecutor(std::unique_ptr<AbstractExecutor> prev, TabCol sel_co
 
 SortExecutor::~SortExecutor() { delete[] current_data_; }
 
+/**
+ * @description: 初始化排序执行器，读取所有输入并进行排序
+ */
 void SortExecutor::beginTuple() {
   std::unique_ptr<Tuple> current_tuple;
   for (prev_->beginTuple(); !prev_->IsEnd(); prev_->nextTuple()) {
@@ -36,6 +45,9 @@ void SortExecutor::beginTuple() {
   nextTuple();
 }
 
+/**
+ * @description: 移动到下一个排序后的元组
+ */
 void SortExecutor::nextTuple() {
   if (!sorter->IsEnd()) {
     char *tp = sorter->getOneRecord();

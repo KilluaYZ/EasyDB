@@ -11,6 +11,12 @@
 
 namespace easydb {
 
+/**
+ * @description: 嵌套循环连接执行器的构造函数
+ * @param left 左子执行器
+ * @param right 右子执行器
+ * @param conds 连接条件
+ */
 NestedLoopJoinExecutor::NestedLoopJoinExecutor(std::unique_ptr<AbstractExecutor> left,
                                                std::unique_ptr<AbstractExecutor> right, std::vector<Condition> conds) {
   left_ = std::move(left);
@@ -56,8 +62,11 @@ NestedLoopJoinExecutor::NestedLoopJoinExecutor(std::unique_ptr<AbstractExecutor>
   }
 }
 
+/**
+ * @description: 初始化嵌套循环连接，加载左右两个输入到缓冲区
+ */
 void NestedLoopJoinExecutor::beginTuple() {
-  // Load left and right buffers
+  // 加载左右两个缓冲区
   for (left_->beginTuple(); !left_->IsEnd(); left_->nextTuple()) {
     left_buffer_.emplace_back(*(left_->Next()));
   }
@@ -75,6 +84,9 @@ void NestedLoopJoinExecutor::beginTuple() {
   joined_records_ = concat_records();
 }
 
+/**
+ * @description: 移动到下一个连接结果
+ */
 void NestedLoopJoinExecutor::nextTuple() {
   left_idx_++;
   if (left_idx_ >= left_buffer_.size()) {
@@ -142,6 +154,10 @@ void NestedLoopJoinExecutor::iterate_next() {
   }
 }
 
+/**
+ * @description: 连接左右两个元组，生成连接结果
+ * @return 连接后的元组
+ */
 Tuple NestedLoopJoinExecutor::concat_records() {
   auto left_value_vec = left_buffer_[left_idx_].GetValueVec(&left_->schema());
   auto right_value_vec = right_buffer_[right_idx_].GetValueVec(&right_->schema());
@@ -149,6 +165,12 @@ Tuple NestedLoopJoinExecutor::concat_records() {
   return Tuple(left_value_vec, &schema_);
 }
 
+/**
+ * @description: 判断左右两个元组是否满足连接条件
+ * @param left_tuple 左元组
+ * @param right_tuple 右元组
+ * @return 如果满足所有条件返回true，否则返回false
+ */
 bool NestedLoopJoinExecutor::predicate(const Tuple &left_tuple, const Tuple &right_tuple) {
   for (const auto &cond : fed_conds_) {
     Value lhs_v, rhs_v;

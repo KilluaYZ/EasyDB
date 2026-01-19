@@ -63,6 +63,9 @@ namespace easydb {
 //  return x - std::trunc((double)x / (double)y) * y;
 //}
 
+/**
+ * @description: 小数类型的构造函数
+ */
 DecimalType::DecimalType() : NumericType(TypeId::TYPE_DOUBLE) {}
 
 auto DecimalType::IsZero(const Value &val) const -> bool {
@@ -322,6 +325,11 @@ auto DecimalType::CastAs(const Value &val, const TypeId type_id) const -> Value 
   throw Exception("DECIMAL is not coercable to " + Type::TypeIdToString(type_id));
 }
 
+/**
+ * @description: 将值转换为字符串
+ * @param val 要转换的值
+ * @return 字符串表示
+ */
 auto DecimalType::ToString(const Value &val) const -> std::string {
   if (val.IsNull()) {
     return "decimal_null";
@@ -329,6 +337,11 @@ auto DecimalType::ToString(const Value &val) const -> std::string {
   return std::to_string(val.value_.decimal_);
 }
 
+/**
+ * @description: 将值序列化到存储空间
+ * @param val 要序列化的值
+ * @param storage 存储空间指针
+ */
 void DecimalType::SerializeTo(const Value &val, char *storage) const {
   *reinterpret_cast<double *>(storage) = val.value_.decimal_;
 }
@@ -339,6 +352,11 @@ auto DecimalType::DeserializeFrom(const char *storage) const -> Value {
   return {type_id_, val};
 }
 
+/**
+ * @description: 复制值
+ * @param val 要复制的值
+ * @return 复制后的值
+ */
 auto DecimalType::Copy(const Value &val) const -> Value { return {TypeId::TYPE_DOUBLE, val.value_.decimal_}; }
 
 }  // namespace easydb

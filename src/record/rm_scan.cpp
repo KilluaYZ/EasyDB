@@ -16,18 +16,18 @@
 namespace easydb {
 
 /**
- * @brief 初始化file_handle和rid
- * @param file_handle
+ * @description: 初始化记录扫描器，设置文件句柄和记录ID
+ * @param file_handle 记录文件句柄指针
  */
 RmScan::RmScan(const RmFileHandle *file_handle) : file_handle_(file_handle) {
-  // Initialize file_handle and set rid_ to the first valid record
-  // Start from the first data page (page 0 is the file header)
-  // Initialize slot_no to 0 to start scanning from the beginning
+  // 初始化file_handle并将rid_设置为第一个有效记录
+  // 从第一个数据页开始（第0页是文件头）
+  // 将slot_no初始化为0，从头开始扫描
   rid_.Set(RM_FIRST_RECORD_PAGE, 0);
 }
 
 /**
- * @brief 找到文件中下一个存放了记录的位置
+ * @description: 找到文件中下一个存放了记录的位置
  */
 void RmScan::Next() {
   auto page_no = rid_.GetPageId();
@@ -67,15 +67,17 @@ void RmScan::Next() {
 }
 
 /**
- * @brief ​ 判断是否到达文件末尾
+ * @description: 判断是否到达文件末尾
+ * @return 如果到达文件末尾返回true，否则返回false
  */
 bool RmScan::IsEnd() const {
-  // Check if we have reached the end of the file
+  // 检查是否已经到达文件末尾
   return rid_.GetPageId() >= file_handle_->file_hdr_.num_pages;
 }
 
 /**
- * @brief RmScan内部存放的rid
+ * @description: 获取当前扫描位置的记录ID
+ * @return 当前记录ID
  */
 RID RmScan::GetRid() const { return rid_; }
 }  // namespace easydb

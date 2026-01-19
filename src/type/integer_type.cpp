@@ -62,6 +62,10 @@ namespace easydb {
       break;                                                                            \
   }  // SWITCH
 
+/**
+ * @description: 整数类型的构造函数
+ * @param type 类型ID
+ */
 IntegerType::IntegerType(TypeId type) : IntegerParentType(type) {}
 
 auto IntegerType::IsZero(const Value &val) const -> bool { return (val.value_.integer_ == 0); }
@@ -255,6 +259,11 @@ auto IntegerType::CompareGreaterThanEquals(const Value &left, const Value &right
   throw Exception("type error");
 }
 
+/**
+ * @description: 将值转换为字符串
+ * @param val 要转换的值
+ * @return 字符串表示
+ */
 auto IntegerType::ToString(const Value &val) const -> std::string {
   assert(val.CheckInteger());
 
@@ -264,11 +273,20 @@ auto IntegerType::ToString(const Value &val) const -> std::string {
   return std::to_string(val.value_.integer_);
 }
 
+/**
+ * @description: 将值序列化到存储空间
+ * @param val 要序列化的值
+ * @param storage 存储空间指针
+ */
 void IntegerType::SerializeTo(const Value &val, char *storage) const {
   *reinterpret_cast<int32_t *>(storage) = val.value_.integer_;
 }
 
-// Deserialize a value of the given type from the given storage space.
+/**
+ * @description: 从存储空间反序列化值
+ * @param storage 存储空间指针
+ * @return 反序列化后的值
+ */
 auto IntegerType::DeserializeFrom(const char *storage) const -> Value {
   int32_t val = *reinterpret_cast<const int32_t *>(storage);
   return {type_id_, val};
