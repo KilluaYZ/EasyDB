@@ -45,12 +45,17 @@ VarlenType::VarlenType(TypeId type) : Type(type) {}
 VarlenType::~VarlenType() = default;
 
 // Access the raw variable length data
-auto VarlenType::GetData(const Value &val) const -> const char * { return val.value_.varlen_; }
+auto VarlenType::GetData(const Value &val) const -> const char * {
+  return val.value_.varlen_;
+}
 
 // Get the length of the variable length data (including the length field)
-auto VarlenType::GetStorageSize(const Value &val) const -> uint32_t { return val.size_.len_; }
+auto VarlenType::GetStorageSize(const Value &val) const -> uint32_t {
+  return val.size_.len_;
+}
 
-auto VarlenType::CompareEquals(const Value &left, const Value &right) const -> CmpBool {
+auto VarlenType::CompareEquals(const Value &left, const Value &right) const
+    -> CmpBool {
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
     return CmpBool::CmpNull;
@@ -59,7 +64,8 @@ auto VarlenType::CompareEquals(const Value &left, const Value &right) const -> C
   VARLEN_COMPARE_FUNC(==);  // NOLINT
 }
 
-auto VarlenType::CompareNotEquals(const Value &left, const Value &right) const -> CmpBool {
+auto VarlenType::CompareNotEquals(const Value &left, const Value &right) const
+    -> CmpBool {
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
     return CmpBool::CmpNull;
@@ -68,7 +74,8 @@ auto VarlenType::CompareNotEquals(const Value &left, const Value &right) const -
   VARLEN_COMPARE_FUNC(!=);  // NOLINT
 }
 
-auto VarlenType::CompareLessThan(const Value &left, const Value &right) const -> CmpBool {
+auto VarlenType::CompareLessThan(const Value &left, const Value &right) const
+    -> CmpBool {
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
     return CmpBool::CmpNull;
@@ -77,7 +84,8 @@ auto VarlenType::CompareLessThan(const Value &left, const Value &right) const ->
   VARLEN_COMPARE_FUNC(<);  // NOLINT
 }
 
-auto VarlenType::CompareLessThanEquals(const Value &left, const Value &right) const -> CmpBool {
+auto VarlenType::CompareLessThanEquals(const Value &left,
+                                       const Value &right) const -> CmpBool {
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
     return CmpBool::CmpNull;
@@ -86,7 +94,8 @@ auto VarlenType::CompareLessThanEquals(const Value &left, const Value &right) co
   VARLEN_COMPARE_FUNC(<=);  // NOLINT
 }
 
-auto VarlenType::CompareGreaterThan(const Value &left, const Value &right) const -> CmpBool {
+auto VarlenType::CompareGreaterThan(const Value &left, const Value &right) const
+    -> CmpBool {
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
     return CmpBool::CmpNull;
@@ -95,7 +104,8 @@ auto VarlenType::CompareGreaterThan(const Value &left, const Value &right) const
   VARLEN_COMPARE_FUNC(>);  // NOLINT
 }
 
-auto VarlenType::CompareGreaterThanEquals(const Value &left, const Value &right) const -> CmpBool {
+auto VarlenType::CompareGreaterThanEquals(const Value &left,
+                                          const Value &right) const -> CmpBool {
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
     return CmpBool::CmpNull;
@@ -163,7 +173,8 @@ auto VarlenType::DeserializeFrom(const char *storage) const -> Value {
 
 auto VarlenType::Copy(const Value &val) const -> Value { return {val}; }
 
-auto VarlenType::CastAs(const Value &value, const TypeId type_id) const -> Value {
+auto VarlenType::CastAs(const Value &value, const TypeId type_id) const
+    -> Value {
   std::string str;
   // switch begins
   switch (type_id) {
@@ -184,10 +195,12 @@ auto VarlenType::CastAs(const Value &value, const TypeId type_id) const -> Value
     //   try {
     //     tinyint = static_cast<int8_t>(stoi(str));
     //   } catch (std::out_of_range &e) {
-    //     throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of range.");
+    //     throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of
+    //     range.");
     //   }
     //   if (tinyint < EASYDB_INT8_MIN) {
-    //     throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of range.");
+    //     throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of
+    //     range.");
     //   }
     //   return {type_id, tinyint};
     // }
@@ -197,10 +210,12 @@ auto VarlenType::CastAs(const Value &value, const TypeId type_id) const -> Value
     //   try {
     //     smallint = static_cast<int16_t>(stoi(str));
     //   } catch (std::out_of_range &e) {
-    //     throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of range.");
+    //     throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of
+    //     range.");
     //   }
     //   if (smallint < EASYDB_INT16_MIN) {
-    //     throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of range.");
+    //     throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of
+    //     range.");
     //   }
     //   return {type_id, smallint};
     // }
@@ -210,10 +225,12 @@ auto VarlenType::CastAs(const Value &value, const TypeId type_id) const -> Value
       try {
         integer = stoi(str);
       } catch (std::out_of_range &e) {
-        throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of range.");
+        throw Exception(ExceptionType::OUT_OF_RANGE,
+                        "Numeric value out of range.");
       }
       if (integer > EASYDB_INT32_MAX || integer < EASYDB_INT32_MIN) {
-        throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of range.");
+        throw Exception(ExceptionType::OUT_OF_RANGE,
+                        "Numeric value out of range.");
       }
       return {type_id, integer};
     }
@@ -223,10 +240,12 @@ auto VarlenType::CastAs(const Value &value, const TypeId type_id) const -> Value
       try {
         bigint = stoll(str);
       } catch (std::out_of_range &e) {
-        throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of range.");
+        throw Exception(ExceptionType::OUT_OF_RANGE,
+                        "Numeric value out of range.");
       }
       if (bigint > EASYDB_INT64_MAX || bigint < EASYDB_INT64_MIN) {
-        throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of range.");
+        throw Exception(ExceptionType::OUT_OF_RANGE,
+                        "Numeric value out of range.");
       }
       return {type_id, bigint};
     }
@@ -237,10 +256,12 @@ auto VarlenType::CastAs(const Value &value, const TypeId type_id) const -> Value
       try {
         res = stod(str);
       } catch (std::out_of_range &e) {
-        throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of range.");
+        throw Exception(ExceptionType::OUT_OF_RANGE,
+                        "Numeric value out of range.");
       }
       if (res > EASYDB_DECIMAL_MAX || res < EASYDB_DECIMAL_MIN) {
-        throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of range.");
+        throw Exception(ExceptionType::OUT_OF_RANGE,
+                        "Numeric value out of range.");
       }
       return {type_id, res};
     }

@@ -27,20 +27,24 @@ class IxBucketHandle {
  private:
   const ExtendibleHashIxFileHdr *file_hdr;  // 节点所在文件的头部信息
   Page *page;                               // 存储桶的页面
-  IxExtendibleHashPageHdr *page_hdr;  // page->data的第一部分，指针指向首地址，长度为sizeof(IxExtendibleHashPageHdr)
-  char *keys;  // page->data的第二部分，指针指向首地址，长度为file_hdr->keys_size，每个key的长度为file_hdr->col_len
-  RID *rids;   // page->data的第三部分，指针指向首地址
+  IxExtendibleHashPageHdr *
+      page_hdr;  // page->data的第一部分，指针指向首地址，长度为sizeof(IxExtendibleHashPageHdr)
+  char *
+      keys;  // page->data的第二部分，指针指向首地址，长度为file_hdr->keys_size，每个key的长度为file_hdr->col_len
+  RID *rids;  // page->data的第三部分，指针指向首地址
 
  public:
   IxBucketHandle() = default;
 
-  IxBucketHandle(const ExtendibleHashIxFileHdr *file_hdr_, Page *page_) : file_hdr(file_hdr_), page(page_) {
+  IxBucketHandle(const ExtendibleHashIxFileHdr *file_hdr_, Page *page_)
+      : file_hdr(file_hdr_), page(page_) {
     page_hdr = reinterpret_cast<IxExtendibleHashPageHdr *>(page->GetData());
     keys = page->GetData() + sizeof(IxExtendibleHashPageHdr);
     rids = reinterpret_cast<RID *>(keys + file_hdr->keys_size_);
   }
 
-  IxBucketHandle(const ExtendibleHashIxFileHdr *file_hdr_, Page *page_, int local_depth, int size, bool is_valid)
+  IxBucketHandle(const ExtendibleHashIxFileHdr *file_hdr_, Page *page_,
+                 int local_depth, int size, bool is_valid)
       : file_hdr(file_hdr_), page(page_) {
     page_hdr = reinterpret_cast<IxExtendibleHashPageHdr *>(page->GetData());
     page_hdr->local_depth = local_depth;
@@ -62,12 +66,15 @@ class IxBucketHandle {
 
   PageId get_page_id() { return page->GetPageId(); }
 
-  char *get_key(int key_idx) const { return keys + key_idx * file_hdr->col_tot_len_; }
+  char *get_key(int key_idx) const {
+    return keys + key_idx * file_hdr->col_tot_len_;
+  }
 
   RID *get_rid(int rid_idx) const { return &rids[rid_idx]; }
 
   void set_key(int key_idx, const char *key) {
-    memcpy(keys + key_idx * file_hdr->col_tot_len_, key, file_hdr->col_tot_len_);
+    memcpy(keys + key_idx * file_hdr->col_tot_len_, key,
+           file_hdr->col_tot_len_);
   }
 
   void set_rid(int rid_idx, const RID &rid) { rids[rid_idx] = rid; }
@@ -112,14 +119,16 @@ class IxExtendibleHashIndexHandle {
  private:
   DiskManager *disk_manager_;
   BufferPoolManager *buffer_pool_manager_;
-  int fd_;                             // 存储可扩展hash的文件
-  ExtendibleHashIxFileHdr *file_hdr_;  // 存了root_page，但其初始化为2（第0页存FILE_HDR_PAGE，第1页存LEAF_HEADER_PAGE）
+  int fd_;  // 存储可扩展hash的文件
+  ExtendibleHashIxFileHdr *
+      file_hdr_;  // 存了root_page，但其初始化为2（第0页存FILE_HDR_PAGE，第1页存LEAF_HEADER_PAGE）
   std::mutex root_latch_;
   int global_depth;     // Record the global depth of the hash table
   int size_per_bucket;  // Size of each bucket
 
  public:
-  IxExtendibleHashIndexHandle(DiskManager *disk_manager, BufferPoolManager *buffer_pool_manager, int fd);
+  IxExtendibleHashIndexHandle(DiskManager *disk_manager,
+                              BufferPoolManager *buffer_pool_manager, int fd);
 
   ~IxExtendibleHashIndexHandle();
 

@@ -28,10 +28,12 @@ std::unordered_map<txn_id_t, Transaction *> TransactionManager::txn_map = {};
 /**
  * @description: 事务的开始方法
  * @return {Transaction*} 开始事务的指针
- * @param {Transaction*} txn 事务指针，空指针代表需要创建新事务，否则开始已有事务
+ * @param {Transaction*} txn
+ * 事务指针，空指针代表需要创建新事务，否则开始已有事务
  * @param {LogManager*} log_manager 日志管理器指针
  */
-Transaction *TransactionManager::Begin(Transaction *txn, LogManager *log_manager) {
+Transaction *TransactionManager::Begin(Transaction *txn,
+                                       LogManager *log_manager) {
   // Todo:
   // 1. 判断传入事务参数是否为空指针
   // 2. 如果为空指针，创建新事务
@@ -85,7 +87,8 @@ void TransactionManager::Commit(Transaction *txn, LogManager *log_manager) {
   // 1. Commit all uncommitted write operations
   for (auto write_record : *txn->GetWriteSet()) {
     // // TODO: Commit the write operation
-    // std::cout << "Committing write operation: " << write_record->GetWriteType() << std::endl;
+    // std::cout << "Committing write operation: " <<
+    // write_record->GetWriteType() << std::endl;
     delete write_record;
   }
   txn->GetWriteSet()->clear();
@@ -160,7 +163,8 @@ void TransactionManager::Abort(Transaction *txn, LogManager *log_manager) {
   txn->SetState(TransactionState::ABORTED);
 }
 
-void TransactionManager::CreateStaticCheckpoint(Transaction *txn, LogManager *log_manager) {
+void TransactionManager::CreateStaticCheckpoint(Transaction *txn,
+                                                LogManager *log_manager) {
   // std::cout << "Creating static checkpoint" << std::endl;
 
   std::scoped_lock lock(latch_);

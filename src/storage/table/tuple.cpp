@@ -29,7 +29,7 @@ namespace easydb {
  * @brief 根据输入值创建新元组
  * @param values 列值的向量
  * @param schema 元组的模式（列定义）
- * 
+ *
  * 构造过程：
  * 1. 计算元组的总大小（包括内联列和非内联列）
  * 2. 分配内存并初始化为0
@@ -146,7 +146,8 @@ Tuple::Tuple(int size, const char *data) {
  * @param column_idx 列的索引
  * @return 列的值
  */
-auto Tuple::GetValue(const Schema *schema, const uint32_t column_idx) const -> Value {
+auto Tuple::GetValue(const Schema *schema, const uint32_t column_idx) const
+    -> Value {
   assert(schema);
   const TypeId column_type = schema->GetColumn(column_idx).GetType();
   const char *data_ptr = GetDataPtr(schema, column_idx);
@@ -160,7 +161,8 @@ auto Tuple::GetValue(const Schema *schema, const uint32_t column_idx) const -> V
  * @param column_name 列的名称
  * @return 列的值
  */
-auto Tuple::GetValue(const Schema *schema, std::string column_name) const -> Value {
+auto Tuple::GetValue(const Schema *schema, std::string column_name) const
+    -> Value {
   assert(schema);
   const TypeId column_type = schema->GetColumn(column_name).GetType();
   const char *data_ptr = GetDataPtr(schema, column_name);
@@ -202,7 +204,8 @@ auto Tuple::GetValueVec(const Schema *schema) const -> std::vector<Value> {
  * @return 键元组
  * @note 用于索引操作，从完整元组中提取键列
  */
-auto Tuple::KeyFromTuple(const Schema &schema, const Schema &key_schema, const std::vector<uint32_t> &key_attrs) const
+auto Tuple::KeyFromTuple(const Schema &schema, const Schema &key_schema,
+                         const std::vector<uint32_t> &key_attrs) const
     -> Tuple {
   std::vector<Value> values;
   values.reserve(key_attrs.size());
@@ -217,12 +220,13 @@ auto Tuple::KeyFromTuple(const Schema &schema, const Schema &key_schema, const s
  * @param schema 元组的模式
  * @param column_idx 列的索引
  * @return 指向列数据的常量指针
- * 
+ *
  * 实现逻辑：
  * - 对于内联类型：直接返回列偏移位置的地址
  * - 对于非内联类型：从列偏移位置读取相对偏移量，返回实际数据的地址
  */
-auto Tuple::GetDataPtr(const Schema *schema, const uint32_t column_idx) const -> const char * {
+auto Tuple::GetDataPtr(const Schema *schema, const uint32_t column_idx) const
+    -> const char * {
   assert(schema);
   const auto &col = schema->GetColumn(column_idx);
   bool is_inlined = col.IsInlined();
@@ -231,12 +235,14 @@ auto Tuple::GetDataPtr(const Schema *schema, const uint32_t column_idx) const ->
     return (data_.data() + col.GetOffset());
   }
   // We read the relative offset from the tuple data.
-  int32_t offset = *reinterpret_cast<const int32_t *>(data_.data() + col.GetOffset());
+  int32_t offset =
+      *reinterpret_cast<const int32_t *>(data_.data() + col.GetOffset());
   // And return the beginning address of the real data for the VARCHAR type.
   return (data_.data() + offset);
 }
 
-auto Tuple::GetDataPtr(const Schema *schema, const std::string column_name) const -> const char * {
+auto Tuple::GetDataPtr(const Schema *schema,
+                       const std::string column_name) const -> const char * {
   assert(schema);
   const auto &col = schema->GetColumn(column_name);
   bool is_inlined = col.IsInlined();
@@ -245,7 +251,8 @@ auto Tuple::GetDataPtr(const Schema *schema, const std::string column_name) cons
     return (data_.data() + col.GetOffset());
   }
   // We read the relative offset from the tuple data.
-  int32_t offset = *reinterpret_cast<const int32_t *>(data_.data() + col.GetOffset());
+  int32_t offset =
+      *reinterpret_cast<const int32_t *>(data_.data() + col.GetOffset());
   // And return the beginning address of the real data for the VARCHAR type.
   return (data_.data() + offset);
 }
@@ -257,7 +264,8 @@ auto Tuple::GetDataPtr(const Column col) const -> const char * {
     return (data_.data() + col.GetOffset());
   }
   // We read the relative offset from the tuple data.
-  int32_t offset = *reinterpret_cast<const int32_t *>(data_.data() + col.GetOffset());
+  int32_t offset =
+      *reinterpret_cast<const int32_t *>(data_.data() + col.GetOffset());
   // And return the beginning address of the real data for the VARCHAR type.
   return (data_.data() + offset);
 }

@@ -26,8 +26,11 @@ namespace easydb {
  * @param index_col_names 索引列名列表
  * @param context 上下文指针
  */
-IndexScanExecutor::IndexScanExecutor(SmManager *sm_manager, std::string tab_name, std::vector<Condition> conds,
-                                     std::vector<std::string> index_col_names, Context *context) {
+IndexScanExecutor::IndexScanExecutor(SmManager *sm_manager,
+                                     std::string tab_name,
+                                     std::vector<Condition> conds,
+                                     std::vector<std::string> index_col_names,
+                                     Context *context) {
   sm_manager_ = sm_manager;
   context_ = context;
   tab_name_ = std::move(tab_name);
@@ -43,7 +46,8 @@ IndexScanExecutor::IndexScanExecutor(SmManager *sm_manager, std::string tab_name
   len_ = schema_.GetInlinedStorageSize();
   // len_ = cols_.back().offset + cols_.back().len;
   std::map<CompOp, CompOp> swap_op = {
-      {OP_EQ, OP_EQ}, {OP_NE, OP_NE}, {OP_LT, OP_GT}, {OP_GT, OP_LT}, {OP_LE, OP_GE}, {OP_GE, OP_LE},
+      {OP_EQ, OP_EQ}, {OP_NE, OP_NE}, {OP_LT, OP_GT},
+      {OP_GT, OP_LT}, {OP_LE, OP_GE}, {OP_GE, OP_LE},
   };
 
   std::vector<std::string> cond_cols;
@@ -62,7 +66,8 @@ IndexScanExecutor::IndexScanExecutor(SmManager *sm_manager, std::string tab_name
   // Now we just check columns of conditions must be the same as the index.
   // Actually, parts of columns can use the index.
   // TODO: support more complex conditions
-  std::vector<std::string> cond_cols_vec(cond_cols_set.begin(), cond_cols_set.end());
+  std::vector<std::string> cond_cols_vec(cond_cols_set.begin(),
+                                         cond_cols_set.end());
   if (tab_.is_index(cond_cols_vec)) {
     fed_conds_ = conds_;
   }
@@ -90,8 +95,10 @@ void IndexScanExecutor::beginTuple() {
   // 初始化scan_ 并扫描
   // 找到第一个满足条件的记录
   // std::cout << "IndexScanExecutor beginTuple" << std::endl;
-  // 1. Determine the lower and upper bounds for the index scan based on the conditions
-  auto index_name = sm_manager_->GetIxManager()->GetIndexName(tab_name_, index_col_names_);
+  // 1. Determine the lower and upper bounds for the index scan based on the
+  // conditions
+  auto index_name =
+      sm_manager_->GetIxManager()->GetIndexName(tab_name_, index_col_names_);
   auto ih = sm_manager_->ihs_.at(index_name).get();
   Iid lower = ih->LeafBegin();
   Iid upper = ih->LeafEnd();
@@ -118,11 +125,13 @@ void IndexScanExecutor::beginTuple() {
       case OP_EQ:
         // lower = ih->lower_bound(key);
         // upper = ih->upper_bound(key);
-        if (cond.rhs_val.GetTypeId() == TYPE_CHAR || cond.rhs_val.GetTypeId() == TYPE_VARCHAR) {
+        if (cond.rhs_val.GetTypeId() == TYPE_CHAR ||
+            cond.rhs_val.GetTypeId() == TYPE_VARCHAR) {
           memcpy(key_lower + offset, cond.rhs_val.GetData(), len);
           memcpy(key_upper + offset, cond.rhs_val.GetData(), len);
         } else {
-          assert(uint32_t(len) == Type(cond.rhs_val.GetTypeId()).GetTypeSize(cond.rhs_val.GetTypeId()));
+          assert(uint32_t(len) == Type(cond.rhs_val.GetTypeId())
+                                      .GetTypeSize(cond.rhs_val.GetTypeId()));
           cond.rhs_val.SerializeTo(key_lower + offset);
           cond.rhs_val.SerializeTo(key_upper + offset);
         }
@@ -131,40 +140,48 @@ void IndexScanExecutor::beginTuple() {
         break;
       case OP_GE:
         // lower = ih->lower_bound(key);
-        if (cond.rhs_val.GetTypeId() == TYPE_CHAR || cond.rhs_val.GetTypeId() == TYPE_VARCHAR) {
+        if (cond.rhs_val.GetTypeId() == TYPE_CHAR ||
+            cond.rhs_val.GetTypeId() == TYPE_VARCHAR) {
           memcpy(key_lower + offset, cond.rhs_val.GetData(), len);
         } else {
-          assert(uint32_t(len) == Type(cond.rhs_val.GetTypeId()).GetTypeSize(cond.rhs_val.GetTypeId()));
+          assert(uint32_t(len) == Type(cond.rhs_val.GetTypeId())
+                                      .GetTypeSize(cond.rhs_val.GetTypeId()));
           cond.rhs_val.SerializeTo(key_lower + offset);
         }
         lower = ih->LowerBound(key_lower);
         break;
       case OP_GT:
         // lower = ih->upper_bound(key);
-        if (cond.rhs_val.GetTypeId() == TYPE_CHAR || cond.rhs_val.GetTypeId() == TYPE_VARCHAR) {
+        if (cond.rhs_val.GetTypeId() == TYPE_CHAR ||
+            cond.rhs_val.GetTypeId() == TYPE_VARCHAR) {
           memcpy(key_lower + offset, cond.rhs_val.GetData(), len);
         } else {
-          assert(uint32_t(len) == Type(cond.rhs_val.GetTypeId()).GetTypeSize(cond.rhs_val.GetTypeId()));
+          assert(uint32_t(len) == Type(cond.rhs_val.GetTypeId())
+                                      .GetTypeSize(cond.rhs_val.GetTypeId()));
           cond.rhs_val.SerializeTo(key_lower + offset);
         }
         lower = ih->UpperBound(key_lower);
         break;
       case OP_LE:
         // upper = ih->upper_bound(key);
-        if (cond.rhs_val.GetTypeId() == TYPE_CHAR || cond.rhs_val.GetTypeId() == TYPE_VARCHAR) {
+        if (cond.rhs_val.GetTypeId() == TYPE_CHAR ||
+            cond.rhs_val.GetTypeId() == TYPE_VARCHAR) {
           memcpy(key_upper + offset, cond.rhs_val.GetData(), len);
         } else {
-          assert(uint32_t(len) == Type(cond.rhs_val.GetTypeId()).GetTypeSize(cond.rhs_val.GetTypeId()));
+          assert(uint32_t(len) == Type(cond.rhs_val.GetTypeId())
+                                      .GetTypeSize(cond.rhs_val.GetTypeId()));
           cond.rhs_val.SerializeTo(key_upper + offset);
         }
         upper = ih->UpperBound(key_upper);
         break;
       case OP_LT:
         // upper = ih->lower_bound(key);
-        if (cond.rhs_val.GetTypeId() == TYPE_CHAR || cond.rhs_val.GetTypeId() == TYPE_VARCHAR) {
+        if (cond.rhs_val.GetTypeId() == TYPE_CHAR ||
+            cond.rhs_val.GetTypeId() == TYPE_VARCHAR) {
           memcpy(key_upper + offset, cond.rhs_val.GetData(), len);
         } else {
-          assert(uint32_t(len) == Type(cond.rhs_val.GetTypeId()).GetTypeSize(cond.rhs_val.GetTypeId()));
+          assert(uint32_t(len) == Type(cond.rhs_val.GetTypeId())
+                                      .GetTypeSize(cond.rhs_val.GetTypeId()));
           cond.rhs_val.SerializeTo(key_upper + offset);
         }
         upper = ih->LowerBound(key_upper);
@@ -191,8 +208,9 @@ void IndexScanExecutor::beginTuple() {
 
   // Lock the gap between lower and upper bounds
   if (context_ != nullptr) {
-    // The reason do before check IsEnd() is that we need to lock the gap of next key
-    // when the current key is the last one in the index or the lower=upper.
+    // The reason do before check IsEnd() is that we need to lock the gap of
+    // next key when the current key is the last one in the index or the
+    // lower=upper.
     auto iid = scan_->GetIid();
     auto lower_iid = iid;
     context_->lock_mgr_->LockGapOnIndex(context_->txn_, iid, fh_->GetFd());
@@ -249,7 +267,8 @@ bool IndexScanExecutor::predicate() {
       rhs_v = cond.rhs_val;
     } else {
       rhs_v = tuple.GetValue(&schema_, cond.rhs_col.col_name);
-      // rhs_v.DeserializeFrom(tuple.GetData(), &schema_, cond.rhs_col.col_name);
+      // rhs_v.DeserializeFrom(tuple.GetData(), &schema_,
+      // cond.rhs_col.col_name);
     }
     if (!cond.satisfy(lhs_v, rhs_v)) {
       satisfy = false;

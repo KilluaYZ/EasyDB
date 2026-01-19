@@ -21,7 +21,8 @@ namespace easydb {
  * @param sel_cols 要投影的列信息
  * @param is_unique 是否去重
  */
-ProjectionExecutor::ProjectionExecutor(std::unique_ptr<AbstractExecutor> prev, const std::vector<TabCol> &sel_cols,
+ProjectionExecutor::ProjectionExecutor(std::unique_ptr<AbstractExecutor> prev,
+                                       const std::vector<TabCol> &sel_cols,
                                        bool is_unique) {
   prev_ = std::move(prev);
   is_unique_ = is_unique;

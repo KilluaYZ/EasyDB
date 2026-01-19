@@ -41,26 +41,27 @@ namespace easydb {
       break;                                                              \
   }  // SWITCH
 
-#define BIGINT_MODIFY_FUNC(METHOD, OP)                                                 \
-  switch (right.GetTypeId()) {                                                         \
-    case TypeId::TYPE_INT:                                                             \
-      /* NOLINTNEXTLINE */                                                             \
-      return METHOD<int64_t, int32_t>(left, right);                                    \
-    case TypeId::TYPE_LONG:                                                            \
-      /* NOLINTNEXTLINE */                                                             \
-      return METHOD<int64_t, int64_t>(left, right);                                    \
-    case TypeId::TYPE_FLOAT:                                                           \
-    case TypeId::TYPE_DOUBLE:                                                          \
-      /* NOLINTNEXTLINE */                                                             \
-      return Value(TypeId::TYPE_DOUBLE, left.value_.bigint_ OP right.GetAs<double>()); \
-    case TypeId::TYPE_CHAR:                                                            \
-    case TypeId::TYPE_VARCHAR: {                                                       \
-      auto r_value = right.CastAs(TypeId::TYPE_LONG);                                  \
-      /* NOLINTNEXTLINE */                                                             \
-      return METHOD<int64_t, int64_t>(left, r_value);                                  \
-    }                                                                                  \
-    default:                                                                           \
-      break;                                                                           \
+#define BIGINT_MODIFY_FUNC(METHOD, OP)                            \
+  switch (right.GetTypeId()) {                                    \
+    case TypeId::TYPE_INT:                                        \
+      /* NOLINTNEXTLINE */                                        \
+      return METHOD<int64_t, int32_t>(left, right);               \
+    case TypeId::TYPE_LONG:                                       \
+      /* NOLINTNEXTLINE */                                        \
+      return METHOD<int64_t, int64_t>(left, right);               \
+    case TypeId::TYPE_FLOAT:                                      \
+    case TypeId::TYPE_DOUBLE:                                     \
+      /* NOLINTNEXTLINE */                                        \
+      return Value(TypeId::TYPE_DOUBLE,                           \
+                   left.value_.bigint_ OP right.GetAs<double>()); \
+    case TypeId::TYPE_CHAR:                                       \
+    case TypeId::TYPE_VARCHAR: {                                  \
+      auto r_value = right.CastAs(TypeId::TYPE_LONG);             \
+      /* NOLINTNEXTLINE */                                        \
+      return METHOD<int64_t, int64_t>(left, r_value);             \
+    }                                                             \
+    default:                                                      \
+      break;                                                      \
   }  // SWITCH
 
 /**
@@ -73,7 +74,9 @@ BigintType::BigintType() : IntegerParentType(TYPE_LONG) {}
  * @param val 要检查的值
  * @return 如果为零返回true，否则返回false
  */
-auto BigintType::IsZero(const Value &val) const -> bool { return (val.value_.bigint_ == 0); }
+auto BigintType::IsZero(const Value &val) const -> bool {
+  return (val.value_.bigint_ == 0);
+}
 
 auto BigintType::Add(const Value &left, const Value &right) const -> Value {
   assert(left.CheckInteger());
@@ -87,7 +90,8 @@ auto BigintType::Add(const Value &left, const Value &right) const -> Value {
   throw Exception("type error");
 }
 
-auto BigintType::Subtract(const Value &left, const Value &right) const -> Value {
+auto BigintType::Subtract(const Value &left, const Value &right) const
+    -> Value {
   assert(left.CheckInteger());
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -99,7 +103,8 @@ auto BigintType::Subtract(const Value &left, const Value &right) const -> Value 
   throw Exception("type error");
 }
 
-auto BigintType::Multiply(const Value &left, const Value &right) const -> Value {
+auto BigintType::Multiply(const Value &left, const Value &right) const
+    -> Value {
   assert(left.CheckInteger());
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -119,7 +124,8 @@ auto BigintType::Divide(const Value &left, const Value &right) const -> Value {
   }
 
   if (right.IsZero()) {
-    throw Exception(ExceptionType::DIVIDE_BY_ZERO, "Division by zero on right-hand side");
+    throw Exception(ExceptionType::DIVIDE_BY_ZERO,
+                    "Division by zero on right-hand side");
   }
 
   BIGINT_MODIFY_FUNC(DivideValue, /);
@@ -134,7 +140,8 @@ auto BigintType::Modulo(const Value &left, const Value &right) const -> Value {
   }
 
   if (right.IsZero()) {
-    throw Exception(ExceptionType::DIVIDE_BY_ZERO, "Division by zero on right-hand side");
+    throw Exception(ExceptionType::DIVIDE_BY_ZERO,
+                    "Division by zero on right-hand side");
   }
 
   switch (right.GetTypeId()) {
@@ -148,7 +155,8 @@ auto BigintType::Modulo(const Value &left, const Value &right) const -> Value {
       return ModuloValue<int64_t, int64_t>(left, right);
     case TypeId::TYPE_FLOAT:
     case TypeId::TYPE_DOUBLE:
-      return {TypeId::TYPE_DOUBLE, ValMod(left.value_.bigint_, right.GetAs<double>())};
+      return {TypeId::TYPE_DOUBLE,
+              ValMod(left.value_.bigint_, right.GetAs<double>())};
     case TypeId::TYPE_CHAR:
     case TypeId::TYPE_VARCHAR: {
       auto r_value = right.CastAs(TypeId::TYPE_LONG);
@@ -167,12 +175,14 @@ auto BigintType::Sqrt(const Value &val) const -> Value {
   }
 
   if (val.value_.bigint_ < 0) {
-    throw Exception(ExceptionType::DECIMAL, "Cannot take square root of a negative number.");
+    throw Exception(ExceptionType::DECIMAL,
+                    "Cannot take square root of a negative number.");
   }
   return {TypeId::TYPE_DOUBLE, std::sqrt(val.value_.bigint_)};
 }
 
-auto BigintType::OperateNull(const Value &left __attribute__((unused)), const Value &right) const -> Value {
+auto BigintType::OperateNull(const Value &left __attribute__((unused)),
+                             const Value &right) const -> Value {
   switch (right.GetTypeId()) {
     // case TypeId::TINYINT:
     // case TypeId::SMALLINT:
@@ -188,7 +198,8 @@ auto BigintType::OperateNull(const Value &left __attribute__((unused)), const Va
   throw Exception("type error");
 }
 
-auto BigintType::CompareEquals(const Value &left, const Value &right) const -> CmpBool {
+auto BigintType::CompareEquals(const Value &left, const Value &right) const
+    -> CmpBool {
   assert(left.CheckInteger());
   assert(left.CheckComparable(right));
 
@@ -201,7 +212,8 @@ auto BigintType::CompareEquals(const Value &left, const Value &right) const -> C
   throw Exception("type error");
 }
 
-auto BigintType::CompareNotEquals(const Value &left, const Value &right) const -> CmpBool {
+auto BigintType::CompareNotEquals(const Value &left, const Value &right) const
+    -> CmpBool {
   assert(left.CheckInteger());
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -213,7 +225,8 @@ auto BigintType::CompareNotEquals(const Value &left, const Value &right) const -
   throw Exception("type error");
 }
 
-auto BigintType::CompareLessThan(const Value &left, const Value &right) const -> CmpBool {
+auto BigintType::CompareLessThan(const Value &left, const Value &right) const
+    -> CmpBool {
   assert(left.CheckInteger());
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -225,7 +238,8 @@ auto BigintType::CompareLessThan(const Value &left, const Value &right) const ->
   throw Exception("type error");
 }
 
-auto BigintType::CompareLessThanEquals(const Value &left, const Value &right) const -> CmpBool {
+auto BigintType::CompareLessThanEquals(const Value &left,
+                                       const Value &right) const -> CmpBool {
   assert(left.CheckInteger());
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -237,7 +251,8 @@ auto BigintType::CompareLessThanEquals(const Value &left, const Value &right) co
   throw Exception("type error");
 }
 
-auto BigintType::CompareGreaterThan(const Value &left, const Value &right) const -> CmpBool {
+auto BigintType::CompareGreaterThan(const Value &left, const Value &right) const
+    -> CmpBool {
   assert(left.CheckInteger());
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -249,7 +264,8 @@ auto BigintType::CompareGreaterThan(const Value &left, const Value &right) const
   throw Exception("type error");
 }
 
-auto BigintType::CompareGreaterThanEquals(const Value &left, const Value &right) const -> CmpBool {
+auto BigintType::CompareGreaterThanEquals(const Value &left,
+                                          const Value &right) const -> CmpBool {
   assert(left.CheckInteger());
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -298,7 +314,9 @@ auto BigintType::DeserializeFrom(const char *storage) const -> Value {
  * @param val 要复制的值
  * @return 复制后的值
  */
-auto BigintType::Copy(const Value &val) const -> Value { return {TypeId::TYPE_LONG, val.value_.bigint_}; }
+auto BigintType::Copy(const Value &val) const -> Value {
+  return {TypeId::TYPE_LONG, val.value_.bigint_};
+}
 
 auto BigintType::CastAs(const Value &val, const TypeId type_id) const -> Value {
   switch (type_id) {
@@ -306,8 +324,10 @@ auto BigintType::CastAs(const Value &val, const TypeId type_id) const -> Value {
     //   if (val.IsNull()) {
     //     return {type_id, EASYDB_INT8_NULL};
     //   }
-    //   if (val.GetAs<int64_t>() > EASYDB_INT8_MAX || val.GetAs<int64_t>() < EASYDB_INT8_MIN) {
-    //     throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of range.");
+    //   if (val.GetAs<int64_t>() > EASYDB_INT8_MAX || val.GetAs<int64_t>() <
+    //   EASYDB_INT8_MIN) {
+    //     throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of
+    //     range.");
     //   }
     //   return {type_id, static_cast<int8_t>(val.GetAs<int64_t>())};
     // }
@@ -315,8 +335,10 @@ auto BigintType::CastAs(const Value &val, const TypeId type_id) const -> Value {
     //   if (val.IsNull()) {
     //     return {type_id, EASYDB_INT16_NULL};
     //   }
-    //   if (val.GetAs<int64_t>() > EASYDB_INT16_MAX || val.GetAs<int64_t>() < EASYDB_INT16_MIN) {
-    //     throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of range.");
+    //   if (val.GetAs<int64_t>() > EASYDB_INT16_MAX || val.GetAs<int64_t>() <
+    //   EASYDB_INT16_MIN) {
+    //     throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of
+    //     range.");
     //   }
     //   return {type_id, static_cast<int16_t>(val.GetAs<int64_t>())};
     // }
@@ -324,8 +346,10 @@ auto BigintType::CastAs(const Value &val, const TypeId type_id) const -> Value {
       if (val.IsNull()) {
         return {type_id, EASYDB_INT32_NULL};
       }
-      if (val.GetAs<int64_t>() > EASYDB_INT32_MAX || val.GetAs<int64_t>() < EASYDB_INT32_MIN) {
-        throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of range.");
+      if (val.GetAs<int64_t>() > EASYDB_INT32_MAX ||
+          val.GetAs<int64_t>() < EASYDB_INT32_MIN) {
+        throw Exception(ExceptionType::OUT_OF_RANGE,
+                        "Numeric value out of range.");
       }
       return {type_id, static_cast<int32_t>(val.GetAs<int64_t>())};
     }
@@ -355,7 +379,8 @@ auto BigintType::CastAs(const Value &val, const TypeId type_id) const -> Value {
     default:
       break;
   }
-  throw Exception("bigint is not coercable to " + Type::TypeIdToString(type_id));
+  throw Exception("bigint is not coercable to " +
+                  Type::TypeIdToString(type_id));
 }
 
 }  // namespace easydb

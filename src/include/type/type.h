@@ -30,14 +30,14 @@ class Value;
  * @note 用于表示两个值的比较结果，包括NULL值的处理
  */
 enum class CmpBool {
-  CmpFalse = 0,  /**< 比较结果为false */
-  CmpTrue = 1,   /**< 比较结果为true */
-  CmpNull = 2    /**< 比较结果涉及NULL值 */
+  CmpFalse = 0, /**< 比较结果为false */
+  CmpTrue = 1,  /**< 比较结果为true */
+  CmpNull = 2   /**< 比较结果涉及NULL值 */
 };
 
 /**
  * @brief 类型基类
- * 
+ *
  * Type 是所有数据类型的基类，提供了类型相关的通用操作接口。
  * 每种具体类型（如IntegerType、VarlenType等）都继承自此类。
  */
@@ -81,7 +81,7 @@ class Type {
    * @return 该类型的最小值
    */
   static auto GetMinValue(TypeId type_id) -> Value;
-  
+
   /**
    * @brief 获取类型的最大值
    * @param type_id 类型ID
@@ -94,7 +94,9 @@ class Type {
    * @param type_id 类型ID
    * @return 该类型的单例指针
    */
-  inline static auto GetInstance(TypeId type_id) -> Type * { return k_types[type_id]; }
+  inline static auto GetInstance(TypeId type_id) -> Type * {
+    return k_types[type_id];
+  }
 
   /**
    * @brief 获取类型ID
@@ -115,60 +117,67 @@ class Type {
   //    ... 等等 ...
   //
   // 我们不这样做有两个原因：
-  // (1) 重复调用CompareLessThan()可能是性能问题，由于Value是执行引擎的核心组件，
+  // (1)
+  // 重复调用CompareLessThan()可能是性能问题，由于Value是执行引擎的核心组件，
   //     我们希望尽可能提高性能。
   // (2) 通过使所有函数都是纯虚函数来保持接口的一致性。
-  
+
   /**
    * @brief 比较两个值是否相等
    * @param left 左侧值
    * @param right 右侧值
    * @return 比较结果（CmpBool）
    */
-  virtual auto CompareEquals(const Value &left, const Value &right) const -> CmpBool;
-  
+  virtual auto CompareEquals(const Value &left, const Value &right) const
+      -> CmpBool;
+
   /**
    * @brief 比较两个值是否不相等
    * @param left 左侧值
    * @param right 右侧值
    * @return 比较结果（CmpBool）
    */
-  virtual auto CompareNotEquals(const Value &left, const Value &right) const -> CmpBool;
-  
+  virtual auto CompareNotEquals(const Value &left, const Value &right) const
+      -> CmpBool;
+
   /**
    * @brief 比较左侧值是否小于右侧值
    * @param left 左侧值
    * @param right 右侧值
    * @return 比较结果（CmpBool）
    */
-  virtual auto CompareLessThan(const Value &left, const Value &right) const -> CmpBool;
-  
+  virtual auto CompareLessThan(const Value &left, const Value &right) const
+      -> CmpBool;
+
   /**
    * @brief 比较左侧值是否小于等于右侧值
    * @param left 左侧值
    * @param right 右侧值
    * @return 比较结果（CmpBool）
    */
-  virtual auto CompareLessThanEquals(const Value &left, const Value &right) const -> CmpBool;
-  
+  virtual auto CompareLessThanEquals(const Value &left,
+                                     const Value &right) const -> CmpBool;
+
   /**
    * @brief 比较左侧值是否大于右侧值
    * @param left 左侧值
    * @param right 右侧值
    * @return 比较结果（CmpBool）
    */
-  virtual auto CompareGreaterThan(const Value &left, const Value &right) const -> CmpBool;
-  
+  virtual auto CompareGreaterThan(const Value &left, const Value &right) const
+      -> CmpBool;
+
   /**
    * @brief 比较左侧值是否大于等于右侧值
    * @param left 左侧值
    * @param right 右侧值
    * @return 比较结果（CmpBool）
    */
-  virtual auto CompareGreaterThanEquals(const Value &left, const Value &right) const -> CmpBool;
+  virtual auto CompareGreaterThanEquals(const Value &left,
+                                        const Value &right) const -> CmpBool;
 
   // ==================== 数学函数 ====================
-  
+
   /**
    * @brief 加法运算
    * @param left 左侧值
@@ -176,7 +185,7 @@ class Type {
    * @return 运算结果
    */
   virtual auto Add(const Value &left, const Value &right) const -> Value;
-  
+
   /**
    * @brief 减法运算
    * @param left 左侧值
@@ -184,7 +193,7 @@ class Type {
    * @return 运算结果
    */
   virtual auto Subtract(const Value &left, const Value &right) const -> Value;
-  
+
   /**
    * @brief 乘法运算
    * @param left 左侧值
@@ -192,7 +201,7 @@ class Type {
    * @return 运算结果
    */
   virtual auto Multiply(const Value &left, const Value &right) const -> Value;
-  
+
   /**
    * @brief 除法运算
    * @param left 左侧值
@@ -200,7 +209,7 @@ class Type {
    * @return 运算结果
    */
   virtual auto Divide(const Value &left, const Value &right) const -> Value;
-  
+
   /**
    * @brief 取模运算
    * @param left 左侧值
@@ -208,7 +217,7 @@ class Type {
    * @return 运算结果
    */
   virtual auto Modulo(const Value &left, const Value &right) const -> Value;
-  
+
   /**
    * @brief 取最小值
    * @param left 左侧值
@@ -216,7 +225,7 @@ class Type {
    * @return 两个值中的较小者
    */
   virtual auto Min(const Value &left, const Value &right) const -> Value;
-  
+
   /**
    * @brief 取最大值
    * @param left 左侧值
@@ -224,14 +233,14 @@ class Type {
    * @return 两个值中的较大者
    */
   virtual auto Max(const Value &left, const Value &right) const -> Value;
-  
+
   /**
    * @brief 平方根运算
    * @param val 值
    * @return 平方根结果
    */
   virtual auto Sqrt(const Value &val) const -> Value;
-  
+
   /**
    * @brief NULL值运算
    * @param val 值
@@ -239,7 +248,7 @@ class Type {
    * @return 运算结果（如果涉及NULL，返回NULL）
    */
   virtual auto OperateNull(const Value &val, const Value &right) const -> Value;
-  
+
   /**
    * @brief 判断值是否为零
    * @param val 值
@@ -310,7 +319,7 @@ class Type {
    * @brief 实际的类型ID
    */
   TypeId type_id_;
-  
+
   /**
    * @brief 单例实例数组
    * @note 每种类型都有一个单例实例，通过GetInstance()访问

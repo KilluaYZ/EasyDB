@@ -41,22 +41,26 @@ namespace easydb {
       break;                                                               \
   }  // SWITCH
 
-#define DECIMAL_MODIFY_FUNC(OP)                                                           \
-  switch (right.GetTypeId()) {                                                            \
-    case TypeId::TYPE_INT:                                                                \
-      return Value(TypeId::TYPE_DOUBLE, left.value_.decimal_ OP right.GetAs<int32_t>());  \
-    case TypeId::TYPE_LONG:                                                               \
-      return Value(TypeId::TYPE_DOUBLE, left.value_.decimal_ OP right.GetAs<int64_t>());  \
-    case TypeId::TYPE_FLOAT:                                                              \
-    case TypeId::TYPE_DOUBLE:                                                             \
-      return Value(TypeId::TYPE_DOUBLE, left.value_.decimal_ OP right.GetAs<double>());   \
-    case TypeId::TYPE_CHAR:                                                               \
-    case TypeId::TYPE_VARCHAR: {                                                          \
-      auto r_value = right.CastAs(TypeId::TYPE_DOUBLE);                                   \
-      return Value(TypeId::TYPE_DOUBLE, left.value_.decimal_ OP r_value.GetAs<double>()); \
-    }                                                                                     \
-    default:                                                                              \
-      break;                                                                              \
+#define DECIMAL_MODIFY_FUNC(OP)                                      \
+  switch (right.GetTypeId()) {                                       \
+    case TypeId::TYPE_INT:                                           \
+      return Value(TypeId::TYPE_DOUBLE,                              \
+                   left.value_.decimal_ OP right.GetAs<int32_t>());  \
+    case TypeId::TYPE_LONG:                                          \
+      return Value(TypeId::TYPE_DOUBLE,                              \
+                   left.value_.decimal_ OP right.GetAs<int64_t>());  \
+    case TypeId::TYPE_FLOAT:                                         \
+    case TypeId::TYPE_DOUBLE:                                        \
+      return Value(TypeId::TYPE_DOUBLE,                              \
+                   left.value_.decimal_ OP right.GetAs<double>());   \
+    case TypeId::TYPE_CHAR:                                          \
+    case TypeId::TYPE_VARCHAR: {                                     \
+      auto r_value = right.CastAs(TypeId::TYPE_DOUBLE);              \
+      return Value(TypeId::TYPE_DOUBLE,                              \
+                   left.value_.decimal_ OP r_value.GetAs<double>()); \
+    }                                                                \
+    default:                                                         \
+      break;                                                         \
   }  // SWITCH
 
 // static inline double ValMod(double x, double y) {
@@ -84,7 +88,8 @@ auto DecimalType::Add(const Value &left, const Value &right) const -> Value {
   throw Exception("type error");
 }
 
-auto DecimalType::Subtract(const Value &left, const Value &right) const -> Value {
+auto DecimalType::Subtract(const Value &left, const Value &right) const
+    -> Value {
   assert(GetTypeId() == TypeId::TYPE_DOUBLE);
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -96,7 +101,8 @@ auto DecimalType::Subtract(const Value &left, const Value &right) const -> Value
   throw Exception("type error");
 }
 
-auto DecimalType::Multiply(const Value &left, const Value &right) const -> Value {
+auto DecimalType::Multiply(const Value &left, const Value &right) const
+    -> Value {
   assert(GetTypeId() == TypeId::TYPE_DOUBLE);
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -115,7 +121,8 @@ auto DecimalType::Divide(const Value &left, const Value &right) const -> Value {
   }
 
   if (right.IsZero()) {
-    throw Exception(ExceptionType::DIVIDE_BY_ZERO, "Division by zero on right-hand side");
+    throw Exception(ExceptionType::DIVIDE_BY_ZERO,
+                    "Division by zero on right-hand side");
   }
 
   DECIMAL_MODIFY_FUNC(/);  // NOLINT
@@ -131,24 +138,31 @@ auto DecimalType::Modulo(const Value &left, const Value &right) const -> Value {
   }
 
   if (right.IsZero()) {
-    throw Exception(ExceptionType::DIVIDE_BY_ZERO, "Division by zero on right-hand side");
+    throw Exception(ExceptionType::DIVIDE_BY_ZERO,
+                    "Division by zero on right-hand side");
   }
   switch (right.GetTypeId()) {
     // case TypeId::TINYINT:
-    //   return {TypeId::TYPE_DOUBLE, ValMod(left.value_.decimal_, right.GetAs<int8_t>())};
+    //   return {TypeId::TYPE_DOUBLE, ValMod(left.value_.decimal_,
+    //   right.GetAs<int8_t>())};
     // case TypeId::SMALLINT:
-    //   return {TypeId::TYPE_DOUBLE, ValMod(left.value_.decimal_, right.GetAs<int16_t>())};
+    //   return {TypeId::TYPE_DOUBLE, ValMod(left.value_.decimal_,
+    //   right.GetAs<int16_t>())};
     case TypeId::TYPE_INT:
-      return {TypeId::TYPE_DOUBLE, ValMod(left.value_.decimal_, right.GetAs<int32_t>())};
+      return {TypeId::TYPE_DOUBLE,
+              ValMod(left.value_.decimal_, right.GetAs<int32_t>())};
     case TypeId::TYPE_LONG:
-      return {TypeId::TYPE_DOUBLE, ValMod(left.value_.decimal_, right.GetAs<int64_t>())};
+      return {TypeId::TYPE_DOUBLE,
+              ValMod(left.value_.decimal_, right.GetAs<int64_t>())};
     case TypeId::TYPE_FLOAT:
     case TypeId::TYPE_DOUBLE:
-      return {TypeId::TYPE_DOUBLE, ValMod(left.value_.decimal_, right.GetAs<double>())};
+      return {TypeId::TYPE_DOUBLE,
+              ValMod(left.value_.decimal_, right.GetAs<double>())};
     case TypeId::TYPE_CHAR:
     case TypeId::TYPE_VARCHAR: {
       auto r_value = right.CastAs(TypeId::TYPE_DOUBLE);
-      return {TypeId::TYPE_DOUBLE, ValMod(left.value_.decimal_, r_value.GetAs<double>())};
+      return {TypeId::TYPE_DOUBLE,
+              ValMod(left.value_.decimal_, r_value.GetAs<double>())};
     }
     default:
       break;
@@ -188,17 +202,20 @@ auto DecimalType::Sqrt(const Value &val) const -> Value {
     return {TypeId::TYPE_DOUBLE, EASYDB_DECIMAL_NULL};
   }
   if (val.value_.decimal_ < 0) {
-    throw Exception(ExceptionType::DECIMAL, "Cannot take square root of a negative number.");
+    throw Exception(ExceptionType::DECIMAL,
+                    "Cannot take square root of a negative number.");
   }
   return {TypeId::TYPE_DOUBLE, std::sqrt(val.value_.decimal_)};
 }
 
 auto DecimalType::OperateNull(const Value &left __attribute__((unused)),
-                              const Value &right __attribute__((unused))) const -> Value {
+                              const Value &right __attribute__((unused))) const
+    -> Value {
   return {TypeId::TYPE_DOUBLE, EASYDB_DECIMAL_NULL};
 }
 
-auto DecimalType::CompareEquals(const Value &left, const Value &right) const -> CmpBool {
+auto DecimalType::CompareEquals(const Value &left, const Value &right) const
+    -> CmpBool {
   assert(GetTypeId() == TypeId::TYPE_DOUBLE);
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -210,7 +227,8 @@ auto DecimalType::CompareEquals(const Value &left, const Value &right) const -> 
   throw Exception("type error");
 }
 
-auto DecimalType::CompareNotEquals(const Value &left, const Value &right) const -> CmpBool {
+auto DecimalType::CompareNotEquals(const Value &left, const Value &right) const
+    -> CmpBool {
   assert(GetTypeId() == TypeId::TYPE_DOUBLE);
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -222,7 +240,8 @@ auto DecimalType::CompareNotEquals(const Value &left, const Value &right) const 
   throw Exception("type error");
 }
 
-auto DecimalType::CompareLessThan(const Value &left, const Value &right) const -> CmpBool {
+auto DecimalType::CompareLessThan(const Value &left, const Value &right) const
+    -> CmpBool {
   assert(GetTypeId() == TypeId::TYPE_DOUBLE);
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -234,7 +253,8 @@ auto DecimalType::CompareLessThan(const Value &left, const Value &right) const -
   throw Exception("type error");
 }
 
-auto DecimalType::CompareLessThanEquals(const Value &left, const Value &right) const -> CmpBool {
+auto DecimalType::CompareLessThanEquals(const Value &left,
+                                        const Value &right) const -> CmpBool {
   assert(GetTypeId() == TypeId::TYPE_DOUBLE);
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -246,7 +266,8 @@ auto DecimalType::CompareLessThanEquals(const Value &left, const Value &right) c
   throw Exception("type error");
 }
 
-auto DecimalType::CompareGreaterThan(const Value &left, const Value &right) const -> CmpBool {
+auto DecimalType::CompareGreaterThan(const Value &left,
+                                     const Value &right) const -> CmpBool {
   assert(GetTypeId() == TypeId::TYPE_DOUBLE);
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -258,7 +279,9 @@ auto DecimalType::CompareGreaterThan(const Value &left, const Value &right) cons
   throw Exception("type error");
 }
 
-auto DecimalType::CompareGreaterThanEquals(const Value &left, const Value &right) const -> CmpBool {
+auto DecimalType::CompareGreaterThanEquals(const Value &left,
+                                           const Value &right) const
+    -> CmpBool {
   assert(GetTypeId() == TypeId::TYPE_DOUBLE);
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -270,14 +293,17 @@ auto DecimalType::CompareGreaterThanEquals(const Value &left, const Value &right
   throw Exception("type error");
 }
 
-auto DecimalType::CastAs(const Value &val, const TypeId type_id) const -> Value {
+auto DecimalType::CastAs(const Value &val, const TypeId type_id) const
+    -> Value {
   switch (type_id) {
     // case TypeId::TINYINT: {
     //   if (val.IsNull()) {
     //     return {type_id, EASYDB_INT8_NULL};
     //   }
-    //   if (val.GetAs<double>() > EASYDB_INT8_MAX || val.GetAs<double>() < EASYDB_INT8_MIN) {
-    //     throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of range.");
+    //   if (val.GetAs<double>() > EASYDB_INT8_MAX || val.GetAs<double>() <
+    //   EASYDB_INT8_MIN) {
+    //     throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of
+    //     range.");
     //   }
     //   return {type_id, static_cast<int8_t>(val.GetAs<double>())};
     // }
@@ -285,8 +311,10 @@ auto DecimalType::CastAs(const Value &val, const TypeId type_id) const -> Value 
     //   if (val.IsNull()) {
     //     return {type_id, EASYDB_INT16_NULL};
     //   }
-    //   if (val.GetAs<double>() > EASYDB_INT16_MAX || val.GetAs<double>() < EASYDB_INT16_MIN) {
-    //     throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of range.");
+    //   if (val.GetAs<double>() > EASYDB_INT16_MAX || val.GetAs<double>() <
+    //   EASYDB_INT16_MIN) {
+    //     throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of
+    //     range.");
     //   }
     //   return {type_id, static_cast<int16_t>(val.GetAs<double>())};
     // }
@@ -294,8 +322,10 @@ auto DecimalType::CastAs(const Value &val, const TypeId type_id) const -> Value 
       if (val.IsNull()) {
         return {type_id, EASYDB_INT32_NULL};
       }
-      if (val.GetAs<double>() > EASYDB_INT32_MAX || val.GetAs<double>() < EASYDB_INT32_MIN) {
-        throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of range.");
+      if (val.GetAs<double>() > EASYDB_INT32_MAX ||
+          val.GetAs<double>() < EASYDB_INT32_MIN) {
+        throw Exception(ExceptionType::OUT_OF_RANGE,
+                        "Numeric value out of range.");
       }
       return {type_id, static_cast<int32_t>(val.GetAs<double>())};
     }
@@ -305,7 +335,8 @@ auto DecimalType::CastAs(const Value &val, const TypeId type_id) const -> Value 
       }
       if (val.GetAs<double>() >= static_cast<double>(EASYDB_INT64_MAX) ||
           val.GetAs<double>() < static_cast<double>(EASYDB_INT64_MIN)) {
-        throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of range.");
+        throw Exception(ExceptionType::OUT_OF_RANGE,
+                        "Numeric value out of range.");
       }
       return {type_id, static_cast<int64_t>(val.GetAs<double>())};
     }
@@ -322,7 +353,8 @@ auto DecimalType::CastAs(const Value &val, const TypeId type_id) const -> Value 
     default:
       break;
   }
-  throw Exception("DECIMAL is not coercable to " + Type::TypeIdToString(type_id));
+  throw Exception("DECIMAL is not coercable to " +
+                  Type::TypeIdToString(type_id));
 }
 
 /**
@@ -357,6 +389,8 @@ auto DecimalType::DeserializeFrom(const char *storage) const -> Value {
  * @param val 要复制的值
  * @return 复制后的值
  */
-auto DecimalType::Copy(const Value &val) const -> Value { return {TypeId::TYPE_DOUBLE, val.value_.decimal_}; }
+auto DecimalType::Copy(const Value &val) const -> Value {
+  return {TypeId::TYPE_DOUBLE, val.value_.decimal_};
+}
 
 }  // namespace easydb

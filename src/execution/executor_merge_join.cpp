@@ -19,8 +19,10 @@ namespace easydb {
  * @param conds 连接条件
  * @param use_index 是否使用索引
  */
-MergeJoinExecutor::MergeJoinExecutor(std::unique_ptr<AbstractExecutor> left, std::unique_ptr<AbstractExecutor> right,
-                                     std::vector<Condition> conds, bool use_index) {
+MergeJoinExecutor::MergeJoinExecutor(std::unique_ptr<AbstractExecutor> left,
+                                     std::unique_ptr<AbstractExecutor> right,
+                                     std::vector<Condition> conds,
+                                     bool use_index) {
   left_ = std::move(left);
   right_ = std::move(right);
   len_ = left_->tupleLen() + right_->tupleLen();
@@ -33,7 +35,8 @@ MergeJoinExecutor::MergeJoinExecutor(std::unique_ptr<AbstractExecutor> left, std
 
   auto left_columns = left_->schema().GetColumns();
   auto right_colums = right_->schema().GetColumns();
-  left_columns.insert(left_columns.end(), right_colums.begin(), right_colums.end());
+  left_columns.insert(left_columns.end(), right_colums.begin(),
+                      right_colums.end());
   schema_ = Schema(left_columns);
 
   isend = false;
@@ -43,10 +46,12 @@ MergeJoinExecutor::MergeJoinExecutor(std::unique_ptr<AbstractExecutor> left, std
   for (auto &cond : fed_conds_) {
     // op must be OP_EQ and right hand must also be a col
     if (cond.op == OP_EQ && !cond.is_rhs_val) {
-      if (cond.lhs_col.tab_name == left_->getTabName() || cond.rhs_col.tab_name == right_->getTabName()) {
+      if (cond.lhs_col.tab_name == left_->getTabName() ||
+          cond.rhs_col.tab_name == right_->getTabName()) {
         left_sel_colu_ = left_->schema().GetColumn(cond.lhs_col.col_name);
         right_sel_colu_ = right_->schema().GetColumn(cond.rhs_col.col_name);
-      } else if (cond.rhs_col.tab_name == left_->getTabName() || cond.lhs_col.tab_name == right_->getTabName()) {
+      } else if (cond.rhs_col.tab_name == left_->getTabName() ||
+                 cond.lhs_col.tab_name == right_->getTabName()) {
         left_sel_colu_ = left_->schema().GetColumn(cond.lhs_col.col_name);
         right_sel_colu_ = right_->schema().GetColumn(cond.rhs_col.col_name);
       }
@@ -56,8 +61,10 @@ MergeJoinExecutor::MergeJoinExecutor(std::unique_ptr<AbstractExecutor> left, std
   if (!use_index_) {
     left_size_ = left_->schema().GetPhysicalSize();
     right_size_ = right_->schema().GetPhysicalSize();
-    leftSorter_ = std::make_unique<MergeSorter>(left_sel_colu_, left_->schema().GetColumns(), left_size_, false);
-    rightSorter_ = std::make_unique<MergeSorter>(right_sel_colu_, right_->schema().GetColumns(), right_size_, false);
+    leftSorter_ = std::make_unique<MergeSorter>(
+        left_sel_colu_, left_->schema().GetColumns(), left_size_, false);
+    rightSorter_ = std::make_unique<MergeSorter>(
+        right_sel_colu_, right_->schema().GetColumns(), right_size_, false);
   }
 
   current_left_data_ = new char[left_size_];
@@ -186,7 +193,8 @@ void MergeJoinExecutor::iterate_helper() {
       memcpy(current_right_data_, tp, right_size_);
       free(tp);
       right_tuple.DeserializeFrom(current_right_data_);
-      rhs_v = right_tuple.GetValue(&right_->schema(), right_sel_colu_.GetName());
+      rhs_v =
+          right_tuple.GetValue(&right_->schema(), right_sel_colu_.GetName());
     }
   }
 
@@ -213,40 +221,49 @@ void MergeJoinExecutor::index_iterate_helper() {
 
   if (!initialize_flag_) {
     current_right_tup_ = right_buffer_[right_idx_];
-    rhs_v = current_right_tup_.GetValue(&right_->schema(), right_sel_colu_.GetName());
+    rhs_v = current_right_tup_.GetValue(&right_->schema(),
+                                        right_sel_colu_.GetName());
     last_right_val_ = rhs_v;
     last_right_idx_ = right_idx_;
     right_idx_++;
 
     current_left_tup_ = left_buffer_[left_idx_];
-    lhs_v = current_left_tup_.GetValue(&left_->schema(), left_sel_colu_.GetName());
+    lhs_v =
+        current_left_tup_.GetValue(&left_->schema(), left_sel_colu_.GetName());
     last_left_val_ = lhs_v;
     left_idx_++;
 
     initialize_flag_ = true;
   } else {
-    rhs_v = current_right_tup_.GetValue(&right_->schema(), right_sel_colu_.GetName());
+    rhs_v = current_right_tup_.GetValue(&right_->schema(),
+                                        right_sel_colu_.GetName());
     Value next_right_v;
     if (right_idx_ < right_buffer_.size())
-      next_right_v = right_buffer_[right_idx_].GetValue(&right_->schema(), right_sel_colu_.GetName());
+      next_right_v = right_buffer_[right_idx_].GetValue(
+          &right_->schema(), right_sel_colu_.GetName());
 
     if (right_idx_ >= right_buffer_.size() || rhs_v != next_right_v) {
       current_left_tup_ = left_buffer_[left_idx_];
       left_idx_++;
 
-      lhs_v = current_left_tup_.GetValue(&left_->schema(), left_sel_colu_.GetName());
-      if (last_left_val_.GetTypeId() != TYPE_EMPTY && last_left_val_ == lhs_v && right_idx_ < right_buffer_.size()) {
+      lhs_v = current_left_tup_.GetValue(&left_->schema(),
+                                         left_sel_colu_.GetName());
+      if (last_left_val_.GetTypeId() != TYPE_EMPTY && last_left_val_ == lhs_v &&
+          right_idx_ < right_buffer_.size()) {
         right_idx_ = last_right_idx_;
         current_right_tup_ = right_buffer_[right_idx_];
-        rhs_v = current_right_tup_.GetValue(&right_->schema(), right_sel_colu_.GetName());
+        rhs_v = current_right_tup_.GetValue(&right_->schema(),
+                                            right_sel_colu_.GetName());
         right_idx_++;
       }
       last_left_val_ = lhs_v;
     } else {
-      lhs_v = current_left_tup_.GetValue(&left_->schema(), left_sel_colu_.GetName());
+      lhs_v = current_left_tup_.GetValue(&left_->schema(),
+                                         left_sel_colu_.GetName());
       current_right_tup_ = right_buffer_[right_idx_];
       right_idx_++;
-      rhs_v = current_right_tup_.GetValue(&right_->schema(), right_sel_colu_.GetName());
+      rhs_v = current_right_tup_.GetValue(&right_->schema(),
+                                          right_sel_colu_.GetName());
     }
   }
 
@@ -255,12 +272,14 @@ void MergeJoinExecutor::index_iterate_helper() {
       break;
     } else if (lhs_v < rhs_v) {
       current_left_tup_ = left_buffer_[left_idx_];
-      lhs_v = current_left_tup_.GetValue(&left_->schema(), left_sel_colu_.GetName());
+      lhs_v = current_left_tup_.GetValue(&left_->schema(),
+                                         left_sel_colu_.GetName());
       last_left_val_ = lhs_v;
       left_idx_++;
     } else {
       current_right_tup_ = right_buffer_[right_idx_];
-      rhs_v = current_right_tup_.GetValue(&right_->schema(), right_sel_colu_.GetName());
+      rhs_v = current_right_tup_.GetValue(&right_->schema(),
+                                          right_sel_colu_.GetName());
       if (last_right_val_ != rhs_v) {
         last_right_val_ = rhs_v;
         last_right_idx_ = right_idx_;
@@ -271,7 +290,8 @@ void MergeJoinExecutor::index_iterate_helper() {
 
   while (lhs_v > rhs_v && right_idx_ < right_buffer_.size()) {
     current_right_tup_ = right_buffer_[right_idx_];
-    rhs_v = current_right_tup_.GetValue(&right_->schema(), right_sel_colu_.GetName());
+    rhs_v = current_right_tup_.GetValue(&right_->schema(),
+                                        right_sel_colu_.GetName());
     if (last_right_val_ != rhs_v) {
       last_right_val_ = rhs_v;
       last_right_idx_ = right_idx_;
@@ -292,7 +312,8 @@ Tuple MergeJoinExecutor::concat_records() {
   // if (use_index_) {
   auto left_value_vec = current_left_tup_.GetValueVec(&left_->schema());
   auto right_value_vec = current_right_tup_.GetValueVec(&right_->schema());
-  left_value_vec.insert(left_value_vec.end(), right_value_vec.begin(), right_value_vec.end());
+  left_value_vec.insert(left_value_vec.end(), right_value_vec.begin(),
+                        right_value_vec.end());
   return Tuple(left_value_vec, &schema_);
   // } else {
   //   Tuple left_tuple_tp;
@@ -303,7 +324,8 @@ Tuple MergeJoinExecutor::concat_records() {
   //   right_tuple_tp.DeserializeFrom(current_right_data_);
   //   auto right_value_vec = right_tuple_tp.GetValueVec(&right_->schema());
 
-  //   left_value_vec.insert(left_value_vec.end(), right_value_vec.begin(), right_value_vec.end());
+  //   left_value_vec.insert(left_value_vec.end(), right_value_vec.begin(),
+  //   right_value_vec.end());
 
   //   return Tuple(left_value_vec, &schema_);
   // }

@@ -16,7 +16,7 @@ namespace easydb {
 
 /**
  * @brief 哈希连接键结构体
- * 
+ *
  * HashJoinKey 用于哈希连接操作，存储连接列的值。
  * 支持多列连接（多个值组成一个键）。
  */
@@ -55,7 +55,8 @@ struct hash<easydb::HashJoinKey> {
   std::size_t operator()(const easydb::HashJoinKey &key) const {
     std::size_t curr_hash = 0;
     for (const auto &value : key.values_) {
-      curr_hash = easydb::HashUtil::CombineHashes(curr_hash, easydb::HashUtil::HashValue(&value));
+      curr_hash = easydb::HashUtil::CombineHashes(
+          curr_hash, easydb::HashUtil::HashValue(&value));
     }
     return curr_hash;
   }
@@ -67,10 +68,10 @@ namespace easydb {
 
 /**
  * @brief 哈希连接执行器类
- * 
+ *
  * HashJoinExecutor 实现哈希连接操作，使用哈希表加速等值连接。
  * 如果连接条件不是等值条件，则回退到嵌套循环连接。
- * 
+ *
  * 算法流程：
  * 1. Build阶段：将左表的所有元组构建哈希表
  * 2. Probe阶段：遍历右表，在哈希表中查找匹配的元组
@@ -81,42 +82,42 @@ class HashJoinExecutor : public AbstractExecutor {
    * @brief 左子节点执行器
    */
   std::unique_ptr<AbstractExecutor> left_;
-  
+
   /**
    * @brief 右子节点执行器
    */
   std::unique_ptr<AbstractExecutor> right_;
-  
+
   /**
    * @brief 左表名称
    */
   std::string left_tab_name_;
-  
+
   /**
    * @brief 右表名称
    */
   std::string right_tab_name_;
-  
+
   /**
    * @brief join后的表名称
    */
   std::string join_tab_name_;
-  
+
   /**
    * @brief join后获得的每条记录的长度（字节数）
    */
   size_t len_;
-  
+
   /**
    * @brief join后生成的记录的字段模式
    */
   Schema schema_;
-  
+
   /**
    * @brief 连接条件列表
    */
   std::vector<Condition> conds_;
-  
+
   /**
    * @brief 是否到达末尾标志
    */
@@ -132,15 +133,17 @@ class HashJoinExecutor : public AbstractExecutor {
   /**
    * @brief 连接列列表
    */
-  std::vector<Column> left_join_cols_;   /**< 左表连接列 */
-  std::vector<Column> right_join_cols_;  /**< 右表连接列 */
+  std::vector<Column> left_join_cols_;  /**< 左表连接列 */
+  std::vector<Column> right_join_cols_; /**< 右表连接列 */
 
   /**
    * @brief 哈希连接迭代器
    */
-  std::unordered_multimap<HashJoinKey, Tuple>::iterator match_iter_;  /**< 当前匹配的迭代器 */
-  std::unordered_multimap<HashJoinKey, Tuple>::iterator match_end_;  /**< 匹配范围的结束迭代器 */
-  
+  std::unordered_multimap<HashJoinKey, Tuple>::iterator
+      match_iter_; /**< 当前匹配的迭代器 */
+  std::unordered_multimap<HashJoinKey, Tuple>::iterator
+      match_end_; /**< 匹配范围的结束迭代器 */
+
   /**
    * @brief 当前探测的右表元组
    */
@@ -151,21 +154,22 @@ class HashJoinExecutor : public AbstractExecutor {
    * @note 如果连接条件不是等值条件，则使用嵌套循环连接
    */
   bool use_nested_loop_;
-  
+
   /**
    * @brief 嵌套循环连接的索引
    */
-  size_t left_idx_;   /**< 左表缓冲区索引 */
-  size_t right_idx_;  /**< 右表缓冲区索引 */
-  
+  size_t left_idx_;  /**< 左表缓冲区索引 */
+  size_t right_idx_; /**< 右表缓冲区索引 */
+
   /**
    * @brief 嵌套循环连接的缓冲区
    */
-  std::vector<Tuple> left_buffer_;   /**< 左表元组缓冲区 */
-  std::vector<Tuple> right_buffer_;  /**< 右表元组缓冲区 */
+  std::vector<Tuple> left_buffer_;  /**< 左表元组缓冲区 */
+  std::vector<Tuple> right_buffer_; /**< 右表元组缓冲区 */
 
  public:
-  HashJoinExecutor(std::unique_ptr<AbstractExecutor> left, std::unique_ptr<AbstractExecutor> right,
+  HashJoinExecutor(std::unique_ptr<AbstractExecutor> left,
+                   std::unique_ptr<AbstractExecutor> right,
                    std::vector<Condition> conds);
 
   void beginTuple() override;
@@ -187,7 +191,8 @@ class HashJoinExecutor : public AbstractExecutor {
   void NestedLoopNext();
 };
 
-HashJoinExecutor::HashJoinExecutor(std::unique_ptr<AbstractExecutor> left, std::unique_ptr<AbstractExecutor> right,
+HashJoinExecutor::HashJoinExecutor(std::unique_ptr<AbstractExecutor> left,
+                                   std::unique_ptr<AbstractExecutor> right,
                                    std::vector<Condition> conds)
     : left_(std::move(left)),
       right_(std::move(right)),
@@ -203,7 +208,8 @@ HashJoinExecutor::HashJoinExecutor(std::unique_ptr<AbstractExecutor> left, std::
   // Build the output schema by combining left and right schemas
   auto left_columns = left_->schema().GetColumns();
   auto right_columns = right_->schema().GetColumns();
-  left_columns.insert(left_columns.end(), right_columns.begin(), right_columns.end());
+  left_columns.insert(left_columns.end(), right_columns.begin(),
+                      right_columns.end());
   schema_ = Schema(left_columns);
 
   len_ = left_->tupleLen() + right_->tupleLen();
@@ -212,12 +218,18 @@ HashJoinExecutor::HashJoinExecutor(std::unique_ptr<AbstractExecutor> left, std::
   for (auto &cond : conds_) {
     if (cond.op == OP_EQ && !cond.is_rhs_val) {
       // Both sides are columns
-      if (cond.lhs_col.tab_name == left_tab_name_ || cond.rhs_col.tab_name == right_tab_name_) {
-        left_join_cols_.push_back(left_->schema().GetColumn(cond.lhs_col.col_name));
-        right_join_cols_.push_back(right_->schema().GetColumn(cond.rhs_col.col_name));
-      } else if (cond.rhs_col.tab_name == left_tab_name_ || cond.lhs_col.tab_name == right_tab_name_) {
-        left_join_cols_.push_back(left_->schema().GetColumn(cond.rhs_col.col_name));
-        right_join_cols_.push_back(right_->schema().GetColumn(cond.lhs_col.col_name));
+      if (cond.lhs_col.tab_name == left_tab_name_ ||
+          cond.rhs_col.tab_name == right_tab_name_) {
+        left_join_cols_.push_back(
+            left_->schema().GetColumn(cond.lhs_col.col_name));
+        right_join_cols_.push_back(
+            right_->schema().GetColumn(cond.rhs_col.col_name));
+      } else if (cond.rhs_col.tab_name == left_tab_name_ ||
+                 cond.lhs_col.tab_name == right_tab_name_) {
+        left_join_cols_.push_back(
+            left_->schema().GetColumn(cond.rhs_col.col_name));
+        right_join_cols_.push_back(
+            right_->schema().GetColumn(cond.lhs_col.col_name));
       }
     }
   }
@@ -290,15 +302,18 @@ std::unique_ptr<Tuple> HashJoinExecutor::Next() {
   if (use_nested_loop_) {
     // Combine the current matching left and right tuples
     auto left_values = left_buffer_[left_idx_].GetValueVec(&left_->schema());
-    auto right_values = right_buffer_[right_idx_].GetValueVec(&right_->schema());
-    left_values.insert(left_values.end(), right_values.begin(), right_values.end());
+    auto right_values =
+        right_buffer_[right_idx_].GetValueVec(&right_->schema());
+    left_values.insert(left_values.end(), right_values.begin(),
+                       right_values.end());
     Tuple joined_tuple(left_values, &schema_);
     return std::make_unique<Tuple>(std::move(joined_tuple));
   } else {
     // Hash join
     auto left_values = match_iter_->second.GetValueVec(&left_->schema());
     auto right_values = current_probe_tuple_.GetValueVec(&right_->schema());
-    left_values.insert(left_values.end(), right_values.begin(), right_values.end());
+    left_values.insert(left_values.end(), right_values.begin(),
+                       right_values.end());
     Tuple joined_tuple(left_values, &schema_);
     return std::make_unique<Tuple>(std::move(joined_tuple));
   }
@@ -324,7 +339,8 @@ void HashJoinExecutor::ProbeHashTable() {
   // Extract join keys from the right tuple
   std::vector<Value> key_values;
   for (const auto &col : right_join_cols_) {
-    key_values.push_back(current_probe_tuple_.GetValue(&right_->schema(), col.GetName()));
+    key_values.push_back(
+        current_probe_tuple_.GetValue(&right_->schema(), col.GetName()));
   }
   HashJoinKey key{key_values};
   auto range = hash_table_.equal_range(key);
@@ -332,18 +348,22 @@ void HashJoinExecutor::ProbeHashTable() {
   match_end_ = range.second;
 }
 
-bool HashJoinExecutor::predicate(const Tuple &left_tuple, const Tuple &right_tuple) {
+bool HashJoinExecutor::predicate(const Tuple &left_tuple,
+                                 const Tuple &right_tuple) {
   for (const auto &cond : conds_) {
     Value lhs_v, rhs_v;
     if (!cond.is_rhs_val) {
       // Both sides are columns
-      // If the left or right is a join executor, then the table name will be join_tab_name instead of tab_name in the
-      // condition. We assume that there must be a raw table name from the left or right executor, that means one side
-      // must not be join executor.
-      if (cond.lhs_col.tab_name == left_tab_name_ || cond.rhs_col.tab_name == right_tab_name_) {
+      // If the left or right is a join executor, then the table name will be
+      // join_tab_name instead of tab_name in the condition. We assume that
+      // there must be a raw table name from the left or right executor, that
+      // means one side must not be join executor.
+      if (cond.lhs_col.tab_name == left_tab_name_ ||
+          cond.rhs_col.tab_name == right_tab_name_) {
         lhs_v = left_tuple.GetValue(&left_->schema(), cond.lhs_col.col_name);
         rhs_v = right_tuple.GetValue(&right_->schema(), cond.rhs_col.col_name);
-      } else if (cond.lhs_col.tab_name == right_tab_name_ || cond.rhs_col.tab_name == left_tab_name_) {
+      } else if (cond.lhs_col.tab_name == right_tab_name_ ||
+                 cond.rhs_col.tab_name == left_tab_name_) {
         lhs_v = right_tuple.GetValue(&right_->schema(), cond.lhs_col.col_name);
         rhs_v = left_tuple.GetValue(&left_->schema(), cond.rhs_col.col_name);
       } else {
@@ -368,19 +388,24 @@ bool HashJoinExecutor::predicate(const Tuple &left_tuple, const Tuple &right_tup
         condition_satisfied = (lhs_v.CompareEquals(rhs_v) == CmpBool::CmpTrue);
         break;
       case OP_NE:
-        condition_satisfied = (lhs_v.CompareNotEquals(rhs_v) == CmpBool::CmpTrue);
+        condition_satisfied =
+            (lhs_v.CompareNotEquals(rhs_v) == CmpBool::CmpTrue);
         break;
       case OP_LT:
-        condition_satisfied = (lhs_v.CompareLessThan(rhs_v) == CmpBool::CmpTrue);
+        condition_satisfied =
+            (lhs_v.CompareLessThan(rhs_v) == CmpBool::CmpTrue);
         break;
       case OP_GT:
-        condition_satisfied = (lhs_v.CompareGreaterThan(rhs_v) == CmpBool::CmpTrue);
+        condition_satisfied =
+            (lhs_v.CompareGreaterThan(rhs_v) == CmpBool::CmpTrue);
         break;
       case OP_LE:
-        condition_satisfied = (lhs_v.CompareLessThanEquals(rhs_v) == CmpBool::CmpTrue);
+        condition_satisfied =
+            (lhs_v.CompareLessThanEquals(rhs_v) == CmpBool::CmpTrue);
         break;
       case OP_GE:
-        condition_satisfied = (lhs_v.CompareGreaterThanEquals(rhs_v) == CmpBool::CmpTrue);
+        condition_satisfied =
+            (lhs_v.CompareGreaterThanEquals(rhs_v) == CmpBool::CmpTrue);
         break;
       default:
         throw InternalError("Unsupported operator in condition.");

@@ -1,7 +1,7 @@
 /* Copyright (c) 2023 Renmin University of China
 RMDB is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
+You can use this software according to the terms and conditions of the Mulan PSL
+v2. You may obtain a copy of Mulan PSL v2 at:
         http://license.coscl.org.cn/MulanPSL2
 THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
@@ -26,29 +26,38 @@ class RecordPrinter {
   size_t num_cols;
 
  public:
-  RecordPrinter(size_t num_cols_) : num_cols(num_cols_) { assert(num_cols_ > 0); }
+  RecordPrinter(size_t num_cols_) : num_cols(num_cols_) {
+    assert(num_cols_ > 0);
+  }
 
   void print_separator(Context *context) const {
     for (size_t i = 0; i < num_cols; i++) {
       // std::cout << '+' << std::string(COL_WIDTH + 2, '-');
       std::string str = "+" + std::string(COL_WIDTH + 2, '-');
-      if (context->ellipsis_ == false && *context->offset_ + RECORD_COUNT_LENGTH + str.length() < BUFFER_LENGTH) {
-        memcpy(context->data_send_ + *(context->offset_), str.c_str(), str.length());
+      if (context->ellipsis_ == false &&
+          *context->offset_ + RECORD_COUNT_LENGTH + str.length() <
+              BUFFER_LENGTH) {
+        memcpy(context->data_send_ + *(context->offset_), str.c_str(),
+               str.length());
         *(context->offset_) = *(context->offset_) + str.length();
       } else {
         context->ellipsis_ = true;
       }
     }
     std::string str = "+\n";
-    if (context->ellipsis_ == false && *context->offset_ + RECORD_COUNT_LENGTH + str.length() < BUFFER_LENGTH) {
-      memcpy(context->data_send_ + *(context->offset_), str.c_str(), str.length());
+    if (context->ellipsis_ == false &&
+        *context->offset_ + RECORD_COUNT_LENGTH + str.length() <
+            BUFFER_LENGTH) {
+      memcpy(context->data_send_ + *(context->offset_), str.c_str(),
+             str.length());
       *(context->offset_) = *(context->offset_) + str.length();
     } else {
       context->ellipsis_ = true;
     }
   }
 
-  void print_record(const std::vector<std::string> &rec_str, Context *context) const {
+  void print_record(const std::vector<std::string> &rec_str,
+                    Context *context) const {
     assert(rec_str.size() == num_cols);
     for (auto col : rec_str) {
       if (col.size() > COL_WIDTH) {
@@ -57,8 +66,11 @@ class RecordPrinter {
       // std::cout << "| " << std::setw(COL_WIDTH) << col << ' ';
       std::stringstream ss;
       ss << "| " << std::setw(COL_WIDTH) << col << " ";
-      if (context->ellipsis_ == false && *context->offset_ + RECORD_COUNT_LENGTH + ss.str().length() < BUFFER_LENGTH) {
-        memcpy(context->data_send_ + *(context->offset_), ss.str().c_str(), ss.str().length());
+      if (context->ellipsis_ == false &&
+          *context->offset_ + RECORD_COUNT_LENGTH + ss.str().length() <
+              BUFFER_LENGTH) {
+        memcpy(context->data_send_ + *(context->offset_), ss.str().c_str(),
+               ss.str().length());
         *(context->offset_) = *(context->offset_) + ss.str().length();
       } else {
         context->ellipsis_ = true;
@@ -66,8 +78,11 @@ class RecordPrinter {
     }
     // std::cout << "|\n";
     std::string str = "|\n";
-    if (context->ellipsis_ == false && *context->offset_ + RECORD_COUNT_LENGTH + str.length() < BUFFER_LENGTH) {
-      memcpy(context->data_send_ + *(context->offset_), str.c_str(), str.length());
+    if (context->ellipsis_ == false &&
+        *context->offset_ + RECORD_COUNT_LENGTH + str.length() <
+            BUFFER_LENGTH) {
+      memcpy(context->data_send_ + *(context->offset_), str.c_str(),
+             str.length());
       *(context->offset_) = *(context->offset_) + str.length();
     }
     context->AddJsonData(rec_str);
@@ -82,7 +97,8 @@ class RecordPrinter {
         str = "... ...\n";
       }
       str += "Total record(s): " + std::to_string(num_rec) + '\n';
-      memcpy(context->data_send_ + *(context->offset_), str.c_str(), str.length());
+      memcpy(context->data_send_ + *(context->offset_), str.c_str(),
+             str.length());
       *(context->offset_) = *(context->offset_) + str.length();
     } else {
       str = "empty set\n";

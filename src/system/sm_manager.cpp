@@ -1,7 +1,7 @@
 /* Copyright (c) 2023 Renmin University of China
 RMDB is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
+You can use this software according to the terms and conditions of the Mulan PSL
+v2. You may obtain a copy of Mulan PSL v2 at:
         http://license.coscl.org.cn/MulanPSL2
 THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
@@ -92,7 +92,8 @@ void SmManager::DropDB(const std::string &db_name) {
 }
 
 /**
- * @description: 打开数据库，找到数据库对应的文件夹，并加载数据库元数据和相关文件
+ * @description:
+ * 打开数据库，找到数据库对应的文件夹，并加载数据库元数据和相关文件
  * @param {string&} db_name 数据库名称，与文件夹同名
  */
 void SmManager::OpenDB(const std::string &db_name) {
@@ -115,7 +116,8 @@ void SmManager::OpenDB(const std::string &db_name) {
     // the name of record file is table name, index file is table_name.index
     fhs_.emplace(table.first, rm_manager_->OpenFile(table.first));
     if (ix_manager_->Exists(table.first, db_.tabs_[table.first].cols)) {
-      ihs_.emplace(table.first, ix_manager_->OpenIndex(table.first, table.second.cols));
+      ihs_.emplace(table.first,
+                   ix_manager_->OpenIndex(table.first, table.second.cols));
     }
   }
 
@@ -149,7 +151,8 @@ void SmManager::CloseDB() {
 }
 
 /**
- * @description: 显示所有的表,通过测试需要将其结果写入到output.txt,详情看题目文档
+ * @description:
+ * 显示所有的表,通过测试需要将其结果写入到output.txt,详情看题目文档
  * @param {Context*} context
  */
 void SmManager::ShowTables(Context *context) {
@@ -189,7 +192,8 @@ void SmManager::DescTable(const std::string &tab_name, Context *context) {
   printer.print_separator(context);
   // Print fields
   for (auto &col : tab.cols) {
-    std::vector<std::string> field_info = {col.name, coltype2str(col.type), col.index ? "YES" : "NO"};
+    std::vector<std::string> field_info = {col.name, coltype2str(col.type),
+                                           col.index ? "YES" : "NO"};
     printer.print_record(field_info, context);
   }
   // Print footer
@@ -202,7 +206,9 @@ void SmManager::DescTable(const std::string &tab_name, Context *context) {
  * @param {vector<ColDef>&} col_defs 表的字段
  * @param {Context*} context
  */
-void SmManager::CreateTable(const std::string &tab_name, const std::vector<ColDef> &col_defs, Context *context) {
+void SmManager::CreateTable(const std::string &tab_name,
+                            const std::vector<ColDef> &col_defs,
+                            Context *context) {
   if (db_.is_table(tab_name)) {
     throw TableExistsError(tab_name);
   }
@@ -212,7 +218,8 @@ void SmManager::CreateTable(const std::string &tab_name, const std::vector<ColDe
   tab.name = tab_name;
   std::vector<Column> columns;
   for (auto &col_def : col_defs) {
-    ColMeta col(tab_name, col_def.name, col_def.type, col_def.len, curr_offset, false);
+    ColMeta col(tab_name, col_def.name, col_def.type, col_def.len, curr_offset,
+                false);
     curr_offset += col_def.len;
     tab.cols.push_back(col);
 
@@ -239,7 +246,9 @@ void SmManager::CreateTable(const std::string &tab_name, const std::vector<ColDe
   tab.schema = schema;
 
   // Create & open record file
-  int record_size = curr_offset;  // record_size就是col meta所占的大小（表的元数据也是以记录的形式进行存储的）
+  int record_size =
+      curr_offset;  // record_size就是col
+                    // meta所占的大小（表的元数据也是以记录的形式进行存储的）
   rm_manager_->CreateFile(tab_name, record_size);
 
   db_.tabs_[tab_name] = tab;
@@ -248,7 +257,8 @@ void SmManager::CreateTable(const std::string &tab_name, const std::vector<ColDe
 
   // lock manager
   if (context != nullptr) {
-    context->lock_mgr_->LockExclusiveOnTable(context->txn_, fhs_[tab_name]->GetFd());
+    context->lock_mgr_->LockExclusiveOnTable(context->txn_,
+                                             fhs_[tab_name]->GetFd());
   }
   SetTableCount(tab_name, 0);
 
@@ -267,7 +277,8 @@ void SmManager::DropTable(const std::string &tab_name, Context *context) {
 
   // lock manager
   if (context != nullptr) {
-    context->lock_mgr_->LockExclusiveOnTable(context->txn_, fhs_[tab_name]->GetFd());
+    context->lock_mgr_->LockExclusiveOnTable(context->txn_,
+                                             fhs_[tab_name]->GetFd());
   }
 
   // remove record file and index file(if exist)
@@ -318,7 +329,9 @@ void SmManager::ShowIndex(const std::string &tab_name, Context *context) {
  * @param {vector<string>&} col_names 索引包含的字段名称
  * @param {Context*} context
  */
-void SmManager::CreateIndex(const std::string &tab_name, const std::vector<std::string> &col_names, Context *context) {
+void SmManager::CreateIndex(const std::string &tab_name,
+                            const std::vector<std::string> &col_names,
+                            Context *context) {
   // check if tab exists
   if (!db_.is_table(tab_name)) {
     throw TableNotFoundError(tab_name);
@@ -326,7 +339,8 @@ void SmManager::CreateIndex(const std::string &tab_name, const std::vector<std::
 
   // lock manager
   if (context != nullptr) {
-    context->lock_mgr_->LockSharedOnTable(context->txn_, fhs_[tab_name]->GetFd());
+    context->lock_mgr_->LockSharedOnTable(context->txn_,
+                                          fhs_[tab_name]->GetFd());
   }
 
   // get colMeta
@@ -363,27 +377,31 @@ void SmManager::CreateIndex(const std::string &tab_name, const std::vector<std::
   while (!rmScan.IsEnd()) {
     auto rid = rmScan.GetRid();
     auto tuple = Rfh->GetTupleValue(rid, context);
-    auto key_tuple = Rfh->GetKeyTuple(tab_meta.schema, key_schema, key_ids, rid, context);
+    auto key_tuple =
+        Rfh->GetKeyTuple(tab_meta.schema, key_schema, key_ids, rid, context);
     // construct key
     char *key = new char[index_meta.col_tot_len];
     int offset = 0;
     for (int i = 0; i < index_meta.col_num; ++i) {
-      // memcpy(key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
+      // memcpy(key + offset, rec->data + index_meta.cols[i].offset,
+      // index_meta.cols[i].len);
       auto len = index_meta.cols[i].len;
       auto val = key_tuple.GetValue(&key_schema, i);
       // memcpy(key + offset, val.GetData(), val.GetStorageSize());
       if (val.GetTypeId() == TYPE_CHAR || val.GetTypeId() == TYPE_VARCHAR) {
         memcpy(key + offset, val.GetData(), index_meta.cols[i].len);
       } else {
-        assert(uint32_t(len) == Type(val.GetTypeId()).GetTypeSize(val.GetTypeId()));
+        assert(uint32_t(len) ==
+               Type(val.GetTypeId()).GetTypeSize(val.GetTypeId()));
         val.SerializeTo(key + offset);
       }
       offset += index_meta.cols[i].len;
     }
     // // print key
-    // std::cout << "key: " << std::string(key, index_meta.col_tot_len) << std::endl;
-    // for (int i = 0; i < 4; ++i) {
-    //   std::cout << "0x" << std::hex << std::setw(2) << std::setfill('0') << (int)(unsigned char)key[i] << " ";
+    // std::cout << "key: " << std::string(key, index_meta.col_tot_len) <<
+    // std::endl; for (int i = 0; i < 4; ++i) {
+    //   std::cout << "0x" << std::hex << std::setw(2) << std::setfill('0') <<
+    //   (int)(unsigned char)key[i] << " ";
     // }
     // std::cout << std::endl;
     // std::cout << "key(int): " << std::to_string(*(int *)key) << std::endl;
@@ -394,7 +412,8 @@ void SmManager::CreateIndex(const std::string &tab_name, const std::vector<std::
       pos = Iih->InsertEntry(key, rid, nullptr);
     }
     if (pos == -1) {
-      throw Exception("Insert index entry failed(duplicate key). Is the index unique?");
+      throw Exception(
+          "Insert index entry failed(duplicate key). Is the index unique?");
     }
     delete[] key;
     rmScan.Next();
@@ -413,14 +432,17 @@ void SmManager::CreateIndex(const std::string &tab_name, const std::vector<std::
  * @param {vector<string>&} col_names 索引包含的字段名称
  * @param {Context*} context
  */
-void SmManager::DropIndex(const std::string &tab_name, const std::vector<std::string> &col_names, Context *context) {
+void SmManager::DropIndex(const std::string &tab_name,
+                          const std::vector<std::string> &col_names,
+                          Context *context) {
   if (!ix_manager_->Exists(tab_name, col_names)) {
     throw IndexEntryNotFoundError();
   }
 
   // lock manager
   if (context != nullptr) {
-    context->lock_mgr_->LockSharedOnTable(context->txn_, fhs_[tab_name]->GetFd());
+    context->lock_mgr_->LockSharedOnTable(context->txn_,
+                                          fhs_[tab_name]->GetFd());
   }
 
   auto index_name = ix_manager_->GetIndexName(tab_name, col_names);
@@ -428,7 +450,8 @@ void SmManager::DropIndex(const std::string &tab_name, const std::vector<std::st
   if (ihs_.find(index_name) != ihs_.end()) {
     auto Iih = ihs_.at(index_name).get();
     ix_manager_->CloseIndex(Iih);
-    // To ensure data consistency, remove all pages in buffer pool related to this index
+    // To ensure data consistency, remove all pages in buffer pool related to
+    // this index
     buffer_pool_manager_->RemoveAllPages(Iih->GetFd());
     // DbMeta
     ihs_.erase(index_name);
@@ -449,34 +472,39 @@ void SmManager::DropIndex(const std::string &tab_name, const std::vector<std::st
  * @param {vector<ColMeta>&} 索引包含的字段元数据
  * @param {Context*} context
  */
-void SmManager::DropIndex(const std::string &tab_name, const std::vector<ColMeta> &cols, Context *context) {
+void SmManager::DropIndex(const std::string &tab_name,
+                          const std::vector<ColMeta> &cols, Context *context) {
   // fetch col_names from col metadata.
   std::vector<std::string> col_names;
   for (auto &col : cols) {
     col_names.emplace_back(col.name);
   }
-  // involke drop_index(const std::string& tab_name, const std::vector<std::string>& col_names, Context* context) to do
-  // the real work
+  // involke drop_index(const std::string& tab_name, const
+  // std::vector<std::string>& col_names, Context* context) to do the real work
   DropIndex(tab_name, col_names, context);
 }
 
 /**
  * Rolls back a write operation based on the type of write record.
  *
- * @param write_record The write record containing information about the write operation.
+ * @param write_record The write record containing information about the write
+ * operation.
  * @param context The context object for the current transaction.
  * @throws InternalError if the write type is invalid.
  */
 void SmManager::Rollback(WriteRecord *write_record, Context *context) {
   switch (write_record->GetWriteType()) {
     case WType::INSERT_TUPLE:
-      RollbackInsert(write_record->GetTableName(), write_record->GetRid(), context);
+      RollbackInsert(write_record->GetTableName(), write_record->GetRid(),
+                     context);
       break;
     case WType::DELETE_TUPLE:
-      RollbackDelete(write_record->GetTableName(), write_record->GetRid(), write_record->GetTuple(), context);
+      RollbackDelete(write_record->GetTableName(), write_record->GetRid(),
+                     write_record->GetTuple(), context);
       break;
     case WType::UPDATE_TUPLE:
-      RollbackUpdate(write_record->GetTableName(), write_record->GetRid(), write_record->GetTuple(), context);
+      RollbackUpdate(write_record->GetTableName(), write_record->GetRid(),
+                     write_record->GetTuple(), context);
       break;
     default:
       throw InternalError("SmManager::rollback: Invalid write type");
@@ -484,15 +512,16 @@ void SmManager::Rollback(WriteRecord *write_record, Context *context) {
 }
 
 /**
- * Rolls back an insert operation by removing the record from the record file and
- * deleting the corresponding index entries.
+ * Rolls back an insert operation by removing the record from the record file
+ * and deleting the corresponding index entries.
  *
  * @param table_name The name of the table where the record was inserted.
  * @param rid The Rid of the inserted record.
  * @param context The context object for the current transaction.
  * @todo DeleteLogRecord
  */
-void SmManager::RollbackInsert(const std::string &table_name, RID &rid, Context *context) {
+void SmManager::RollbackInsert(const std::string &table_name, RID &rid,
+                               Context *context) {
   auto fh = fhs_.at(table_name).get();
   // auto record = fh->GetRecord(rid, context);
   auto rec = fh->GetTupleValue(rid, context);
@@ -503,7 +532,8 @@ void SmManager::RollbackInsert(const std::string &table_name, RID &rid, Context 
     auto index_name = ix_manager_->GetIndexName(table_name, index.cols);
     auto ih = ihs_.at(index_name).get();
     auto key_schema = Schema::CopySchema(&tab.schema, index.col_ids);
-    auto key_tuple = fh->GetKeyTuple(tab.schema, key_schema, index.col_ids, rid, context);
+    auto key_tuple =
+        fh->GetKeyTuple(tab.schema, key_schema, index.col_ids, rid, context);
     char *key = new char[index.col_tot_len];
     int offset = 0;
     for (int i = 0; i < index.col_num; ++i) {
@@ -518,8 +548,8 @@ void SmManager::RollbackInsert(const std::string &table_name, RID &rid, Context 
   fh->DeleteTuple(rid, context);
 
   // // TODO: DeleteLogRecord(CLR)
-  // DeleteLogRecord del_log_rec(context->txn_->GetTransactionId(), *record, rid, table_name);
-  // del_log_rec.prev_lsn_ = context->txn_->GetPrevLsn();
+  // DeleteLogRecord del_log_rec(context->txn_->GetTransactionId(), *record,
+  // rid, table_name); del_log_rec.prev_lsn_ = context->txn_->GetPrevLsn();
   // lsn_t lsn = context->log_mgr_->add_log_to_buffer(&del_log_rec);
   // context->txn_->SetPrevLsn(lsn);
   // // set lsn in page header
@@ -530,8 +560,8 @@ void SmManager::RollbackInsert(const std::string &table_name, RID &rid, Context 
 }
 
 /**
- * Rolls back a delete operation by inserting the deleted record back into the record file and
- * re-creating the corresponding index entries.
+ * Rolls back a delete operation by inserting the deleted record back into the
+ * record file and re-creating the corresponding index entries.
  *
  * @param table_name The name of the table where the record was deleted.
  * @param rid The Rid of the deleted record.
@@ -539,14 +569,15 @@ void SmManager::RollbackInsert(const std::string &table_name, RID &rid, Context 
  * @param context The context object for the current transaction.
  * @todo InsertLogRecord
  */
-void SmManager::RollbackDelete(const std::string &table_name, RID &rid, Tuple &tuple, Context *context) {
+void SmManager::RollbackDelete(const std::string &table_name, RID &rid,
+                               Tuple &tuple, Context *context) {
   // insert the record back into the record file
   auto fh = fhs_.at(table_name).get();
   fh->InsertTuple(rid, TupleMeta{0, false}, tuple, context);
 
   // // TODO: InsertLogRecord(CLR)
-  // InsertLogRecord insert_log_rec(context->txn_->GetTransactionId(), record, rid, table_name);
-  // insert_log_rec.prev_lsn_ = context->txn_->GetPrevLsn();
+  // InsertLogRecord insert_log_rec(context->txn_->GetTransactionId(), record,
+  // rid, table_name); insert_log_rec.prev_lsn_ = context->txn_->GetPrevLsn();
   // lsn_t lsn = context->log_mgr_->add_log_to_buffer(&insert_log_rec);
   // context->txn_->SetPrevLsn(lsn);
   // // set lsn in page header
@@ -560,7 +591,8 @@ void SmManager::RollbackDelete(const std::string &table_name, RID &rid, Tuple &t
   for (auto index : tab.indexes) {
     auto ih = ihs_.at(ix_manager_->GetIndexName(table_name, index.cols)).get();
     auto key_schema = Schema::CopySchema(&tab.schema, index.col_ids);
-    auto key_tuple = fh->GetKeyTuple(tab.schema, key_schema, index.col_ids, rid, context);
+    auto key_tuple =
+        fh->GetKeyTuple(tab.schema, key_schema, index.col_ids, rid, context);
     char *key = new char[index.col_tot_len];
     int offset = 0;
     for (int i = 0; i < index.col_num; ++i) {
@@ -580,8 +612,8 @@ void SmManager::RollbackDelete(const std::string &table_name, RID &rid, Tuple &t
 }
 
 /**
- * Rolls back an update operation by reverting the updated record to its old value and
- * updating the corresponding index entries.
+ * Rolls back an update operation by reverting the updated record to its old
+ * value and updating the corresponding index entries.
  *
  * @param table_name The name of the table where the record was updated.
  * @param rid The Rid of the updated record.
@@ -589,7 +621,8 @@ void SmManager::RollbackDelete(const std::string &table_name, RID &rid, Tuple &t
  * @param context The context object for the current transaction.
  * @todo UpdateLogRecord
  */
-void SmManager::RollbackUpdate(const std::string &table_name, RID &rid, Tuple &tuple, Context *context) {
+void SmManager::RollbackUpdate(const std::string &table_name, RID &rid,
+                               Tuple &tuple, Context *context) {
   auto fh = fhs_.at(table_name).get();
   auto tab = db_.get_table(table_name);
   // get the new record
@@ -598,8 +631,10 @@ void SmManager::RollbackUpdate(const std::string &table_name, RID &rid, Tuple &t
   auto values = tuple.GetValueVec(&tab.schema);
 
   // // TODO: UpdateLogRecord(CLR)
-  // // Log: before update value because the object of new_record(a ptr) will be changed in 'update_record'
-  // UpdateLogRecord update_log_rec(context->txn_->GetTransactionId(), *new_record, record, rid, table_name);
+  // // Log: before update value because the object of new_record(a ptr) will be
+  // changed in 'update_record' UpdateLogRecord
+  // update_log_rec(context->txn_->GetTransactionId(), *new_record, record, rid,
+  // table_name);
 
   // update the record to the old record
   // fh->UpdateTupleInPlace(TupleMeta{0, false}, tuple, rid, context);
@@ -652,7 +687,8 @@ void SmManager::RollbackUpdate(const std::string &table_name, RID &rid, Tuple &t
  * @param delimiter: delimiter
  * @param tokens: output tokens
  */
-void SmManager::Split(const std::string &s, char delimiter, std::vector<std::string> &tokens) {
+void SmManager::Split(const std::string &s, char delimiter,
+                      std::vector<std::string> &tokens) {
   std::string token;
   std::istringstream tokenStream(s);
   while (std::getline(tokenStream, token, delimiter)) {
@@ -667,7 +703,8 @@ void SmManager::Split(const std::string &s, char delimiter, std::vector<std::str
  * @param delimiter: delimiter
  * @param tokens: output tokens
  */
-void SmManager::Split(const char *start, size_t length, char delimiter, std::vector<std::string> &tokens) {
+void SmManager::Split(const char *start, size_t length, char delimiter,
+                      std::vector<std::string> &tokens) {
   const char *end = start + length;
   const char *token_start = start;
 
@@ -683,7 +720,8 @@ void SmManager::Split(const char *start, size_t length, char delimiter, std::vec
   }
 }
 
-inline int ix_compare(const char *a, const char *b, const std::vector<ColMeta> cols) {
+inline int ix_compare(const char *a, const char *b,
+                      const std::vector<ColMeta> cols) {
   int offset = 0;
   for (size_t i = 0; i < cols.size(); ++i) {
     int res = ix_compare(a + offset, b + offset, cols[i].type, cols[i].len);
@@ -700,12 +738,14 @@ inline int ix_compare(const char *a, const char *b, const std::vector<ColMeta> c
  * @param context
  * @note: this function will insert one record into table
  */
-RID fh_insert(RmFileHandle *fh, std::vector<Value> &values, Schema *schema, Context *context) {
+RID fh_insert(RmFileHandle *fh, std::vector<Value> &values, Schema *schema,
+              Context *context) {
   Tuple tuple{values, schema};
   auto rid = fh->InsertTuple(TupleMeta{0, false}, tuple, context);
   auto page_id = rid->GetPageId();
   auto slot_num = rid->GetSlotNum();
-  // std::cout << "[TEST] insert rid: page id: " << page_id << " slot num: " << slot_num << std::endl;
+  // std::cout << "[TEST] insert rid: page id: " << page_id << " slot num: " <<
+  // slot_num << std::endl;
   return {page_id, slot_num};
 }
 
@@ -716,8 +756,10 @@ RID fh_insert(RmFileHandle *fh, std::vector<Value> &values, Schema *schema, Cont
  * @param context
  * @note: this function does not create table, just load data to existing table
  */
-void SmManager::LoadData(const std::string &file_name, const std::string &table_name, Context *context) {
-  // std::cout << "SmManager::load_data: load data from " << file_name << " to table " << table_name << std::endl;
+void SmManager::LoadData(const std::string &file_name,
+                         const std::string &table_name, Context *context) {
+  // std::cout << "SmManager::load_data: load data from " << file_name << " to
+  // table " << table_name << std::endl;
   // 1. Get the table object
   // check if table exists
   if (!db_.is_table(table_name)) {
@@ -738,7 +780,9 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
     close(fd);
     auto current = std::filesystem::current_path();
     auto err_msg =
-        "SmManager::load_data: open file failed, please check file relative to current directory: " + current.string();
+        "SmManager::load_data: open file failed, please check file relative to "
+        "current directory: " +
+        current.string();
     throw Exception(err_msg);
   }
   size_t file_size = lseek(fd, 0, SEEK_END);
@@ -762,7 +806,8 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
   // //   if (header[i] != tab.cols[i].name) {
   // //     munmap(data, file_size);
   // //     close(fd);
-  // //     throw InternalError("SmManager::load_data: header not match table schema");
+  // //     throw InternalError("SmManager::load_data: header not match table
+  // schema");
   // //   }
   // // }
   // line_start = line_end + 1;
@@ -809,13 +854,14 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
     for (int i = 0; i < col_size; ++i) {
       char *token_end = std::find(token_start, line_end, '|');
       // Calculate the destination address in the page buffer
-      // char *dest = page_data + (page_record_count * record_size) + tab.cols[i].offset;
-      // int len = tab.cols[i].len;
+      // char *dest = page_data + (page_record_count * record_size) +
+      // tab.cols[i].offset; int len = tab.cols[i].len;
       auto type = tab.cols[i].type;
       Value _tmp_val;
       switch (type) {
         case TYPE_INT: {
-          _tmp_val = Value(type, std::stoi(std::string(token_start, token_end)));
+          _tmp_val =
+              Value(type, std::stoi(std::string(token_start, token_end)));
           float val_tp = std::stoi(std::string(token_start, token_end));
           if (val_tp > attr_max[col_name[i]]) {
             attr_max[col_name[i]] = val_tp;
@@ -829,7 +875,8 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
         }
         case TYPE_DOUBLE:
         case TYPE_FLOAT: {
-          _tmp_val = Value(type, std::stof(std::string(token_start, token_end)));
+          _tmp_val =
+              Value(type, std::stof(std::string(token_start, token_end)));
           float val_tp = std::stof(std::string(token_start, token_end));
           if (val_tp > attr_max[col_name[i]]) {
             attr_max[col_name[i]] = val_tp;
@@ -839,7 +886,8 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
           }
           attr_sum[col_name[i]] += val_tp;
           attr_distinct[col_name[i]].emplace(val_tp);
-          // *reinterpret_cast<float *>(dest) = std::stof(std::string(token_start, token_end));
+          // *reinterpret_cast<float *>(dest) =
+          // std::stof(std::string(token_start, token_end));
           break;
         }
         case TYPE_CHAR:
@@ -863,8 +911,8 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
     }
     // auto _tmp_rid = fh_insert(fh, values, &tab.schema, context);
 
-    // no context for load data because context may be destroyed before load data finish
-    // when using async load data
+    // no context for load data because context may be destroyed before load
+    // data finish when using async load data
     fh_insert(fh, values, &tab.schema, nullptr);
 
     // // Extract the key for index
@@ -873,12 +921,14 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
     //   int offset = 0;
     //   for (int i = 0; i < index.col_num; ++i) {
     //     auto val = index.
-    //     // memcpy(key + offset, page_data + (page_record_count * record_size) + index.cols[i].offset,
+    //     // memcpy(key + offset, page_data + (page_record_count * record_size)
+    //     + index.cols[i].offset,
     //     // index.cols[i].len); offset += index.cols[i].len;
     //     memcpy(key + offset, )
     //   }
     //   index_entries.emplace_back(std::string(key, index.col_tot_len),
-    //                              RID{fh->get_file_hdr().num_pages, page_record_count});
+    //                              RID{fh->get_file_hdr().num_pages,
+    //                              page_record_count});
     //   delete[] key;
     // }
     page_record_count++;
@@ -901,10 +951,15 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
   SetTableCount(table_name, total_records);
   for (auto &name : col_name) {
     if (attr_distinct[name].size() == 0) continue;
-    std::cout << table_name << " " << name << " max = " << attr_max[name] << " " << std::endl;
-    std::cout << table_name << " " << name << " min = " << attr_min[name] << " " << std::endl;
-    std::cout << table_name << " " << name << " sum = " << attr_sum[name] << " " << std::endl;
-    std::cout << table_name << " " << name << " distinct = " << attr_distinct[name].size() << " " << std::endl;
+    std::cout << table_name << " " << name << " max = " << attr_max[name] << " "
+              << std::endl;
+    std::cout << table_name << " " << name << " min = " << attr_min[name] << " "
+              << std::endl;
+    std::cout << table_name << " " << name << " sum = " << attr_sum[name] << " "
+              << std::endl;
+    std::cout << table_name << " " << name
+              << " distinct = " << attr_distinct[name].size() << " "
+              << std::endl;
     SetTableAttrMax(table_name, name, attr_max[name]);
     SetTableAttrMin(table_name, name, attr_min[name]);
     SetTableAttrSum(table_name, name, attr_sum[name]);
@@ -913,9 +968,11 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
 
   // // Sort the index entries and insert them into the index file
   // for (auto &index : tab.indexes) {
-  //   // std::sort(index_entries.begin(), index_entries.end(), [&](const std::pair<std::string, Rid>& a, const
+  //   // std::sort(index_entries.begin(), index_entries.end(), [&](const
+  //   std::pair<std::string, Rid>& a, const
   //   // std::pair<std::string, Rid>& b) {
-  //   //     return ix_compare(a.first.c_str(), b.first.c_str(), index.cols) < 0;
+  //   //     return ix_compare(a.first.c_str(), b.first.c_str(), index.cols) <
+  //   0;
   //   // });
   //   // Insert the sorted entries into the B+ tree
   //   auto index_name = ix_manager_->GetIndexName(table_name, index.cols);
@@ -931,10 +988,12 @@ void SmManager::LoadData(const std::string &file_name, const std::string &table_
   close(fd);
 }
 
-void SmManager::AsyncLoadData(const std::string &file_name, const std::string &tab_name, Context *context) {
+void SmManager::AsyncLoadData(const std::string &file_name,
+                              const std::string &tab_name, Context *context) {
   // -1 for not load, 0 for loading, 1 for loaded
   load_ = 0;
-  futures_.emplace_back(std::async(std::launch::async, [=]() { LoadData(file_name, tab_name, context); }));
+  futures_.emplace_back(std::async(
+      std::launch::async, [=]() { LoadData(file_name, tab_name, context); }));
 }
 
 void SmManager::AsyncLoadDataFinish() {

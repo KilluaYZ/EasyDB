@@ -65,7 +65,8 @@ void sigint_handler(int signo) {
 // 判断当前正在执行的是显式事务还是单条SQL语句的事务，并更新事务ID
 void SetTransaction(txn_id_t *txn_id, Context *context) {
   context->txn_ = txn_manager->GetTransaction(*txn_id);
-  if (context->txn_ == nullptr || context->txn_->GetState() == TransactionState::COMMITTED ||
+  if (context->txn_ == nullptr ||
+      context->txn_->GetState() == TransactionState::COMMITTED ||
       context->txn_->GetState() == TransactionState::ABORTED) {
     context->txn_ = txn_manager->Begin(nullptr, context->log_mgr_);
     *txn_id = context->txn_->GetTransactionId();
@@ -88,7 +89,8 @@ void *client_handler(void *sock_fd) {
   // 记录客户端当前正在执行的事务ID
   txn_id_t txn_id = INVALID_TXN_ID;
 
-  std::string output = "establish client connection, sockfd: " + std::to_string(fd) + "\n";
+  std::string output =
+      "establish client connection, sockfd: " + std::to_string(fd) + "\n";
   std::cout << output;
 
   while (true) {
@@ -123,7 +125,8 @@ void *client_handler(void *sock_fd) {
     offset = 0;
 
     // 开启事务，初始化系统所需的上下文信息（包括事务对象指针、锁管理器指针、日志管理器指针、存放结果的buffer、记录结果长度的变量）
-    Context *context = new Context(lock_manager.get(), log_manager.get(), nullptr, data_send, &offset);
+    Context *context = new Context(lock_manager.get(), log_manager.get(),
+                                   nullptr, data_send, &offset);
     SetTransaction(&txn_id, context);
     context->InitJson();
 
@@ -140,14 +143,15 @@ void *client_handler(void *sock_fd) {
           finish_analyze = true;
           pthread_mutex_unlock(buffer_mutex);
           // 优化器
-          // std::cout << "Optimizer Enable: " << planner->GetEnableOptimizer() << std::endl;
-          // if (!optimizer->bypass(query, context))
+          // std::cout << "Optimizer Enable: " << planner->GetEnableOptimizer()
+          // << std::endl; if (!optimizer->bypass(query, context))
           {
             auto temp1 = std::chrono::high_resolution_clock::now();
             std::shared_ptr<Plan> plan = optimizer->plan_query(query, context);
             // portal
             if (plan->tag != easydb::T_Empty) {
-              std::shared_ptr<PortalStmt> portalStmt = portal->start(plan, context);
+              std::shared_ptr<PortalStmt> portalStmt =
+                  portal->start(plan, context);
               portal->run(portalStmt, ql_manager.get(), &txn_id, context);
               portal->drop();
             } else {
@@ -158,7 +162,10 @@ void *client_handler(void *sock_fd) {
             context->SetJsonMsg("success");
             auto temp2 = std::chrono::high_resolution_clock::now();
             std::cout << "sql time usage:"
-                      << (double)std::chrono::duration_cast<std::chrono::microseconds>(temp2 - temp1).count() / 1000000
+                      << (double)std::chrono::duration_cast<
+                             std::chrono::microseconds>(temp2 - temp1)
+                                 .count() /
+                             1000000
                       << std::endl
                       << std::endl;
           }
@@ -269,7 +276,8 @@ void start_server() {
   s_addr_in.sin_family = AF_INET;
   s_addr_in.sin_addr.s_addr = htonl(INADDR_ANY);
   s_addr_in.sin_port = htons(SOCK_PORT);
-  fd_temp = bind(sockfd_server, (struct sockaddr *)(&s_addr_in), sizeof(s_addr_in));
+  fd_temp =
+      bind(sockfd_server, (struct sockaddr *)(&s_addr_in), sizeof(s_addr_in));
   if (fd_temp == -1) {
     std::cout << "Bind error!" << std::endl;
     exit(1);
@@ -294,14 +302,16 @@ void start_server() {
 
     // Block here. Until server accepts a new connection.
     pthread_mutex_lock(sockfd_mutex);
-    sockfd = accept(sockfd_server, (struct sockaddr *)(&s_addr_client), (socklen_t *)(&client_length));
+    sockfd = accept(sockfd_server, (struct sockaddr *)(&s_addr_client),
+                    (socklen_t *)(&client_length));
     if (sockfd == -1) {
       std::cout << "Accept error!" << std::endl;
       continue;  // ignore current socket ,continue while loop.
     }
 
     // 和客户端建立连接，并开启一个线程负责处理客户端请求
-    if (pthread_create(&thread_id, nullptr, &client_handler, (void *)(&sockfd)) != 0) {
+    if (pthread_create(&thread_id, nullptr, &client_handler,
+                       (void *)(&sockfd)) != 0) {
       std::cout << "Create thread fail!" << std::endl;
       break;  // break while loop
     }
@@ -309,7 +319,9 @@ void start_server() {
 
   // Clear
   std::cout << " Try to close all client-connection.\n";
-  int ret = shutdown(sockfd_server, SHUT_WR);  // shut down the all or part of a full-duplex connection.
+  int ret = shutdown(
+      sockfd_server,
+      SHUT_WR);  // shut down the all or part of a full-duplex connection.
   if (ret == -1) {
     printf("%s\n", strerror(errno));
   }
@@ -319,7 +331,9 @@ void start_server() {
   std::cout << "Server shuts down." << std::endl;
 }
 
-void print_help() { std::cout << "Usage: ./easydb_server -p <port> -d <database>"; }
+void print_help() {
+  std::cout << "Usage: ./easydb_server -p <port> -d <database>";
+}
 
 int main(int argc, char **argv) {
   std::string db_name;
@@ -362,19 +376,26 @@ int main(int argc, char **argv) {
     // Database name is passed by args
 
     disk_manager = std::make_unique<DiskManager>(db_name);
-    buffer_pool_manager = std::make_unique<BufferPoolManager>(BUFFER_POOL_SIZE, disk_manager.get());
-    rm_manager = std::make_unique<RmManager>(disk_manager.get(), buffer_pool_manager.get());
-    ix_manager = std::make_unique<IxManager>(disk_manager.get(), buffer_pool_manager.get());
-    sm_manager =
-        std::make_unique<SmManager>(disk_manager.get(), buffer_pool_manager.get(), rm_manager.get(), ix_manager.get());
+    buffer_pool_manager = std::make_unique<BufferPoolManager>(
+        BUFFER_POOL_SIZE, disk_manager.get());
+    rm_manager = std::make_unique<RmManager>(disk_manager.get(),
+                                             buffer_pool_manager.get());
+    ix_manager = std::make_unique<IxManager>(disk_manager.get(),
+                                             buffer_pool_manager.get());
+    sm_manager = std::make_unique<SmManager>(
+        disk_manager.get(), buffer_pool_manager.get(), rm_manager.get(),
+        ix_manager.get());
     lock_manager = std::make_unique<LockManager>();
-    txn_manager = std::make_unique<TransactionManager>(lock_manager.get(), sm_manager.get());
+    txn_manager = std::make_unique<TransactionManager>(lock_manager.get(),
+                                                       sm_manager.get());
     planner = std::make_unique<Planner>(sm_manager.get());
     optimizer = std::make_unique<Optimizer>(sm_manager.get(), planner.get());
-    ql_manager = std::make_unique<QlManager>(sm_manager.get(), txn_manager.get(), planner.get());
+    ql_manager = std::make_unique<QlManager>(sm_manager.get(),
+                                             txn_manager.get(), planner.get());
     log_manager = std::make_unique<LogManager>(disk_manager.get());
-    recovery = std::make_unique<RecoveryManager>(disk_manager.get(), buffer_pool_manager.get(), sm_manager.get(),
-                                                 txn_manager.get(), log_manager.get());
+    recovery = std::make_unique<RecoveryManager>(
+        disk_manager.get(), buffer_pool_manager.get(), sm_manager.get(),
+        txn_manager.get(), log_manager.get());
 
     portal = std::make_unique<Portal>(sm_manager.get());
     analyze = std::make_unique<Analyze>(sm_manager.get());

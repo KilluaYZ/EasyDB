@@ -1,7 +1,7 @@
 /* Copyright (c) 2023 Renmin University of China
 RMDB is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
+You can use this software according to the terms and conditions of the Mulan PSL
+v2. You may obtain a copy of Mulan PSL v2 at:
         http://license.coscl.org.cn/MulanPSL2
 THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
@@ -31,17 +31,17 @@ class Context;
 struct ColDef {
   /** @brief 列名 */
   std::string name;
-  
+
   /** @brief 列的类型 */
   ColType type;
-  
+
   /** @brief 列的长度（对于变长类型） */
   int len;
 };
 
 /**
  * @brief 系统管理器类，负责元数据管理和DDL语句的执行
- * 
+ *
  * SmManager 是数据库系统的核心管理器，负责：
  * - 数据库的创建、删除、打开、关闭
  * - 表的创建、删除、描述
@@ -56,74 +56,79 @@ class SmManager {
    * @note 包含数据库中的所有表、索引等元信息
    */
   DbMeta db_;
-  
+
   /**
    * @brief 文件名到记录文件句柄的映射
    * @note 存储当前数据库中每张表的数据文件句柄
    *       Key: 文件名，Value: 记录文件句柄的智能指针
    */
   std::unordered_map<std::string, std::unique_ptr<RmFileHandle>> fhs_;
-  
+
   /**
    * @brief 文件名到索引文件句柄的映射
    * @note 存储当前数据库中每个索引的文件句柄
    *       Key: 文件名，Value: 索引文件句柄的智能指针
    */
   std::unordered_map<std::string, std::unique_ptr<IxIndexHandle>> ihs_;
+
  private:
   /** @brief 磁盘管理器指针 */
   DiskManager *disk_manager_;
-  
+
   /** @brief 缓冲池管理器指针 */
   BufferPoolManager *buffer_pool_manager_;
-  
+
   /** @brief 记录管理器指针 */
   RmManager *rm_manager_;
-  
+
   /** @brief 索引管理器指针 */
   IxManager *ix_manager_;
-  
+
   /** @brief 是否启用输出标志 */
   bool enable_output_;
-  
+
   // ==================== 表统计信息 ====================
-  
+
   /**
    * @brief 表名到记录数量的映射
    * @note 用于统计每张表的记录数量
    */
   std::unordered_map<std::string, int> table_count_;
-  
+
   /**
    * @brief 表名和属性名到最大值的映射
    * @note 用于统计每张表每个属性的最大值
    */
-  std::unordered_map<std::string, std::unordered_map<std::string, float>> table_attr_max_;
-  
+  std::unordered_map<std::string, std::unordered_map<std::string, float>>
+      table_attr_max_;
+
   /**
    * @brief 表名和属性名到最小值的映射
    * @note 用于统计每张表每个属性的最小值
    */
-  std::unordered_map<std::string, std::unordered_map<std::string, float>> table_attr_min_;
-  
+  std::unordered_map<std::string, std::unordered_map<std::string, float>>
+      table_attr_min_;
+
   /**
    * @brief 表名和属性名到总和的映射
    * @note 用于统计每张表每个属性的总和（用于计算平均值）
    */
-  std::unordered_map<std::string, std::unordered_map<std::string, float>> table_attr_sum_;
-  
+  std::unordered_map<std::string, std::unordered_map<std::string, float>>
+      table_attr_sum_;
+
   /**
    * @brief 表名和属性名到不同值数量的映射
    * @note 用于统计每张表每个属性的不同值数量
    */
-  std::unordered_map<std::string, std::unordered_map<std::string, int>> table_attr_distinct_;
-  
+  std::unordered_map<std::string, std::unordered_map<std::string, int>>
+      table_attr_distinct_;
+
   /**
    * @brief 数据加载状态
    * @note -1表示未加载，0表示正在加载，1表示已加载
    */
   int load_ = -1;
-  
+
   /**
    * @brief 异步加载数据的future向量
    * @note 用于跟踪异步数据加载任务
@@ -139,8 +144,9 @@ class SmManager {
    * @param ix_manager 索引管理器指针
    * @param enable_output 是否启用输出（默认true）
    */
-  SmManager(DiskManager *disk_manager, BufferPoolManager *buffer_pool_manager, RmManager *rm_manager,
-            IxManager *ix_manager, bool enable_output = true)
+  SmManager(DiskManager *disk_manager, BufferPoolManager *buffer_pool_manager,
+            RmManager *rm_manager, IxManager *ix_manager,
+            bool enable_output = true)
       : disk_manager_(disk_manager),
         buffer_pool_manager_(buffer_pool_manager),
         rm_manager_(rm_manager),
@@ -238,7 +244,8 @@ class SmManager {
    * @param context 上下文对象指针
    * @throws TableExistsError 如果表已存在
    */
-  void CreateTable(const std::string &tab_name, const std::vector<ColDef> &col_defs, Context *context);
+  void CreateTable(const std::string &tab_name,
+                   const std::vector<ColDef> &col_defs, Context *context);
 
   /**
    * @brief 删除表
@@ -264,7 +271,8 @@ class SmManager {
    * @throws TableNotFoundError 如果表不存在
    * @throws IndexExistsError 如果索引已存在
    */
-  void CreateIndex(const std::string &tab_name, const std::vector<std::string> &col_names, Context *context);
+  void CreateIndex(const std::string &tab_name,
+                   const std::vector<std::string> &col_names, Context *context);
 
   /**
    * @brief 删除索引（根据列名）
@@ -273,7 +281,8 @@ class SmManager {
    * @param context 上下文对象指针
    * @throws IndexNotFoundError 如果索引不存在
    */
-  void DropIndex(const std::string &tab_name, const std::vector<std::string> &col_names, Context *context);
+  void DropIndex(const std::string &tab_name,
+                 const std::vector<std::string> &col_names, Context *context);
 
   /**
    * @brief 删除索引（根据列元数据）
@@ -282,10 +291,11 @@ class SmManager {
    * @param context 上下文对象指针
    * @throws IndexNotFoundError 如果索引不存在
    */
-  void DropIndex(const std::string &tab_name, const std::vector<ColMeta> &col_names, Context *context);
+  void DropIndex(const std::string &tab_name,
+                 const std::vector<ColMeta> &col_names, Context *context);
 
   // ==================== 事务回滚相关 ====================
-  
+
   /**
    * @brief 回滚写操作（用于事务回滚）
    * @param record 写操作记录指针
@@ -300,7 +310,8 @@ class SmManager {
    * @param rid 记录ID
    * @param context 上下文对象指针
    */
-  void RollbackInsert(const std::string &table_name, RID &rid, Context *context);
+  void RollbackInsert(const std::string &table_name, RID &rid,
+                      Context *context);
 
   /**
    * @brief 回滚删除操作
@@ -309,7 +320,8 @@ class SmManager {
    * @param record 被删除的记录
    * @param context 上下文对象指针
    */
-  void RollbackDelete(const std::string &table_name, RID &rid, Tuple &record, Context *context);
+  void RollbackDelete(const std::string &table_name, RID &rid, Tuple &record,
+                      Context *context);
 
   /**
    * @brief 回滚更新操作
@@ -318,17 +330,19 @@ class SmManager {
    * @param record 旧记录值
    * @param context 上下文对象指针
    */
-  void RollbackUpdate(const std::string &table_name, RID &rid, Tuple &record, Context *context);
+  void RollbackUpdate(const std::string &table_name, RID &rid, Tuple &record,
+                      Context *context);
 
   // ==================== 工具函数 ====================
-  
+
   /**
    * @brief 按分隔符分割字符串
    * @param s 要分割的字符串
    * @param delimiter 分隔符
    * @param[out] tokens 输出参数，存储分割后的字符串向量
    */
-  void Split(const std::string &s, char delimiter, std::vector<std::string> &tokens);
+  void Split(const std::string &s, char delimiter,
+             std::vector<std::string> &tokens);
 
   /**
    * @brief 按分隔符分割字符数组
@@ -337,10 +351,11 @@ class SmManager {
    * @param delimiter 分隔符
    * @param[out] tokens 输出参数，存储分割后的字符串向量
    */
-  void Split(const char *start, size_t length, char delimiter, std::vector<std::string> &tokens);
+  void Split(const char *start, size_t length, char delimiter,
+             std::vector<std::string> &tokens);
 
   // ==================== 数据加载 ====================
-  
+
   /**
    * @brief 从文件加载数据到表
    * @param file_name 数据文件名
@@ -348,7 +363,8 @@ class SmManager {
    * @param context 上下文对象指针
    * @note 同步加载，会阻塞直到加载完成
    */
-  void LoadData(const std::string &file_name, const std::string &table_name, Context *context);
+  void LoadData(const std::string &file_name, const std::string &table_name,
+                Context *context);
 
   /**
    * @brief 异步从文件加载数据到表
@@ -357,7 +373,8 @@ class SmManager {
    * @param context 上下文对象指针
    * @note 异步加载，不阻塞调用线程
    */
-  void AsyncLoadData(const std::string &file_name, const std::string &tab_name, Context *context);
+  void AsyncLoadData(const std::string &file_name, const std::string &tab_name,
+                     Context *context);
 
   /**
    * @brief 完成异步数据加载
@@ -372,7 +389,7 @@ class SmManager {
   int GetLoadStatus() { return load_; }
 
   // ==================== 输出控制 ====================
-  
+
   /**
    * @brief 设置是否启用输出
    * @param set_val 新的输出标志值
@@ -386,7 +403,7 @@ class SmManager {
   bool IsEnableOutput() { return enable_output_; }
 
   // ==================== 表统计信息 ====================
-  
+
   /**
    * @brief 设置表的记录数量
    * @param table_name 表名
@@ -427,12 +444,14 @@ class SmManager {
    * @param attr_name 属性名
    * @param count 最大值
    */
-  void SetTableAttrMax(const std::string &table_name, const std::string &attr_name, float count) {
+  void SetTableAttrMax(const std::string &table_name,
+                       const std::string &attr_name, float count) {
     if (table_attr_max_.find(table_name) == table_attr_max_.end()) {
       std::unordered_map<std::string, float> map_tp;
       map_tp.emplace(attr_name, count);
       table_attr_max_.emplace(table_name, map_tp);
-    } else if (table_attr_max_[table_name].find(attr_name) == table_attr_max_[table_name].end()) {
+    } else if (table_attr_max_[table_name].find(attr_name) ==
+               table_attr_max_[table_name].end()) {
       table_attr_max_[table_name].emplace(attr_name, count);
     } else {
       table_attr_max_[table_name][attr_name] = count;
@@ -445,10 +464,12 @@ class SmManager {
    * @param attr_name 属性名
    * @return 最大值，如果表或属性不存在返回-1
    */
-  float GetTableAttrMax(const std::string &table_name, const std::string &attr_name) {
+  float GetTableAttrMax(const std::string &table_name,
+                        const std::string &attr_name) {
     if (table_attr_max_.find(table_name) == table_attr_max_.end())
       return -1;
-    else if (table_attr_max_[table_name].find(attr_name) == table_attr_max_[table_name].end())
+    else if (table_attr_max_[table_name].find(attr_name) ==
+             table_attr_max_[table_name].end())
       return -1;
     return table_attr_max_[table_name][attr_name];
   }
@@ -459,12 +480,14 @@ class SmManager {
    * @param attr_name 属性名
    * @param count 最小值
    */
-  void SetTableAttrMin(const std::string &table_name, const std::string &attr_name, float count) {
+  void SetTableAttrMin(const std::string &table_name,
+                       const std::string &attr_name, float count) {
     if (table_attr_min_.find(table_name) == table_attr_min_.end()) {
       std::unordered_map<std::string, float> map_tp;
       map_tp.emplace(attr_name, count);
       table_attr_min_.emplace(table_name, map_tp);
-    } else if (table_attr_min_[table_name].find(attr_name) == table_attr_min_[table_name].end()) {
+    } else if (table_attr_min_[table_name].find(attr_name) ==
+               table_attr_min_[table_name].end()) {
       table_attr_min_[table_name].emplace(attr_name, count);
     } else {
       table_attr_min_[table_name][attr_name] = count;
@@ -477,10 +500,12 @@ class SmManager {
    * @param attr_name 属性名
    * @return 最小值，如果表或属性不存在返回-1
    */
-  float GetTableAttrMin(const std::string &table_name, const std::string &attr_name) {
+  float GetTableAttrMin(const std::string &table_name,
+                        const std::string &attr_name) {
     if (table_attr_min_.find(table_name) == table_attr_min_.end())
       return -1;
-    else if (table_attr_min_[table_name].find(attr_name) == table_attr_min_[table_name].end())
+    else if (table_attr_min_[table_name].find(attr_name) ==
+             table_attr_min_[table_name].end())
       return -1;
     return table_attr_min_[table_name][attr_name];
   }
@@ -491,12 +516,14 @@ class SmManager {
    * @param attr_name 属性名
    * @param count 不同值数量
    */
-  void SetTableAttrDistinct(const std::string &table_name, const std::string &attr_name, int count) {
+  void SetTableAttrDistinct(const std::string &table_name,
+                            const std::string &attr_name, int count) {
     if (table_attr_distinct_.find(table_name) == table_attr_distinct_.end()) {
       std::unordered_map<std::string, int> map_tp;
       map_tp.emplace(attr_name, count);
       table_attr_distinct_.emplace(table_name, map_tp);
-    } else if (table_attr_distinct_[table_name].find(attr_name) == table_attr_distinct_[table_name].end()) {
+    } else if (table_attr_distinct_[table_name].find(attr_name) ==
+               table_attr_distinct_[table_name].end()) {
       table_attr_distinct_[table_name].emplace(attr_name, count);
     } else {
       table_attr_distinct_[table_name][attr_name] = count;
@@ -509,10 +536,12 @@ class SmManager {
    * @param attr_name 属性名
    * @return 不同值数量，如果表或属性不存在返回-1
    */
-  int GetTableAttrDistinct(const std::string &table_name, const std::string &attr_name) {
+  int GetTableAttrDistinct(const std::string &table_name,
+                           const std::string &attr_name) {
     if (table_attr_distinct_.find(table_name) == table_attr_distinct_.end())
       return -1;
-    else if (table_attr_distinct_[table_name].find(attr_name) == table_attr_distinct_[table_name].end())
+    else if (table_attr_distinct_[table_name].find(attr_name) ==
+             table_attr_distinct_[table_name].end())
       return -1;
     return table_attr_distinct_[table_name][attr_name];
   }
@@ -524,12 +553,14 @@ class SmManager {
    * @param count 总和值
    * @note 用于计算平均值（平均值 = 总和 / 记录数）
    */
-  void SetTableAttrSum(const std::string &table_name, const std::string &attr_name, float count) {
+  void SetTableAttrSum(const std::string &table_name,
+                       const std::string &attr_name, float count) {
     if (table_attr_sum_.find(table_name) == table_attr_sum_.end()) {
       std::unordered_map<std::string, float> map_tp;
       map_tp.emplace(attr_name, count);
       table_attr_sum_.emplace(table_name, map_tp);
-    } else if (table_attr_sum_[table_name].find(attr_name) == table_attr_sum_[table_name].end()) {
+    } else if (table_attr_sum_[table_name].find(attr_name) ==
+               table_attr_sum_[table_name].end()) {
       table_attr_sum_[table_name].emplace(attr_name, count);
     } else {
       table_attr_sum_[table_name][attr_name] = count;
@@ -542,10 +573,12 @@ class SmManager {
    * @param attr_name 属性名
    * @return 总和值，如果表或属性不存在返回-1
    */
-  float GetTableAttrSum(const std::string &table_name, const std::string &attr_name) {
+  float GetTableAttrSum(const std::string &table_name,
+                        const std::string &attr_name) {
     if (table_attr_sum_.find(table_name) == table_attr_sum_.end())
       return -1;
-    else if (table_attr_sum_[table_name].find(attr_name) == table_attr_sum_[table_name].end())
+    else if (table_attr_sum_[table_name].find(attr_name) ==
+             table_attr_sum_[table_name].end())
       return -1;
     return table_attr_sum_[table_name][attr_name];
   }

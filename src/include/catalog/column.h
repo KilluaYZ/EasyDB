@@ -34,14 +34,14 @@ class AbstractExpression;
 
 /**
  * @brief 列（Column）类，表示数据库表中的一个列（字段）
- * 
+ *
  * Column 类封装了数据库列的所有元数据信息，包括：
  * - 列名和表名
  * - 列的数据类型
  * - 列的存储大小
  * - 列在元组中的偏移量
  * - 聚合类型（用于聚合查询）
- * 
+ *
  * 该类提供了多个构造函数以支持不同类型的列（定长和变长）。
  */
 class Column {
@@ -52,7 +52,7 @@ class Column {
    * @brief 默认构造函数，创建一个空的列对象
    */
   Column() {}
-  
+
   /**
    * @brief 定长类型列的构造函数
    * @param column_name 列的名称
@@ -60,10 +60,15 @@ class Column {
    * @note 此构造函数用于创建非变长类型的列，如整数、浮点数、日期等
    */
   Column(std::string column_name, TypeId type)
-      : column_name_(std::move(column_name)), column_type_(type), length_(TypeSize(type)) {
-    EASYDB_ASSERT(type != TypeId::TYPE_CHAR, "Wrong constructor for CHAR type.");
-    EASYDB_ASSERT(type != TypeId::TYPE_VARCHAR, "Wrong constructor for VARCHAR type.");
-    // EASYDB_ASSERT(type != TypeId::VECTOR, "Wrong constructor for VECTOR type.");
+      : column_name_(std::move(column_name)),
+        column_type_(type),
+        length_(TypeSize(type)) {
+    EASYDB_ASSERT(type != TypeId::TYPE_CHAR,
+                  "Wrong constructor for CHAR type.");
+    EASYDB_ASSERT(type != TypeId::TYPE_VARCHAR,
+                  "Wrong constructor for VARCHAR type.");
+    // EASYDB_ASSERT(type != TypeId::VECTOR, "Wrong constructor for VECTOR
+    // type.");
   }
 
   /**
@@ -74,9 +79,13 @@ class Column {
    * @note 此构造函数用于创建变长字符串类型的列
    */
   Column(std::string column_name, TypeId type, uint32_t length)
-      : column_name_(std::move(column_name)), column_type_(type), length_(TypeSize(type, length)) {
-    EASYDB_ASSERT(type == TypeId::TYPE_CHAR || type == TypeId::TYPE_VARCHAR, "Wrong constructor for fixed-size type.");
-    // EASYDB_ASSERT(type == TypeId::TYPE_VARCHAR || type == TypeId::VECTOR, "Wrong constructor for fixed-size type.");
+      : column_name_(std::move(column_name)),
+        column_type_(type),
+        length_(TypeSize(type, length)) {
+    EASYDB_ASSERT(type == TypeId::TYPE_CHAR || type == TypeId::TYPE_VARCHAR,
+                  "Wrong constructor for fixed-size type.");
+    // EASYDB_ASSERT(type == TypeId::TYPE_VARCHAR || type == TypeId::VECTOR,
+    // "Wrong constructor for fixed-size type.");
   }
 
   /**
@@ -86,10 +95,16 @@ class Column {
    * @param type 列的数据类型（必须是变长类型）
    * @param length 变长类型的最大长度（字节数）
    */
-  Column(std::string column_name, std::string tab_name, TypeId type, uint32_t length)
-      : column_name_(std::move(column_name)), tab_name_(tab_name), column_type_(type), length_(TypeSize(type, length)) {
-    EASYDB_ASSERT(type == TypeId::TYPE_CHAR || type == TypeId::TYPE_VARCHAR, "Wrong constructor for fixed-size type.");
-    // EASYDB_ASSERT(type == TypeId::TYPE_VARCHAR || type == TypeId::VECTOR, "Wrong constructor for fixed-size type.");
+  Column(std::string column_name, std::string tab_name, TypeId type,
+         uint32_t length)
+      : column_name_(std::move(column_name)),
+        tab_name_(tab_name),
+        column_type_(type),
+        length_(TypeSize(type, length)) {
+    EASYDB_ASSERT(type == TypeId::TYPE_CHAR || type == TypeId::TYPE_VARCHAR,
+                  "Wrong constructor for fixed-size type.");
+    // EASYDB_ASSERT(type == TypeId::TYPE_VARCHAR || type == TypeId::VECTOR,
+    // "Wrong constructor for fixed-size type.");
   }
 
   /**
@@ -102,16 +117,18 @@ class Column {
    * @param agg_type 聚合类型（用于聚合查询，如SUM、COUNT等）
    * @note 此构造函数主要用于聚合查询中创建聚合列
    */
-  Column(std::string tab_name, std::string column_name, TypeId type, uint32_t length, uint32_t offset,
-         AggregationType agg_type)
+  Column(std::string tab_name, std::string column_name, TypeId type,
+         uint32_t length, uint32_t offset, AggregationType agg_type)
       : tab_name_(tab_name),
         column_name_(std::move(column_name)),
         column_type_(type),
         length_(TypeSize(type, length)),
         column_offset_(offset),
         agg_type_(agg_type) {
-    EASYDB_ASSERT(type == TypeId::TYPE_CHAR || type == TypeId::TYPE_VARCHAR, "Wrong constructor for fixed-size type.");
-    // EASYDB_ASSERT(type == TypeId::TYPE_VARCHAR || type == TypeId::VECTOR, "Wrong constructor for fixed-size type.");
+    EASYDB_ASSERT(type == TypeId::TYPE_CHAR || type == TypeId::TYPE_VARCHAR,
+                  "Wrong constructor for fixed-size type.");
+    // EASYDB_ASSERT(type == TypeId::TYPE_VARCHAR || type == TypeId::VECTOR,
+    // "Wrong constructor for fixed-size type.");
   }
 
   /**
@@ -239,13 +256,15 @@ class Column {
 
   /**
    * @brief 判断列是否为内联（inlined）类型
-   * @return true 如果列是内联类型（定长类型），false 如果是非内联类型（变长类型）
-   * @note 
+   * @return true 如果列是内联类型（定长类型），false
+   * 如果是非内联类型（变长类型）
+   * @note
    *   - 内联类型：数据直接存储在元组中，如INT、LONG、FLOAT等
    *   - 非内联类型：数据存储在元组外部，元组中只存储指针，如CHAR、VARCHAR等
    */
   auto IsInlined() const -> bool {
-    return (column_type_ != TypeId::TYPE_CHAR) && (column_type_ != TypeId::TYPE_VARCHAR);
+    return (column_type_ != TypeId::TYPE_CHAR) &&
+           (column_type_ != TypeId::TYPE_VARCHAR);
   }
 
   /**
@@ -281,7 +300,7 @@ class Column {
    * @param type 数据类型ID
    * @param length 对于变长类型，指定长度；对于定长类型，此参数被忽略
    * @return 该类型的存储大小（字节数）
-   * @note 
+   * @note
    *   - TYPE_INT: 4字节
    *   - TYPE_LONG, TYPE_FLOAT, TYPE_DOUBLE, TYPE_DATE: 8字节
    *   - TYPE_CHAR, TYPE_VARCHAR: 由length参数指定
@@ -325,7 +344,8 @@ class Column {
   /** @brief 列的存储大小（字节数） */
   uint32_t length_;
 
-  /** @brief 列在元组中的偏移量（字节偏移），表示该列数据在元组字节流中的起始位置 */
+  /** @brief
+   * 列在元组中的偏移量（字节偏移），表示该列数据在元组字节流中的起始位置 */
   uint32_t column_offset_{0};
 
   /** @brief 列的聚合类型，用于聚合查询（如SUM、COUNT、AVG等），默认为NO_AGG */
@@ -335,7 +355,8 @@ class Column {
 }  // namespace easydb
 
 // template <typename T>
-// struct fmt::formatter<T, std::enable_if_t<std::is_base_of<easydb::Column, T>::value, char>>
+// struct fmt::formatter<T, std::enable_if_t<std::is_base_of<easydb::Column,
+// T>::value, char>>
 //     : fmt::formatter<std::string> {
 //   template <typename FormatCtx>
 //   auto format(const easydb::Column &x, FormatCtx &ctx) const {
@@ -344,10 +365,12 @@ class Column {
 // };
 
 // template <typename T>
-// struct fmt::formatter<std::unique_ptr<T>, std::enable_if_t<std::is_base_of<easydb::Column, T>::value, char>>
+// struct fmt::formatter<std::unique_ptr<T>,
+// std::enable_if_t<std::is_base_of<easydb::Column, T>::value, char>>
 //     : fmt::formatter<std::string> {
 //   template <typename FormatCtx>
-//   auto format(const std::unique_ptr<easydb::Column> &x, FormatCtx &ctx) const {
+//   auto format(const std::unique_ptr<easydb::Column> &x, FormatCtx &ctx) const
+//   {
 //     return fmt::formatter<std::string>::format(x->ToString(), ctx);
 //   }
 // };

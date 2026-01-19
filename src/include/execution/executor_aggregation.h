@@ -42,16 +42,17 @@ namespace easydb {
 
 /**
  * @brief 聚合执行器类
- * 
+ *
  * AggregationExecutor 实现聚合操作，包括：
  * - 聚合函数（SUM、COUNT、MAX、MIN等）
  * - GROUP BY分组
  * - HAVING条件过滤
- * 
+ *
  * 示例查询：
  * - SELECT SUM(score) FROM grade WHERE id = 1;
  * - SELECT course, COUNT(*) FROM grade GROUP BY course;
- * - SELECT id, MAX(score), MIN(score) FROM grade GROUP BY id HAVING COUNT(*) > 1;
+ * - SELECT id, MAX(score), MIN(score) FROM grade GROUP BY id HAVING COUNT(*) >
+ * 1;
  */
 class AggregationExecutor : public AbstractExecutor {
  private:
@@ -60,7 +61,7 @@ class AggregationExecutor : public AbstractExecutor {
    * @note 聚合操作的数据源
    */
   std::unique_ptr<AbstractExecutor> prev_;
-  
+
   /**
    * @brief 聚合计算后得到的记录的长度（字节数）
    */
@@ -75,17 +76,17 @@ class AggregationExecutor : public AbstractExecutor {
    * @brief 表名称
    */
   std::string tab_name_;
-  
+
   /**
    * @brief 聚合计算后得到的字段模式
    */
   Schema schema_;
-  
+
   /**
    * @brief 原始字段模式（输入元组的模式）
    */
   Schema prev_schema_;
-  
+
   /**
    * @brief 聚合计算选择的字段列表
    * @note 包含聚合函数列（如SUM、COUNT等）和分组列
@@ -96,31 +97,32 @@ class AggregationExecutor : public AbstractExecutor {
   // std::vector<Condition> having_conds_;  // having算子的条件
 
   // std::vector<Tuple> all_records_;                             // 所有records
-  // std::map<std::string, std::vector<Tuple>> key_records_map_;  // 根据groupby条件分组的records <key,records>哈希表
+  // std::map<std::string, std::vector<Tuple>> key_records_map_;  //
+  // 根据groupby条件分组的records <key,records>哈希表
 
   /**
    * @brief 用于返回的聚合结果记录
    */
   std::unique_ptr<Tuple> result_;
   // bool isend_;
-  
+
   /**
    * @brief 分组键的长度（字节数）
    */
   int key_length;
-  
+
   /**
    * @brief 分组记录的迭代器
    * @note 用于遍历分组后的记录
    */
   std::map<std::string, std::vector<Tuple>>::iterator it;
-  
+
   /**
    * @brief 是否到达末尾标志
    */
   bool isend_;
   // int traverse_idx;
-  
+
   /**
    * @brief 系统管理器指针
    */
@@ -133,7 +135,9 @@ class AggregationExecutor : public AbstractExecutor {
    * @param prev 子节点执行器的智能指针
    * @param sel_col_ 选择的列列表（包含聚合函数）
    */
-  AggregationExecutor(SmManager *sm_manager, std::unique_ptr<AbstractExecutor> prev, std::vector<TabCol> sel_col_);
+  AggregationExecutor(SmManager *sm_manager,
+                      std::unique_ptr<AbstractExecutor> prev,
+                      std::vector<TabCol> sel_col_);
   // std::vector<TabCol> group_cols, std::vector<Condition> having_conds);
 
   /**
@@ -167,7 +171,7 @@ class AggregationExecutor : public AbstractExecutor {
   size_t tupleLen() const override { return len_; };
 
   // const std::vector<ColMeta> &cols() const override { return cols_; };
-  
+
   /**
    * @brief 获取模式
    * @return 模式的常量引用
@@ -193,7 +197,7 @@ class AggregationExecutor : public AbstractExecutor {
   // bool predicate(std::vector<Tuple> records);
 
   // Value aggregation_to_value(std::vector<Tuple> records, Column target_colu);
-  
+
   /**
    * @brief 生成新的列名
    * @param col 列标识

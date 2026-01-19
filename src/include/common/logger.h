@@ -38,10 +38,14 @@ namespace easydb {
 using cstr = const char *;
 
 static constexpr auto PastLastSlash(cstr a, cstr b) -> cstr {
-  return *a == '\0' ? b : *a == '/' ? PastLastSlash(a + 1, a + 1) : PastLastSlash(a + 1, b);
+  return *a == '\0'  ? b
+         : *a == '/' ? PastLastSlash(a + 1, a + 1)
+                     : PastLastSlash(a + 1, b);
 }
 
-static constexpr auto PastLastSlash(cstr a) -> cstr { return PastLastSlash(a, a); }
+static constexpr auto PastLastSlash(cstr a) -> cstr {
+  return PastLastSlash(a, a);
+}
 
 #define __SHORT_FILE__                            \
   ({                                              \
@@ -165,7 +169,8 @@ void OutputLogHeader(const char *file, int line, const char *func, int level);
 
 // Output log message header in this format: [type] [file:line:function] time -
 // ex: [ERROR] [somefile.cpp:123:doSome()] 2008/07/06 10:00:00 -
-inline void OutputLogHeader(const char *file, int line, const char *func, int level) {
+inline void OutputLogHeader(const char *file, int line, const char *func,
+                            int level) {
   time_t t = ::time(nullptr);
   tm *curTime = localtime(&t);  // NOLINT
   char time_str[32];            // FIXME
@@ -191,7 +196,8 @@ inline void OutputLogHeader(const char *file, int line, const char *func, int le
       type = "UNKWN";
   }
   // PAVLO: DO NOT CHANGE THIS
-  ::fprintf(LOG_OUTPUT_STREAM, "%s [%s:%d:%s] %s - ", time_str, file, line, func, type);
+  ::fprintf(LOG_OUTPUT_STREAM, "%s [%s:%d:%s] %s - ", time_str, file, line,
+            func, type);
 }
 
 }  // namespace easydb

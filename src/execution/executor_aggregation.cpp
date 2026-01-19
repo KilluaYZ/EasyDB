@@ -39,7 +39,8 @@ namespace easydb {
  * @param prev 前一个执行器
  * @param sel_col_ 选择的列信息，包含聚合函数类型
  */
-AggregationExecutor::AggregationExecutor(SmManager *sm_manager, std::unique_ptr<AbstractExecutor> prev,
+AggregationExecutor::AggregationExecutor(SmManager *sm_manager,
+                                         std::unique_ptr<AbstractExecutor> prev,
                                          std::vector<TabCol> sel_col_) {
   //  std::vector<TabCol> group_cols, std::vector<Condition> having_conds) {
   sm_manager_ = sm_manager;
@@ -50,7 +51,8 @@ AggregationExecutor::AggregationExecutor(SmManager *sm_manager, std::unique_ptr<
   std::vector<Column> new_colus_;
   for (auto &sel_col : sel_col_) {
     Column colu_tp;
-    if (sel_col.col_name == "*" && sel_col.aggregation_type == AggregationType::COUNT_AGG) {
+    if (sel_col.col_name == "*" &&
+        sel_col.aggregation_type == AggregationType::COUNT_AGG) {
       // todo
       // colu_tp = {.tab_name_ = "",
       //            .column_name_ = "*",
@@ -81,7 +83,8 @@ AggregationExecutor::AggregationExecutor(SmManager *sm_manager, std::unique_ptr<
         colu_tp.SetType(ColType::TYPE_INT);
         colu_tp.SetStorageSize(sizeof(int));
       } else if (sel_col.aggregation_type == AggregationType::SUM_AGG &&
-                 (colu_tp.GetType() == ColType::TYPE_VARCHAR || colu_tp.GetType() == ColType::TYPE_CHAR)) {
+                 (colu_tp.GetType() == ColType::TYPE_VARCHAR ||
+                  colu_tp.GetType() == ColType::TYPE_CHAR)) {
         throw InternalError("string type do not supports sum aggreagation.");
       }
       colu_tp.SetName(generate_new_name(sel_col));
@@ -122,8 +125,8 @@ void AggregationExecutor::beginTuple() {
   //     std::string key = "";
   //     int offset = 0;
   //     for (auto &group_col : group_colus_) {
-  //       key += std::string(ait->GetData() + group_col.GetOffset(), group_col.GetStorageSize());
-  //       offset += group_col.GetStorageSize();
+  //       key += std::string(ait->GetData() + group_col.GetOffset(),
+  //       group_col.GetStorageSize()); offset += group_col.GetStorageSize();
   //     }
   //     if (key_records_map_.find(key) == key_records_map_.end()) {
   //       // not grouped.
@@ -146,7 +149,8 @@ void AggregationExecutor::beginTuple() {
 }
 
 /**
- * @description: 移动到下一个元组，对于聚合执行器来说，处理完所有数据后设置结束标志
+ * @description:
+ * 移动到下一个元组，对于聚合执行器来说，处理完所有数据后设置结束标志
  */
 void AggregationExecutor::nextTuple() {
   // do nothing
@@ -165,8 +169,10 @@ std::unique_ptr<Tuple> AggregationExecutor::Next() {
   // std::vector<Tuple> records = it->second;
   std::vector<Value> value_vec;
   for (auto &sel_col : sel_colus_) {
-    // if(sel_col.agg_type==AggregationType::NO_AGG && !in_groupby_cols(sel_col)){
-    //     throw InternalError("only cols in \"group by\" statement can be projected without aggregation.");
+    // if(sel_col.agg_type==AggregationType::NO_AGG &&
+    // !in_groupby_cols(sel_col)){
+    //     throw InternalError("only cols in \"group by\" statement can be
+    //     projected without aggregation.");
     // }
     value_vec.push_back(aggregation_to_value(sel_col));
   }
@@ -174,7 +180,8 @@ std::unique_ptr<Tuple> AggregationExecutor::Next() {
 }
 
 // bool AggregationExecutor::in_groupby_cols(Column target) {
-//   auto pos = std::find_if(group_colus_.begin(), group_colus_.end(), [&](const ColMeta &col) {
+//   auto pos = std::find_if(group_colus_.begin(), group_colus_.end(), [&](const
+//   ColMeta &col) {
 //     return col.tab_name == target.tab_name && col.name == target.name;
 //   });
 //   if (pos == group_colus_.end()) {
@@ -191,7 +198,8 @@ std::unique_ptr<Tuple> AggregationExecutor::Next() {
 //     Value lhs_v, rhs_v;
 //     if (cond.lhs_col.aggregation_type != AggregationType::NO_AGG) {
 //       // case 1. e.g. count(*)
-//       if (cond.lhs_col.col_name == "*" && cond.lhs_col.aggregation_type == AggregationType::COUNT_AGG) {
+//       if (cond.lhs_col.col_name == "*" && cond.lhs_col.aggregation_type ==
+//       AggregationType::COUNT_AGG) {
 //         ColMeta col_tp;
 //         col_tp = {.tab_name = "",
 //                   .name = "*",
@@ -221,7 +229,8 @@ std::unique_ptr<Tuple> AggregationExecutor::Next() {
 //     if (cond.is_rhs_val) {
 //       rhs_v = cond.rhs_val;
 //     } else if (cond.rhs_col.aggregation_type != AggregationType::NO_AGG) {
-//       rhs_v = aggregation_to_value(records, *get_col(prev_cols_, cond.rhs_col));
+//       rhs_v = aggregation_to_value(records, *get_col(prev_cols_,
+//       cond.rhs_col));
 //     } else {
 //       throw InternalError("having-conds with no aggregation.");
 //     }
@@ -248,30 +257,37 @@ Value AggregationExecutor::aggregation_to_value(Column target_colu) {
     // case AggregationType::NO_AGG:
     case AggregationType::SUM_AGG:
       if (target_colu.GetType() == TypeId::TYPE_INT) {
-        return Value(target_colu.GetType(), int(sm_manager_->GetTableAttrSum(tab_name_, col_name)));
+        return Value(target_colu.GetType(),
+                     int(sm_manager_->GetTableAttrSum(tab_name_, col_name)));
       } else {
-        return Value(target_colu.GetType(), sm_manager_->GetTableAttrSum(tab_name_, col_name));
+        return Value(target_colu.GetType(),
+                     sm_manager_->GetTableAttrSum(tab_name_, col_name));
       }
     case AggregationType::COUNT_AGG:
       return Value(TypeId::TYPE_INT, sm_manager_->GetTableCount(tab_name_));
     case AggregationType::MAX_AGG:
       if (target_colu.GetType() == TypeId::TYPE_INT) {
-        return Value(target_colu.GetType(), int(sm_manager_->GetTableAttrMax(tab_name_, col_name)));
+        return Value(target_colu.GetType(),
+                     int(sm_manager_->GetTableAttrMax(tab_name_, col_name)));
       } else {
-        return Value(target_colu.GetType(), sm_manager_->GetTableAttrMax(tab_name_, col_name));
+        return Value(target_colu.GetType(),
+                     sm_manager_->GetTableAttrMax(tab_name_, col_name));
       }
     case AggregationType::MIN_AGG:
       if (target_colu.GetType() == TypeId::TYPE_INT) {
-        return Value(target_colu.GetType(), int(sm_manager_->GetTableAttrMin(tab_name_, col_name)));
+        return Value(target_colu.GetType(),
+                     int(sm_manager_->GetTableAttrMin(tab_name_, col_name)));
       } else {
-        return Value(target_colu.GetType(), sm_manager_->GetTableAttrMin(tab_name_, col_name));
+        return Value(target_colu.GetType(),
+                     sm_manager_->GetTableAttrMin(tab_name_, col_name));
       }
     default:
       throw InternalError("unsupported aggregation operator.");
   }
 }
 
-// Value AggregationExecutor::aggregation_to_value(std::vector<Tuple> records, Column target_colu) {
+// Value AggregationExecutor::aggregation_to_value(std::vector<Tuple> records,
+// Column target_colu) {
 //   AggregationType type = target_colu.GetAggregationType();
 //   std::string col_name = target_colu.GetName();
 //   int length = target_colu.GetStorageSize();
@@ -284,7 +300,8 @@ Value AggregationExecutor::aggregation_to_value(Column target_colu) {
 //         //   return val;
 //         return Value();
 //       }
-//       // if (val.get_value_from_record(records[0], sel_cols_, col_name) == nullptr) {
+//       // if (val.get_value_from_record(records[0], sel_cols_, col_name) ==
+//       nullptr) {
 //       //   throw InternalError("target column not found.");
 //       // }
 //       // val.init_raw(length);

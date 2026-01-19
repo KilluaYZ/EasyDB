@@ -16,7 +16,8 @@ namespace easydb {
  * @param sel_cols 排序的列信息
  * @param is_desc 是否降序排列
  */
-SortExecutor::SortExecutor(std::unique_ptr<AbstractExecutor> prev, TabCol sel_cols, bool is_desc) {
+SortExecutor::SortExecutor(std::unique_ptr<AbstractExecutor> prev,
+                           TabCol sel_cols, bool is_desc) {
   prev_ = std::move(prev);
   schema_ = prev_->schema();
   colus_ = schema_.GetColumn(sel_cols.col_name);
@@ -26,7 +27,8 @@ SortExecutor::SortExecutor(std::unique_ptr<AbstractExecutor> prev, TabCol sel_co
   len_ = prev_->tupleLen();
   max_physical_len_ = schema_.GetPhysicalSize();
   current_data_ = new char[max_physical_len_];
-  sorter = std::make_unique<MergeSorter>(colus_, prev_->schema().GetColumns(), max_physical_len_, is_desc_);
+  sorter = std::make_unique<MergeSorter>(colus_, prev_->schema().GetColumns(),
+                                         max_physical_len_, is_desc_);
 }
 
 SortExecutor::~SortExecutor() { delete[] current_data_; }
@@ -72,7 +74,9 @@ void SortExecutor::printRecord(RmRecord record, std::vector<ColMeta> cols) {
         break;
       case TYPE_VARCHAR:
       case TYPE_CHAR:
-        str_size = col.len < strlen(data + col.offset) ? col.len : strlen(data + col.offset);
+        str_size = col.len < strlen(data + col.offset)
+                       ? col.len
+                       : strlen(data + col.offset);
         str.assign(data + col.offset, str_size);
         str[str_size] = '\0';
         printf(" %s  ", str.c_str());
@@ -97,7 +101,9 @@ void SortExecutor::printRecord(char *data, std::vector<ColMeta> cols) {
         break;
       case TYPE_VARCHAR:
       case TYPE_CHAR:
-        str_size = col.len < strlen(data + col.offset) ? col.len : strlen(data + col.offset);
+        str_size = col.len < strlen(data + col.offset)
+                       ? col.len
+                       : strlen(data + col.offset);
         str.assign(data + col.offset, str_size);
         str[str_size] = '\0';
         printf(" %s  ", str.c_str());

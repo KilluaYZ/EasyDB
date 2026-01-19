@@ -19,7 +19,8 @@ namespace easydb {
  * @param conds 查询条件
  * @param context 上下文指针
  */
-SeqScanExecutor::SeqScanExecutor(SmManager *sm_manager, std::string tab_name, std::vector<Condition> conds,
+SeqScanExecutor::SeqScanExecutor(SmManager *sm_manager, std::string tab_name,
+                                 std::vector<Condition> conds,
                                  Context *context) {
   sm_manager_ = sm_manager;
   tab_name_ = std::move(tab_name);
@@ -63,7 +64,9 @@ void SeqScanExecutor::nextTuple() {
   } while (!IsEnd() && !predicate());
 }
 
-std::unique_ptr<Tuple> SeqScanExecutor::Next() { return fh_->GetTupleValue(rid_, context_); }
+std::unique_ptr<Tuple> SeqScanExecutor::Next() {
+  return fh_->GetTupleValue(rid_, context_);
+}
 
 /**
  * @description: 判断当前记录是否满足所有查询条件（包括子查询）
@@ -79,15 +82,17 @@ bool SeqScanExecutor::predicate() {
     if (cond.is_rhs_stmt && !cond.is_rhs_exe_processed) {
       std::shared_ptr<AbstractExecutor> rhs_stmt_executor_tree_root =
           std::static_pointer_cast<AbstractExecutor>(cond.rhs_stmt_exe);
-      std::vector<Value> results = subquery_select_from(rhs_stmt_executor_tree_root, cond.rhs_col);
+      std::vector<Value> results =
+          subquery_select_from(rhs_stmt_executor_tree_root, cond.rhs_col);
       // 进行回填
       // comparison stmt, sub query should return only one value
-      // Also legal if subquery doesn't use aggregation function, but return only a value.
-      // Check is delayed until plan_query.
-      // Remember to fill in cond.rhs_val real value after carrying executor.
+      // Also legal if subquery doesn't use aggregation function, but return
+      // only a value. Check is delayed until plan_query. Remember to fill in
+      // cond.rhs_val real value after carrying executor.
       if (cond.op != OP_IN) {
         if (results.size() > 1) {
-          throw SubqueryIllegalError("Result of subquery contains multiple tuples\n");
+          throw SubqueryIllegalError(
+              "Result of subquery contains multiple tuples\n");
         } else if (results.size() == 1) {
           cond.rhs_val = results[0];
         } else {

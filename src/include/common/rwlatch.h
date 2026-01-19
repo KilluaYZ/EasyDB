@@ -25,10 +25,10 @@ namespace easydb {
 
 /**
  * @brief 读写锁（Reader-Writer Latch）类
- * 
+ *
  * ReaderWriterLatch 提供了读写锁的功能，允许多个读者同时访问，但写者独占访问。
  * 该类基于 std::shared_mutex 实现，用于保护共享数据结构的并发访问。
- * 
+ *
  * 使用场景：
  * - 保护数据库页面的并发访问
  * - 保护索引结构的并发操作
@@ -38,7 +38,7 @@ class ReaderWriterLatch {
  public:
   /**
    * @brief 获取写锁（独占锁）
-   * @note 
+   * @note
    *   - 写锁是独占的，获取写锁时会阻塞所有读者和写者
    *   - 用于修改操作，确保数据一致性
    */
@@ -52,7 +52,7 @@ class ReaderWriterLatch {
 
   /**
    * @brief 获取读锁（共享锁）
-   * @note 
+   * @note
    *   - 读锁是共享的，多个读者可以同时持有读锁
    *   - 用于只读操作，提高并发性能
    *   - 如果当前有写锁持有，则阻塞等待

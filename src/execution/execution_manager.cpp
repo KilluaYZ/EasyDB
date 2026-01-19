@@ -38,7 +38,8 @@ const char *help_info =
     "  DROP INDEX table_name (column_name)\n"
     "  INSERT INTO table_name VALUES (value [, value ...])\n"
     "  DELETE FROM table_name [WHERE where_clause]\n"
-    "  UPDATE table_name SET column_name = value [, column_name = value ...] [WHERE where_clause]\n"
+    "  UPDATE table_name SET column_name = value [, column_name = value ...] "
+    "[WHERE where_clause]\n"
     "  SELECT selector FROM table_name [WHERE where_clause]\n"
     "type:\n"
     "  {INT | FLOAT | CHAR(n)}\n"
@@ -85,16 +86,19 @@ void QlManager::run_mutli_query(std::shared_ptr<Plan> plan, Context *context) {
 }
 
 /**
- * @description: 执行工具类语句，包括help、show tables、desc table、begin、commit、abort等
+ * @description: 执行工具类语句，包括help、show tables、desc
+ * table、begin、commit、abort等
  * @param plan 执行计划指针
  * @param txn_id 事务ID指针
  * @param context 上下文指针
  */
-void QlManager::run_cmd_utility(std::shared_ptr<Plan> plan, txn_id_t *txn_id, Context *context) {
+void QlManager::run_cmd_utility(std::shared_ptr<Plan> plan, txn_id_t *txn_id,
+                                Context *context) {
   if (auto x = std::dynamic_pointer_cast<OtherPlan>(plan)) {
     switch (x->tag) {
       case T_Help: {
-        memcpy(context->data_send_ + *(context->offset_), help_info, strlen(help_info));
+        memcpy(context->data_send_ + *(context->offset_), help_info,
+               strlen(help_info));
         *(context->offset_) = strlen(help_info);
         break;
       }
@@ -174,13 +178,14 @@ void QlManager::run_cmd_utility(std::shared_ptr<Plan> plan, txn_id_t *txn_id, Co
 }
 
 /**
- * @description: 执行select语句，select语句的输出除了需要返回客户端外，还需要写入output.txt文件中
+ * @description:
+ * 执行select语句，select语句的输出除了需要返回客户端外，还需要写入output.txt文件中
  * @param executorTreeRoot 执行器树根节点
  * @param sel_cols 选择的列信息
  * @param context 上下文指针
  */
-void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, std::vector<TabCol> sel_cols,
-                            Context *context) {
+void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot,
+                            std::vector<TabCol> sel_cols, Context *context) {
   std::vector<std::string> captions;
   captions.reserve(sel_cols.size());
   for (auto &sel_col : sel_cols) {
@@ -205,7 +210,8 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
   // Print records
   size_t num_rec = 0;
   // 执行query_plan
-  for (executorTreeRoot->beginTuple(); !executorTreeRoot->IsEnd(); executorTreeRoot->nextTuple()) {
+  for (executorTreeRoot->beginTuple(); !executorTreeRoot->IsEnd();
+       executorTreeRoot->nextTuple()) {
     auto tuple = executorTreeRoot->Next();
     if (num_rec == 0 && executorTreeRoot->IsEnd()) {
       outfile << "empty set\n\0";
@@ -264,15 +270,18 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot, 
  * @param sel_col 选择的列信息
  * @return 返回查询结果的Value向量
  */
-std::vector<Value> subquery_select_from(std::shared_ptr<AbstractExecutor> executorTreeRoot, TabCol sel_col) {
+std::vector<Value> subquery_select_from(
+    std::shared_ptr<AbstractExecutor> executorTreeRoot, TabCol sel_col) {
   std::vector<Value> outputs;
   // 执行query_plan
-  for (executorTreeRoot->beginTuple(); !executorTreeRoot->IsEnd(); executorTreeRoot->nextTuple()) {
+  for (executorTreeRoot->beginTuple(); !executorTreeRoot->IsEnd();
+       executorTreeRoot->nextTuple()) {
     auto Tuple = executorTreeRoot->Next();
     Value output;
     std::vector<std::string> columns;
     if (executorTreeRoot->cols().size() != 1) {
-      throw InternalError("subquery executorTreeRoot->cols().size() should be 1\n");
+      throw InternalError(
+          "subquery executorTreeRoot->cols().size() should be 1\n");
     }
 
     // auto col = executorTreeRoot->cols()[0];
@@ -305,6 +314,8 @@ std::vector<Value> subquery_select_from(std::shared_ptr<AbstractExecutor> execut
  * @description: 执行DML语句（数据操作语言），包括INSERT、UPDATE、DELETE
  * @param exec 执行器指针
  */
-void QlManager::run_dml(std::unique_ptr<AbstractExecutor> exec) { exec->Next(); }
+void QlManager::run_dml(std::unique_ptr<AbstractExecutor> exec) {
+  exec->Next();
+}
 
 }  // namespace easydb

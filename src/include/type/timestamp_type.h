@@ -29,12 +29,18 @@ class TimestampType : public Type {
   TimestampType();
 
   // Comparison functions
-  auto CompareEquals(const Value &left, const Value &right) const -> CmpBool override;
-  auto CompareNotEquals(const Value &left, const Value &right) const -> CmpBool override;
-  auto CompareLessThan(const Value &left, const Value &right) const -> CmpBool override;
-  auto CompareLessThanEquals(const Value &left, const Value &right) const -> CmpBool override;
-  auto CompareGreaterThan(const Value &left, const Value &right) const -> CmpBool override;
-  auto CompareGreaterThanEquals(const Value &left, const Value &right) const -> CmpBool override;
+  auto CompareEquals(const Value &left, const Value &right) const
+      -> CmpBool override;
+  auto CompareNotEquals(const Value &left, const Value &right) const
+      -> CmpBool override;
+  auto CompareLessThan(const Value &left, const Value &right) const
+      -> CmpBool override;
+  auto CompareLessThanEquals(const Value &left, const Value &right) const
+      -> CmpBool override;
+  auto CompareGreaterThan(const Value &left, const Value &right) const
+      -> CmpBool override;
+  auto CompareGreaterThanEquals(const Value &left, const Value &right) const
+      -> CmpBool override;
 
   // Other mathematical functions
   auto Min(const Value &left, const Value &right) const -> Value override;

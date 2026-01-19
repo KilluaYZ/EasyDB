@@ -50,7 +50,8 @@ void RmScan::Next() {
     };
 
     // Unpin the page that was pinned in 'fetch_page_handle'
-    file_handle_->buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), false);
+    file_handle_->buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(),
+                                                  false);
 
     // If we have reached the end of the page, move to the next page
     if (slot_no == num_records) {

@@ -55,7 +55,8 @@ inline int ix_compare(const char *a, const char *b, ColType type, int col_len) {
   }
 }
 
-inline int ix_compare(const char *a, const char *b, const std::vector<ColType> &col_types,
+inline int ix_compare(const char *a, const char *b,
+                      const std::vector<ColType> &col_types,
                       const std::vector<int> &col_lens) {
   int offset = 0;
   for (size_t i = 0; i < col_types.size(); ++i) {
@@ -71,7 +72,8 @@ inline void ix_memcpy(char *dest, Value &value, int len) {
   if (value.GetTypeId() == TYPE_CHAR || value.GetTypeId() == TYPE_VARCHAR) {
     memcpy(dest, value.GetData(), len);
   } else {
-    assert(uint32_t(len) == Type(value.GetTypeId()).GetTypeSize(value.GetTypeId()));
+    assert(uint32_t(len) ==
+           Type(value.GetTypeId()).GetTypeSize(value.GetTypeId()));
     value.SerializeTo(dest);
   }
 }
@@ -85,17 +87,19 @@ class IxFileHdr {
   std::vector<ColType> col_types_;  // 字段的类型
   std::vector<int> col_lens_;       // 字段的长度
   int col_tot_len_;                 // 索引包含的字段的总长度
-  int btree_order_;                 // # children per page 每个结点最多可插入的键值对数量
-  int keys_size_;                   // keys_size = (btree_order + 1) * col_tot_len
+  int btree_order_;  // # children per page 每个结点最多可插入的键值对数量
+  int keys_size_;    // keys_size = (btree_order + 1) * col_tot_len
   // first_leaf初始化之后没有进行修改，只不过是在测试文件中遍历叶子结点的时候用了
-  page_id_t first_leaf_;  // 首叶节点对应的页号，在上层IxManager的open函数进行初始化，初始化为root page_no
-  page_id_t last_leaf_;   // 尾叶节点对应的页号
-  int tot_len_;           // 记录结构体的整体长度(IxFileHdr的size)
+  page_id_t first_leaf_;  // 首叶节点对应的页号，在上层IxManager的open函数进行初始化，初始化为root
+                          // page_no
+  page_id_t last_leaf_;  // 尾叶节点对应的页号
+  int tot_len_;          // 记录结构体的整体长度(IxFileHdr的size)
 
   IxFileHdr() { tot_len_ = col_num_ = 0; }
 
-  IxFileHdr(page_id_t first_free_page_no, int num_pages, page_id_t root_page, int col_num, int col_tot_len,
-            int btree_order, int keys_size, page_id_t first_leaf, page_id_t last_leaf)
+  IxFileHdr(page_id_t first_free_page_no, int num_pages, page_id_t root_page,
+            int col_num, int col_tot_len, int btree_order, int keys_size,
+            page_id_t first_leaf, page_id_t last_leaf)
       : first_free_page_no_(first_free_page_no),
         num_pages_(num_pages),
         root_page_(root_page),
@@ -195,12 +199,13 @@ class ExtendibleHashIxFileHdr {
   std::vector<ColType> col_types_;  // 字段的类型
   std::vector<int> col_lens_;       // 字段的长度
   int col_tot_len_;                 // 索引包含的字段的总长度
-  int keys_size_;                   // keys_size = (BUCKET_SIZE + 1) * col_tot_len
-  int tot_len_;                     // 记录结构体的整体长度(IxFileHdr的size)
+  int keys_size_;  // keys_size = (BUCKET_SIZE + 1) * col_tot_len
+  int tot_len_;    // 记录结构体的整体长度(IxFileHdr的size)
 
   ExtendibleHashIxFileHdr() { tot_len_ = col_num_ = 0; }
 
-  ExtendibleHashIxFileHdr(page_id_t first_free_page_no, int num_pages, page_id_t directory_page, int col_num,
+  ExtendibleHashIxFileHdr(page_id_t first_free_page_no, int num_pages,
+                          page_id_t directory_page, int col_num,
                           int col_tot_len, int keys_size)
       : first_free_page_no_(first_free_page_no),
         num_pages_(num_pages),
@@ -281,19 +286,24 @@ class IxPageHdr {
  public:
   page_id_t next_free_page_no;  // unused
   page_id_t parent;             // 父亲节点所在页面的叶号
-  int num_key;                  // # current keys (always equals to #child - 1) 已插入的keys数量，key_idx∈[0,num_key)
-  bool is_leaf;                 // 是否为叶节点
-  page_id_t prev_leaf;          // previous leaf node's page_no, effective only when is_leaf is true
-  page_id_t next_leaf;          // next leaf node's page_no, effective only when is_leaf is true
+  int num_key;                  // # current keys (always equals to #child - 1)
+                // 已插入的keys数量，key_idx∈[0,num_key)
+  bool is_leaf;         // 是否为叶节点
+  page_id_t prev_leaf;  // previous leaf node's page_no, effective only when
+                        // is_leaf is true
+  page_id_t next_leaf;  // next leaf node's page_no, effective only when is_leaf
+                        // is true
 };
 
 class IxExtendibleHashPageHdr {
  public:
   page_id_t next_free_page_no;  // unused
-  // page_id_t prev_bucket;        // Page number of the previous bucket, default is -1.
-  // page_id_t next_bucket;        // Page number of the next bucket, default is -1.
-  bool is_valid;  // Indicates if the current bucket is valid. Some invalid buckets may be preallocated during a split;
-                  // invalid buckets do not need to be flushed to disk.
+  // page_id_t prev_bucket;        // Page number of the previous bucket,
+  // default is -1. page_id_t next_bucket;        // Page number of the next
+  // bucket, default is -1.
+  bool is_valid;  // Indicates if the current bucket is valid. Some invalid
+                  // buckets may be preallocated during a split; invalid buckets
+                  // do not need to be flushed to disk.
   int local_depth;  // Depth of the current bucket
   int key_nums;     // Number of keys in the current bucket
   int size;         // Size of the bucket
@@ -304,7 +314,9 @@ class Iid {
   page_id_t page_id_;
   slot_id_t slot_num_;
 
-  friend bool operator==(const Iid &x, const Iid &y) { return x.page_id_ == y.page_id_ && x.slot_num_ == y.slot_num_; }
+  friend bool operator==(const Iid &x, const Iid &y) {
+    return x.page_id_ == y.page_id_ && x.slot_num_ == y.slot_num_;
+  }
 
   friend bool operator!=(const Iid &x, const Iid &y) { return !(x == y); }
 };

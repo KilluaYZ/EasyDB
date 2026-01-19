@@ -1,7 +1,7 @@
 /* Copyright (c) 2023 Renmin University of China
 RMDB is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
+You can use this software according to the terms and conditions of the Mulan PSL
+v2. You may obtain a copy of Mulan PSL v2 at:
         http://license.coscl.org.cn/MulanPSL2
 THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
@@ -25,7 +25,9 @@ namespace ast {
 class TreeDotPrinter {
  public:
   std::ofstream *outfile = nullptr;
-  TreeDotPrinter(std::string _file_name) { outfile = new std::ofstream(_file_name); }
+  TreeDotPrinter(std::string _file_name) {
+    outfile = new std::ofstream(_file_name);
+  }
   ~TreeDotPrinter() {
     if (outfile && outfile->is_open()) {
       outfile->close();
@@ -47,7 +49,8 @@ class TreeDotPrinter {
 
   int alloc_node(std::string label) {
     int _node_id = node_cnt++;
-    *outfile << get_name_by_id(_node_id) << "[label=\"" << label << "\"]" << std::endl;
+    *outfile << get_name_by_id(_node_id) << "[label=\"" << label << "\"]"
+             << std::endl;
     return _node_id;
   }
 
@@ -80,7 +83,8 @@ class TreeDotPrinter {
   }
 
   void print_edge(int node_id, int parent_id) {
-    *outfile << get_name_by_id(parent_id) << " : s -> " << get_name_by_id(node_id) << " : n " << std::endl;
+    *outfile << get_name_by_id(parent_id) << " : s -> "
+             << get_name_by_id(node_id) << " : n " << std::endl;
   }
 
   template <typename T>
@@ -103,15 +107,18 @@ class TreeDotPrinter {
 
   std::string op2str(SvCompOp op) {
     std::map<SvCompOp, std::string> m{
-        {SV_OP_EQ, "=="},   {SV_OP_NE, "!="},   {SV_OP_LT, "\\<"}, {SV_OP_GT, "\\>"},
-        {SV_OP_LE, "\\<="}, {SV_OP_GE, "\\>="}, {SV_OP_IN, "IN"},
+        {SV_OP_EQ, "=="},  {SV_OP_NE, "!="},   {SV_OP_LT, "\\<"},
+        {SV_OP_GT, "\\>"}, {SV_OP_LE, "\\<="}, {SV_OP_GE, "\\>="},
+        {SV_OP_IN, "IN"},
     };
     return m.at(op);
   }
 
   std::string arith_op2str(SvArithOp op) {
-    static std::map<SvArithOp, std::string> m{
-        {SV_OP_PLUS, "+"}, {SV_OP_MINUS, "-"}, {SV_OP_MUL, "*"}, {SV_OP_DIV, "/"}};
+    static std::map<SvArithOp, std::string> m{{SV_OP_PLUS, "+"},
+                                              {SV_OP_MINUS, "-"},
+                                              {SV_OP_MUL, "*"},
+                                              {SV_OP_DIV, "/"}};
     return m.at(op);
   }
 
@@ -169,7 +176,8 @@ class TreeDotPrinter {
       print_edge(_node_id, parent);
       print_val(x->tab_name, _node_id);
       for (auto col_name : x->col_names) print_val(col_name, _node_id);
-    } else if (auto x = std::dynamic_pointer_cast<CreateStaticCheckpoint>(node)) {
+    } else if (auto x =
+                   std::dynamic_pointer_cast<CreateStaticCheckpoint>(node)) {
       // std::cout << "CREATE_STATIC_CHECKPOINT\n";
       int _node_id = alloc_node("CREATE_STATIC_CHECKPOINT");
       print_edge(_node_id, parent);

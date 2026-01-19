@@ -23,7 +23,7 @@ namespace easydb {
 
 /**
  * @brief EasyDB错误基类，继承自std::exception
- * 
+ *
  * EASYDBError 是所有EasyDB特定错误的基类，提供了统一的错误消息格式。
  */
 class EASYDBError : public std::exception {
@@ -57,7 +57,7 @@ class EASYDBError : public std::exception {
 
 /**
  * @brief 内部错误类
- * 
+ *
  * 用于表示系统内部的错误，通常不应该被用户看到。
  */
 class InternalError : public EASYDBError {
@@ -77,40 +77,47 @@ class UnixError : public EASYDBError {
 
 class FileNotOpenError : public EASYDBError {
  public:
-  FileNotOpenError(int fd) : EASYDBError("Invalid file descriptor: " + std::to_string(fd)) {}
+  FileNotOpenError(int fd)
+      : EASYDBError("Invalid file descriptor: " + std::to_string(fd)) {}
 };
 
 class FileNotClosedError : public EASYDBError {
  public:
-  FileNotClosedError(const std::string &filename) : EASYDBError("File is opened: " + filename) {}
+  FileNotClosedError(const std::string &filename)
+      : EASYDBError("File is opened: " + filename) {}
 };
 
 class FileExistsError : public EASYDBError {
  public:
-  FileExistsError(const std::string &filename) : EASYDBError("File already exists: " + filename) {}
+  FileExistsError(const std::string &filename)
+      : EASYDBError("File already exists: " + filename) {}
 };
 
 class FileNotFoundError : public EASYDBError {
  public:
-  FileNotFoundError(const std::string &filename) : EASYDBError("File not found: " + filename) {}
+  FileNotFoundError(const std::string &filename)
+      : EASYDBError("File not found: " + filename) {}
 };
 
 // RM errors
 class RecordNotFoundError : public EASYDBError {
  public:
   RecordNotFoundError(int page_no, int slot_no)
-      : EASYDBError("Record not found: (" + std::to_string(page_no) + "," + std::to_string(slot_no) + ")") {}
+      : EASYDBError("Record not found: (" + std::to_string(page_no) + "," +
+                    std::to_string(slot_no) + ")") {}
 };
 
 class InvalidRecordSizeError : public EASYDBError {
  public:
-  InvalidRecordSizeError(int record_size) : EASYDBError("Invalid record size: " + std::to_string(record_size)) {}
+  InvalidRecordSizeError(int record_size)
+      : EASYDBError("Invalid record size: " + std::to_string(record_size)) {}
 };
 
 // IX errors
 class InvalidColLengthError : public EASYDBError {
  public:
-  InvalidColLengthError(int col_len) : EASYDBError("Invalid column length: " + std::to_string(col_len)) {}
+  InvalidColLengthError(int col_len)
+      : EASYDBError("Invalid column length: " + std::to_string(col_len)) {}
 };
 
 class IndexEntryNotFoundError : public EASYDBError {
@@ -121,32 +128,38 @@ class IndexEntryNotFoundError : public EASYDBError {
 // SM errors
 class DatabaseNotFoundError : public EASYDBError {
  public:
-  DatabaseNotFoundError(const std::string &db_name) : EASYDBError("Database not found: " + db_name) {}
+  DatabaseNotFoundError(const std::string &db_name)
+      : EASYDBError("Database not found: " + db_name) {}
 };
 
 class DatabaseExistsError : public EASYDBError {
  public:
-  DatabaseExistsError(const std::string &db_name) : EASYDBError("Database already exists: " + db_name) {}
+  DatabaseExistsError(const std::string &db_name)
+      : EASYDBError("Database already exists: " + db_name) {}
 };
 
 class TableNotFoundError : public EASYDBError {
  public:
-  TableNotFoundError(const std::string &tab_name) : EASYDBError("Table not found: " + tab_name) {}
+  TableNotFoundError(const std::string &tab_name)
+      : EASYDBError("Table not found: " + tab_name) {}
 };
 
 class TableExistsError : public EASYDBError {
  public:
-  TableExistsError(const std::string &tab_name) : EASYDBError("Table already exists: " + tab_name) {}
+  TableExistsError(const std::string &tab_name)
+      : EASYDBError("Table already exists: " + tab_name) {}
 };
 
 class ColumnNotFoundError : public EASYDBError {
  public:
-  ColumnNotFoundError(const std::string &col_name) : EASYDBError("Column not found: " + col_name) {}
+  ColumnNotFoundError(const std::string &col_name)
+      : EASYDBError("Column not found: " + col_name) {}
 };
 
 class IndexNotFoundError : public EASYDBError {
  public:
-  IndexNotFoundError(const std::string &tab_name, const std::vector<std::string> &col_names) {
+  IndexNotFoundError(const std::string &tab_name,
+                     const std::vector<std::string> &col_names) {
     _msg += "Index not found: " + tab_name + ".(";
     for (size_t i = 0; i < col_names.size(); ++i) {
       if (i > 0) _msg += ", ";
@@ -158,7 +171,8 @@ class IndexNotFoundError : public EASYDBError {
 
 class IndexExistsError : public EASYDBError {
  public:
-  IndexExistsError(const std::string &tab_name, const std::vector<std::string> &col_names) {
+  IndexExistsError(const std::string &tab_name,
+                   const std::vector<std::string> &col_names) {
     _msg += "Index already exists: " + tab_name + ".(";
     for (size_t i = 0; i < col_names.size(); ++i) {
       if (i > 0) _msg += ", ";
@@ -187,23 +201,27 @@ class IncompatibleTypeError : public EASYDBError {
 
 class AmbiguousColumnError : public EASYDBError {
  public:
-  AmbiguousColumnError(const std::string &col_name) : EASYDBError("Ambiguous column: " + col_name) {}
+  AmbiguousColumnError(const std::string &col_name)
+      : EASYDBError("Ambiguous column: " + col_name) {}
 };
 
 class PageNotExistError : public EASYDBError {
  public:
   PageNotExistError(const std::string &table_name, int page_no)
-      : EASYDBError("Page " + std::to_string(page_no) + " in table " + table_name + "not exits") {}
+      : EASYDBError("Page " + std::to_string(page_no) + " in table " +
+                    table_name + "not exits") {}
 };
 
 class AggregationIllegalError : public EASYDBError {
  public:
-  AggregationIllegalError() : EASYDBError("Select query with illegal aggregation conditions") {}
+  AggregationIllegalError()
+      : EASYDBError("Select query with illegal aggregation conditions") {}
 };
 
 class SubqueryIllegalError : public EASYDBError {
  public:
-  SubqueryIllegalError(const std::string &err_msg) : EASYDBError("Subquery illegal: " + err_msg) {}
+  SubqueryIllegalError(const std::string &err_msg)
+      : EASYDBError("Subquery illegal: " + err_msg) {}
 };
 
 class NullptrError : public EASYDBError {

@@ -24,7 +24,7 @@ namespace easydb {
 
 /**
  * @brief 顺序扫描执行器类
- * 
+ *
  * SeqScanExecutor 实现顺序扫描操作，逐页遍历表中的所有元组，
  * 并根据WHERE条件过滤元组。
  */
@@ -34,34 +34,34 @@ class SeqScanExecutor : public AbstractExecutor {
    * @brief 表的名称
    */
   std::string tab_name_;
-  
+
   /**
    * @brief 扫描的条件列表
    * @note 用于过滤元组，只有满足所有条件的元组才会被返回
    */
   std::vector<Condition> conds_;
-  
+
   /**
    * @brief 表的数据文件句柄
    * @note 用于访问表的实际数据
    */
   RmFileHandle *fh_;
-  
+
   /**
    * @brief 扫描后生成的记录的字段元数据
    */
   std::vector<ColMeta> cols_;
-  
+
   /**
    * @brief 扫描后生成的记录的字段模式
    */
   Schema schema_;
-  
+
   /**
    * @brief 扫描后生成的每条记录的长度（字节数）
    */
   size_t len_;
-  
+
   /**
    * @brief 已传递的条件列表
    * @note 同conds_，两个字段相同
@@ -72,7 +72,7 @@ class SeqScanExecutor : public AbstractExecutor {
    * @brief 当前元组的记录ID
    */
   RID rid_;
-  
+
   /**
    * @brief 表迭代器（记录扫描器）
    * @note 用于遍历表中的所有元组
@@ -92,8 +92,10 @@ class SeqScanExecutor : public AbstractExecutor {
    * @param conds 扫描条件列表
    * @param context 事务上下文指针
    */
-  SeqScanExecutor(SmManager *sm_manager, std::string tab_name, std::vector<Condition> conds, Context *context);
-  // SeqScanExecutor(SmManager *sm_manager, std::string tab_name, std::vector<Condition> conds);
+  SeqScanExecutor(SmManager *sm_manager, std::string tab_name,
+                  std::vector<Condition> conds, Context *context);
+  // SeqScanExecutor(SmManager *sm_manager, std::string tab_name,
+  // std::vector<Condition> conds);
 
   /**
    * @brief 开始迭代元组

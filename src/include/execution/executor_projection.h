@@ -21,7 +21,7 @@ namespace easydb {
 
 /**
  * @brief 投影执行器类
- * 
+ *
  * ProjectionExecutor 实现投影操作，从输入元组中选择指定的列，
  * 并可以执行去重操作（SELECT DISTINCT）。
  */
@@ -32,29 +32,30 @@ class ProjectionExecutor : public AbstractExecutor {
    * @note 投影操作的数据源，可以是扫描、连接等执行器
    */
   std::unique_ptr<AbstractExecutor> prev_;
-  
+
   // std::string tab_name_;
   // std::vector<ColMeta> cols_;               // 需要投影的字段
-  
+
   /**
    * @brief 投影后字段的总长度（字节数）
    */
   size_t len_;
-  
+
   /**
    * @brief 投影字段对应的列索引（位置）
    * @note 存储要投影的列在输入元组中的索引
    */
   std::vector<uint32_t> sel_ids_;
 
-  // RmRecord projection_records_;             // temp projection record(added by flerovium)
-  
+  // RmRecord projection_records_;             // temp projection record(added
+  // by flerovium)
+
   /**
    * @brief 临时投影记录
    * @note 存储当前投影后的元组数据
    */
   Tuple projection_records_;
-  
+
   /**
    * @brief 投影后生成的记录的字段模式
    */
@@ -79,7 +80,8 @@ class ProjectionExecutor : public AbstractExecutor {
    * @param sel_cols 要投影的列列表
    * @param is_unique 是否去重（默认false）
    */
-  ProjectionExecutor(std::unique_ptr<AbstractExecutor> prev, const std::vector<TabCol> &sel_cols,
+  ProjectionExecutor(std::unique_ptr<AbstractExecutor> prev,
+                     const std::vector<TabCol> &sel_cols,
                      bool is_unique = false);
 
   /**
@@ -100,7 +102,8 @@ class ProjectionExecutor : public AbstractExecutor {
    * @note 从子节点获取元组，提取指定的列，形成新的元组
    */
   std::unique_ptr<Tuple> Next() override;
-  // std::unique_ptr<RmRecord> Next() override { return std::make_unique<RmRecord>(projection_records_); }
+  // std::unique_ptr<RmRecord> Next() override { return
+  // std::make_unique<RmRecord>(projection_records_); }
 
   /**
    * @brief 获取当前元组的RID

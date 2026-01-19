@@ -24,7 +24,8 @@ void IxScan::Next() {
   assert(iid_.slot_num_ < static_cast<slot_id_t>(node->GetSize()));
   // increment slot no
   iid_.slot_num_++;
-  if (iid_.page_id_ != ih_->file_hdr_->last_leaf_ && iid_.slot_num_ == node->GetSize()) {
+  if (iid_.page_id_ != ih_->file_hdr_->last_leaf_ &&
+      iid_.slot_num_ == node->GetSize()) {
     // go to Next leaf
     iid_.slot_num_ = 0;
     iid_.page_id_ = node->GetNextLeaf();

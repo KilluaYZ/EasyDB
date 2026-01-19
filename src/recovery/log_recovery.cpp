@@ -1,7 +1,7 @@
 /* Copyright (c) 2023 Renmin University of China
 RMDB is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
+You can use this software according to the terms and conditions of the Mulan PSL
+v2. You may obtain a copy of Mulan PSL v2 at:
         http://license.coscl.org.cn/MulanPSL2
 THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
@@ -36,7 +36,8 @@ void RecoveryManager::analyze() {
   while (true) {
     // 1. Read logs
     // read_size =
-    //     disk_manager_->read_log(buffer_.buffer_ + buffer_.offset_, LOG_BUFFER_SIZE - buffer_.offset_, file_offset);
+    //     disk_manager_->read_log(buffer_.buffer_ + buffer_.offset_,
+    //     LOG_BUFFER_SIZE - buffer_.offset_, file_offset);
     // no more logs to read
     if (read_size <= 0) {
       break;
@@ -57,7 +58,8 @@ void RecoveryManager::analyze() {
       }
 
       // Record the log's offset and size in lsn_mapping_
-      lsn_mapping_[log_record->lsn_] = {start_offset + processed_offset, log_record->log_tot_len_};
+      lsn_mapping_[log_record->lsn_] = {start_offset + processed_offset,
+                                        log_record->log_tot_len_};
       last_lsn_ = std::max(last_lsn_, log_record->lsn_);
 
       // 3. Parse log records
@@ -77,7 +79,8 @@ void RecoveryManager::analyze() {
           break;
         case LogType::INSERT: {
           insert_log->deserialize(buffer_.buffer_ + processed_offset);
-          std::string table_name(insert_log->table_name_, insert_log->table_name_size_);
+          std::string table_name(insert_log->table_name_,
+                                 insert_log->table_name_size_);
           int fd = disk_manager_->GetFileFd(table_name);
           PageId page_id{fd, insert_log->rid_.GetPageId()};
           analyze_process(log_record, page_id);
@@ -85,7 +88,8 @@ void RecoveryManager::analyze() {
         }
         case LogType::DELETE: {
           delete_log->deserialize(buffer_.buffer_ + processed_offset);
-          std::string table_name(delete_log->table_name_, delete_log->table_name_size_);
+          std::string table_name(delete_log->table_name_,
+                                 delete_log->table_name_size_);
           int fd = disk_manager_->GetFileFd(table_name);
           PageId page_id{fd, delete_log->rid_.GetPageId()};
           analyze_process(log_record, page_id);
@@ -93,7 +97,8 @@ void RecoveryManager::analyze() {
         }
         case LogType::UPDATE: {
           update_log->deserialize(buffer_.buffer_ + processed_offset);
-          std::string table_name(update_log->table_name_, update_log->table_name_size_);
+          std::string table_name(update_log->table_name_,
+                                 update_log->table_name_size_);
           int fd = disk_manager_->GetFileFd(table_name);
           PageId page_id{fd, update_log->rid_.GetPageId()};
           analyze_process(log_record, page_id);
@@ -101,7 +106,9 @@ void RecoveryManager::analyze() {
         }
         case LogType::CHECKPOINT: {
           // ignore the untracked checkpoints
-          std::cout << "[warning] LogRecovery: untracked checkpoint found, ignored" << std::endl;
+          std::cout
+              << "[warning] LogRecovery: untracked checkpoint found, ignored"
+              << std::endl;
           break;
         }
         default:
@@ -112,9 +119,11 @@ void RecoveryManager::analyze() {
       processed_offset += log_record->log_tot_len_;
     }
 
-    // If there is unprocessed data at the end of the buffer, move it to the beginning
+    // If there is unprocessed data at the end of the buffer, move it to the
+    // beginning
     if (processed_offset > 0 && processed_offset < buffer_.offset_) {
-      memmove(buffer_.buffer_, buffer_.buffer_ + processed_offset, buffer_.offset_ - processed_offset);
+      memmove(buffer_.buffer_, buffer_.buffer_ + processed_offset,
+              buffer_.offset_ - processed_offset);
     }
     buffer_.offset_ -= processed_offset;
   }
@@ -129,11 +138,11 @@ void RecoveryManager::analyze() {
 /**
  * @description: Analyze the checkpoint and process the log records.
  *
- * This function reads the checkpoint from the disk and processes the log records
- * to recover the system state. It starts from the beginning and reads the
- * log records from the log file. If the checkpoint LSN is found,
- * it recovers the att dpt(etc) from the checkpoint log record.
- * Finally, it updates the file offset and returns it.
+ * This function reads the checkpoint from the disk and processes the log
+ * records to recover the system state. It starts from the beginning and reads
+ * the log records from the log file. If the checkpoint LSN is found, it
+ * recovers the att dpt(etc) from the checkpoint log record. Finally, it updates
+ * the file offset and returns it.
  *
  * @return The file offset after the checkpoint.
  */
@@ -156,7 +165,8 @@ int RecoveryManager::analyze_checkpoint() {
   while (true) {
     // 1. Read logs
     // read_size =
-    //     disk_manager_->read_log(buffer_.buffer_ + buffer_.offset_, LOG_BUFFER_SIZE - buffer_.offset_, file_offset);
+    //     disk_manager_->read_log(buffer_.buffer_ + buffer_.offset_,
+    //     LOG_BUFFER_SIZE - buffer_.offset_, file_offset);
     // no more logs to read
     if (read_size <= 0) {
       break;
@@ -177,7 +187,8 @@ int RecoveryManager::analyze_checkpoint() {
       }
 
       // Record the log's offset and size in lsn_mapping_
-      lsn_mapping_[log_record->lsn_] = {start_offset + processed_offset, log_record->log_tot_len_};
+      lsn_mapping_[log_record->lsn_] = {start_offset + processed_offset,
+                                        log_record->log_tot_len_};
       // last_lsn_ = std::max(last_lsn_, log_record->lsn_);
 
       // 3. Parse log records
@@ -186,7 +197,8 @@ int RecoveryManager::analyze_checkpoint() {
         checkpoint_log->deserialize(buffer_.buffer_ + processed_offset);
         // recover att and dpt
         for (size_t i = 0; i < checkpoint_log->att_size_; i++) {
-          att_[checkpoint_log->att_vec_[i].first] = checkpoint_log->att_vec_[i].second;
+          att_[checkpoint_log->att_vec_[i].first] =
+              checkpoint_log->att_vec_[i].second;
         }
         for (size_t i = 0; i < checkpoint_log->aborted_txns_size_; i++) {
           aborted_txns_.insert(checkpoint_log->aborted_txns_vec_[i]);
@@ -194,7 +206,8 @@ int RecoveryManager::analyze_checkpoint() {
         for (size_t i = 0; i < checkpoint_log->dpt_size_; i++) {
           std::string table_name = checkpoint_log->tab_name_str_.substr(
               checkpoint_log->tab_name_offset_vec_[i],
-              checkpoint_log->tab_name_offset_vec_[i + 1] - checkpoint_log->tab_name_offset_vec_[i]);
+              checkpoint_log->tab_name_offset_vec_[i + 1] -
+                  checkpoint_log->tab_name_offset_vec_[i]);
           int fd = disk_manager_->GetFileFd(table_name);
           PageId page_id{fd, checkpoint_log->dpt_vec_[i].first};
           dpt_[page_id] = checkpoint_log->dpt_vec_[i].second;
@@ -203,7 +216,8 @@ int RecoveryManager::analyze_checkpoint() {
 
         last_lsn_ = checkpoint_log->lsn_;
         last_txn_id_ = checkpoint_log->log_tid_;
-        file_offset = start_offset + processed_offset + log_record->log_tot_len_;
+        file_offset =
+            start_offset + processed_offset + log_record->log_tot_len_;
         found = true;
         // // debug
         // checkpoint_log->format_print();
@@ -215,9 +229,11 @@ int RecoveryManager::analyze_checkpoint() {
       if (found) break;
     }
 
-    // If there is unprocessed data at the end of the buffer, move it to the beginning
+    // If there is unprocessed data at the end of the buffer, move it to the
+    // beginning
     if (processed_offset > 0 && processed_offset < buffer_.offset_) {
-      memmove(buffer_.buffer_, buffer_.buffer_ + processed_offset, buffer_.offset_ - processed_offset);
+      memmove(buffer_.buffer_, buffer_.buffer_ + processed_offset,
+              buffer_.offset_ - processed_offset);
     }
     buffer_.offset_ -= processed_offset;
 
@@ -231,7 +247,8 @@ int RecoveryManager::analyze_checkpoint() {
 }
 
 /**
- * Process the log record for INSERT, DELETE, UPDATE and updates the recovery manager's data structures.
+ * Process the log record for INSERT, DELETE, UPDATE and updates the recovery
+ * manager's data structures.
  *
  * @param log_record The log record to be analyzed.
  * @param page_id The ID of the page associated with the log record.
@@ -250,15 +267,18 @@ void RecoveryManager::analyze_process(LogRecord *log_record, PageId &page_id) {
  * @brief Performs the final steps of the analyze process.
  *
  * This function is responsible for recovering the system by updating various
- * variables and persisting the last transaction ID and log sequence number (LSN).
+ * variables and persisting the last transaction ID and log sequence number
+ * (LSN).
  *
- * @note This function assumes that the last transaction ID and LSN have been correctly set.
+ * @note This function assumes that the last transaction ID and LSN have been
+ * correctly set.
  */
 void RecoveryManager::analyze_finish() {
   // recover
   if (last_txn_id_ != INVALID_TXN_ID && last_lsn_ != INVALID_LSN) {
-    // std::cout << "[last]txn_id: " << last_txn_id_ << ", lsn: " << last_lsn_ << std::endl;
-    // std::cout << "[next]txn_id: " << last_txn_id_ + 1 << ", lsn: " << last_lsn_ + 1 << std::endl;
+    // std::cout << "[last]txn_id: " << last_txn_id_ << ", lsn: " << last_lsn_
+    // << std::endl; std::cout << "[next]txn_id: " << last_txn_id_ + 1 << ",
+    // lsn: " << last_lsn_ + 1 << std::endl;
     txn_manager_->next_txn_id_.store(last_txn_id_ + 1);
     txn_manager_->next_timestamp_.store(last_txn_id_ + 1);
     log_manager_->global_lsn_.store(last_lsn_ + 1);
@@ -289,12 +309,14 @@ void RecoveryManager::analyze4chkpt(CheckpointLogRecord *checkpoint) {
   lsn_t checkpoint_lsn = last_lsn_;
   // Note: Reset min_rec_lsn_
   // if there are logs after the checkpoint, checkpoint is flushed suceesfully.
-  // so we need to reset min_rec_lsn_ to get the correct min_rec_lsn_ after the checkpoint.
+  // so we need to reset min_rec_lsn_ to get the correct min_rec_lsn_ after the
+  // checkpoint.
   min_rec_lsn_ = INVALID_LSN;
   while (true) {
     // 1. Read logs
     // read_size =
-    //     disk_manager_->read_log(buffer_.buffer_ + buffer_.offset_, LOG_BUFFER_SIZE - buffer_.offset_, file_offset);
+    //     disk_manager_->read_log(buffer_.buffer_ + buffer_.offset_,
+    //     LOG_BUFFER_SIZE - buffer_.offset_, file_offset);
     // no more logs to read
     if (read_size <= 0) {
       break;
@@ -315,7 +337,8 @@ void RecoveryManager::analyze4chkpt(CheckpointLogRecord *checkpoint) {
       }
 
       // Record the log's offset and size in lsn_mapping_
-      lsn_mapping_[log_record->lsn_] = {start_offset + processed_offset, log_record->log_tot_len_};
+      lsn_mapping_[log_record->lsn_] = {start_offset + processed_offset,
+                                        log_record->log_tot_len_};
       last_lsn_ = std::max(last_lsn_, log_record->lsn_);
 
       // 3. Parse log records
@@ -334,7 +357,8 @@ void RecoveryManager::analyze4chkpt(CheckpointLogRecord *checkpoint) {
           break;
         case LogType::INSERT: {
           insert_log->deserialize(buffer_.buffer_ + processed_offset);
-          std::string table_name(insert_log->table_name_, insert_log->table_name_size_);
+          std::string table_name(insert_log->table_name_,
+                                 insert_log->table_name_size_);
           int fd = disk_manager_->GetFileFd(table_name);
           PageId page_id{fd, insert_log->rid_.GetPageId()};
           analyze_process(log_record, page_id);
@@ -343,7 +367,8 @@ void RecoveryManager::analyze4chkpt(CheckpointLogRecord *checkpoint) {
         }
         case LogType::DELETE: {
           delete_log->deserialize(buffer_.buffer_ + processed_offset);
-          std::string table_name(delete_log->table_name_, delete_log->table_name_size_);
+          std::string table_name(delete_log->table_name_,
+                                 delete_log->table_name_size_);
           int fd = disk_manager_->GetFileFd(table_name);
           PageId page_id{fd, delete_log->rid_.GetPageId()};
           analyze_process(log_record, page_id);
@@ -352,7 +377,8 @@ void RecoveryManager::analyze4chkpt(CheckpointLogRecord *checkpoint) {
         }
         case LogType::UPDATE: {
           update_log->deserialize(buffer_.buffer_ + processed_offset);
-          std::string table_name(update_log->table_name_, update_log->table_name_size_);
+          std::string table_name(update_log->table_name_,
+                                 update_log->table_name_size_);
           int fd = disk_manager_->GetFileFd(table_name);
           PageId page_id{fd, update_log->rid_.GetPageId()};
           analyze_process(log_record, page_id);
@@ -367,9 +393,11 @@ void RecoveryManager::analyze4chkpt(CheckpointLogRecord *checkpoint) {
       processed_offset += log_record->log_tot_len_;
     }
 
-    // If there is unprocessed data at the end of the buffer, move it to the beginning
+    // If there is unprocessed data at the end of the buffer, move it to the
+    // beginning
     if (processed_offset > 0 && processed_offset < buffer_.offset_) {
-      memmove(buffer_.buffer_, buffer_.buffer_ + processed_offset, buffer_.offset_ - processed_offset);
+      memmove(buffer_.buffer_, buffer_.buffer_ + processed_offset,
+              buffer_.offset_ - processed_offset);
     }
     buffer_.offset_ -= processed_offset;
   }
@@ -412,7 +440,8 @@ void RecoveryManager::redo() {
   while (true) {
     // Read log records from the file
     // read_size =
-    //     disk_manager_->read_log(buffer_.buffer_ + buffer_.offset_, LOG_BUFFER_SIZE - buffer_.offset_, file_offset);
+    //     disk_manager_->read_log(buffer_.buffer_ + buffer_.offset_,
+    //     LOG_BUFFER_SIZE - buffer_.offset_, file_offset);
     // no more logs to read
     if (read_size <= 0) {
       break;
@@ -452,9 +481,11 @@ void RecoveryManager::redo() {
       processed_offset += log_record->log_tot_len_;
     }
 
-    // If there is unprocessed data at the end of the buffer, move it to the beginning
+    // If there is unprocessed data at the end of the buffer, move it to the
+    // beginning
     if (processed_offset > 0 && processed_offset < buffer_.offset_) {
-      memmove(buffer_.buffer_, buffer_.buffer_ + processed_offset, buffer_.offset_ - processed_offset);
+      memmove(buffer_.buffer_, buffer_.buffer_ + processed_offset,
+              buffer_.offset_ - processed_offset);
     }
     buffer_.offset_ -= processed_offset;
   }
@@ -466,7 +497,8 @@ void RecoveryManager::redo() {
   redo_index();
 }
 
-bool RecoveryManager::redo_skip(LogRecord *log_record, PageId &page_id, Page *page) {
+bool RecoveryManager::redo_skip(LogRecord *log_record, PageId &page_id,
+                                Page *page) {
   // Skip if not in DPT or LSN < recLSN
   auto dpt_entry = dpt_.find(page_id);
   if (dpt_entry == dpt_.end() || dpt_entry->second > log_record->lsn_) {
@@ -544,8 +576,8 @@ void RecoveryManager::redo_delete(DeleteLogRecord *delete_log) {
 }
 
 void RecoveryManager::redo_update(UpdateLogRecord *update_log) {
-  // std::string tab_name(update_log->table_name_, update_log->table_name_size_);
-  // int fd = disk_manager_->GetFileFd(tab_name);
+  // std::string tab_name(update_log->table_name_,
+  // update_log->table_name_size_); int fd = disk_manager_->GetFileFd(tab_name);
   // PageId page_id{fd, update_log->rid_.GetPageId()};
 
   // auto fh = sm_manager_->fhs_.at(tab_name).get();
@@ -635,9 +667,9 @@ void RecoveryManager::undo() {
     }
     // // Actually, we don't need this log
     // else {
-    //     // already aborted, use the same lsn(prev in aborted, last_lsn in att)
-    //     undo_log->prev_lsn_ = aborted_txns_[txn_id];
-    //     undo_log->lsn_ = att_[txn_id];
+    //     // already aborted, use the same lsn(prev in aborted, last_lsn in
+    //     att) undo_log->prev_lsn_ = aborted_txns_[txn_id]; undo_log->lsn_ =
+    //     att_[txn_id];
     // }
 
     // Process the log record for undo
@@ -678,19 +710,18 @@ void RecoveryManager::undo() {
 
 void RecoveryManager::undo_insert(InsertLogRecord *insert_log) {
   // // SmManager::rollback_insert
-  // std::string table_name(insert_log->table_name_, insert_log->table_name_size_);
-  // auto fh = sm_manager_->fhs_.at(table_name).get();
-  // auto &record = insert_log->insert_value_;
-  // RID rid = insert_log->rid_;
+  // std::string table_name(insert_log->table_name_,
+  // insert_log->table_name_size_); auto fh =
+  // sm_manager_->fhs_.at(table_name).get(); auto &record =
+  // insert_log->insert_value_; RID rid = insert_log->rid_;
   // // Delete from index
   // for (auto &index : sm_manager_->db_.get_table(table_name).indexes) {
-  //   auto index_name = sm_manager_->GetIxManager()->GetIndexName(table_name, index.cols);
-  //   auto Iih = sm_manager_->ihs_.at(index_name).get();
-  //   char *key = new char[index.col_tot_len];
-  //   int offset = 0;
-  //   for (int i = 0; i < index.col_num; ++i) {
-  //     memcpy(key + offset, record.data + index.cols[i].offset, index.cols[i].len);
-  //     offset += index.cols[i].len;
+  //   auto index_name = sm_manager_->GetIxManager()->GetIndexName(table_name,
+  //   index.cols); auto Iih = sm_manager_->ihs_.at(index_name).get(); char *key
+  //   = new char[index.col_tot_len]; int offset = 0; for (int i = 0; i <
+  //   index.col_num; ++i) {
+  //     memcpy(key + offset, record.data + index.cols[i].offset,
+  //     index.cols[i].len); offset += index.cols[i].len;
   //   }
   //   Iih->DeleteEntry(key);
   //   delete[] key;
@@ -699,8 +730,10 @@ void RecoveryManager::undo_insert(InsertLogRecord *insert_log) {
   // fh->DeleteTuple(rid, nullptr);
 
   // // // TODO: DeleteLogRecord(CLR)
-  // // DeleteLogRecord del_log_rec(insert_log->log_tid_, record, rid, table_name);
-  // // del_log_rec.prev_lsn_ = att_[insert_log->log_tid_];  // lastLSN in recovery
+  // // DeleteLogRecord del_log_rec(insert_log->log_tid_, record, rid,
+  // table_name);
+  // // del_log_rec.prev_lsn_ = att_[insert_log->log_tid_];  // lastLSN in
+  // recovery
   // // lsn_t lsn = log_manager_->add_log_to_buffer(&del_log_rec);
   // // att_[insert_log->log_tid_] = lsn;
   // // // set lsn in page header
@@ -712,34 +745,36 @@ void RecoveryManager::undo_insert(InsertLogRecord *insert_log) {
 
 void RecoveryManager::undo_delete(DeleteLogRecord *delete_log) {
   // // SmManager::rollback_delete
-  // std::string table_name(delete_log->table_name_, delete_log->table_name_size_);
-  // auto fh = sm_manager_->fhs_.at(table_name).get();
-  // auto &record = delete_log->delete_value_;
-  // RID rid = delete_log->rid_;
+  // std::string table_name(delete_log->table_name_,
+  // delete_log->table_name_size_); auto fh =
+  // sm_manager_->fhs_.at(table_name).get(); auto &record =
+  // delete_log->delete_value_; RID rid = delete_log->rid_;
   // // Insert into table
   // // ziyang comment
   // // fh->InsertRecord(rid, record.data);
   // // Insert into index
   // for (auto &index : sm_manager_->db_.get_table(table_name).indexes) {
-  //   auto index_name = sm_manager_->GetIxManager()->GetIndexName(table_name, index.cols);
-  //   auto Iih = sm_manager_->ihs_.at(index_name).get();
-  //   char *key = new char[index.col_tot_len];
-  //   int offset = 0;
-  //   for (int i = 0; i < index.col_num; ++i) {
-  //     memcpy(key + offset, record.data + index.cols[i].offset, index.cols[i].len);
-  //     offset += index.cols[i].len;
+  //   auto index_name = sm_manager_->GetIxManager()->GetIndexName(table_name,
+  //   index.cols); auto Iih = sm_manager_->ihs_.at(index_name).get(); char *key
+  //   = new char[index.col_tot_len]; int offset = 0; for (int i = 0; i <
+  //   index.col_num; ++i) {
+  //     memcpy(key + offset, record.data + index.cols[i].offset,
+  //     index.cols[i].len); offset += index.cols[i].len;
   //   }
   //   auto is_insert = Iih->InsertEntry(key, rid);
   //   if (is_insert == -1) {
   //     // should not happen because this is logged
-  //     throw InternalError("RecoveryManager::undo_delete: index entry not found");
+  //     throw InternalError("RecoveryManager::undo_delete: index entry not
+  //     found");
   //   }
   //   delete[] key;
   // }
 
   // // // TODO: InsertLogRecord(CLR)
-  // // InsertLogRecord insert_log_rec(delete_log->log_tid_, record, rid, table_name);
-  // // insert_log_rec.prev_lsn_ = att_[delete_log->log_tid_];  // lastLSN in recovery
+  // // InsertLogRecord insert_log_rec(delete_log->log_tid_, record, rid,
+  // table_name);
+  // // insert_log_rec.prev_lsn_ = att_[delete_log->log_tid_];  // lastLSN in
+  // recovery
   // // lsn_t lsn = log_manager_->add_log_to_buffer(&insert_log_rec);
   // // att_[delete_log->log_tid_] = lsn;
   // // // set lsn in page header
@@ -751,25 +786,24 @@ void RecoveryManager::undo_delete(DeleteLogRecord *delete_log) {
 
 void RecoveryManager::undo_update(UpdateLogRecord *update_log) {
   // // SmManager::rollback_update
-  // std::string table_name(update_log->table_name_, update_log->table_name_size_);
-  // auto fh = sm_manager_->fhs_.at(table_name).get();
-  // auto &old_record = update_log->old_value_;
-  // auto &new_record = update_log->new_value_;
-  // RID rid = update_log->rid_;
+  // std::string table_name(update_log->table_name_,
+  // update_log->table_name_size_); auto fh =
+  // sm_manager_->fhs_.at(table_name).get(); auto &old_record =
+  // update_log->old_value_; auto &new_record = update_log->new_value_; RID rid
+  // = update_log->rid_;
 
   // // Update table
   // fh->UpdateRecord(rid, old_record.data);
   // // Update index
   // for (auto &index : sm_manager_->db_.get_table(table_name).indexes) {
-  //   auto index_name = sm_manager_->GetIxManager()->GetIndexName(table_name, index.cols);
-  //   auto Iih = sm_manager_->ihs_.at(index_name).get();
-  //   char *old_key = new char[index.col_tot_len];
-  //   char *new_key = new char[index.col_tot_len];
-  //   int offset = 0;
-  //   for (int i = 0; i < index.col_num; ++i) {
-  //     memcpy(old_key + offset, old_record.data + index.cols[i].offset, index.cols[i].len);
-  //     memcpy(new_key + offset, new_record.data + index.cols[i].offset, index.cols[i].len);
-  //     offset += index.cols[i].len;
+  //   auto index_name = sm_manager_->GetIxManager()->GetIndexName(table_name,
+  //   index.cols); auto Iih = sm_manager_->ihs_.at(index_name).get(); char
+  //   *old_key = new char[index.col_tot_len]; char *new_key = new
+  //   char[index.col_tot_len]; int offset = 0; for (int i = 0; i <
+  //   index.col_num; ++i) {
+  //     memcpy(old_key + offset, old_record.data + index.cols[i].offset,
+  //     index.cols[i].len); memcpy(new_key + offset, new_record.data +
+  //     index.cols[i].offset, index.cols[i].len); offset += index.cols[i].len;
   //   }
   //   // check if the key is the same as before
   //   if (memcmp(old_key, new_key, index.col_tot_len) == 0) {
@@ -781,7 +815,8 @@ void RecoveryManager::undo_update(UpdateLogRecord *update_log) {
   //   auto is_insert = Iih->InsertEntry(old_key, rid);
   //   if (is_insert == -1) {
   //     // should not happen because this is logged
-  //     throw InternalError("RecoveryManager::undo_update: index entry not found");
+  //     throw InternalError("RecoveryManager::undo_update: index entry not
+  //     found");
   //   }
   //   Iih->DeleteEntry(new_key);
   //   delete[] old_key;
@@ -789,10 +824,13 @@ void RecoveryManager::undo_update(UpdateLogRecord *update_log) {
   // }
 
   // // // TODO: UpdateLogRecord(CLR)
-  // // // Note: log after the update, because old_record & new_record will not be changed
+  // // // Note: log after the update, because old_record & new_record will not
+  // be changed
   // // // after the update, which is different from rollback_update
-  // // UpdateLogRecord update_log_rec(update_log->log_tid_, new_record, old_record, rid, table_name);
-  // // update_log_rec.prev_lsn_ = att_[update_log->log_tid_];  // lastLSN in recovery
+  // // UpdateLogRecord update_log_rec(update_log->log_tid_, new_record,
+  // old_record, rid, table_name);
+  // // update_log_rec.prev_lsn_ = att_[update_log->log_tid_];  // lastLSN in
+  // recovery
   // // lsn_t lsn = log_manager_->add_log_to_buffer(&update_log_rec);
   // // att_[update_log->log_tid_] = lsn;
   // // // set lsn in page header

@@ -40,26 +40,27 @@ namespace easydb {
       break;                                                               \
   }  // SWITCH
 
-#define INT_MODIFY_FUNC(METHOD, OP)                                                     \
-  switch (right.GetTypeId()) {                                                          \
-    case TypeId::TYPE_INT:                                                              \
-      /* NOLINTNEXTLINE */                                                              \
-      return METHOD<int32_t, int32_t>(left, right);                                     \
-    case TypeId::TYPE_LONG:                                                             \
-      /* NOLINTNEXTLINE */                                                              \
-      return METHOD<int32_t, int64_t>(left, right);                                     \
-    case TypeId::TYPE_FLOAT:                                                            \
-    case TypeId::TYPE_DOUBLE:                                                           \
-      /* NOLINTNEXTLINE */                                                              \
-      return Value(TypeId::TYPE_DOUBLE, left.value_.integer_ OP right.GetAs<double>()); \
-    case TypeId::TYPE_CHAR:                                                             \
-    case TypeId::TYPE_VARCHAR: {                                                        \
-      auto r_value = right.CastAs(TypeId::TYPE_INT);                                    \
-      /* NOLINTNEXTLINE */                                                              \
-      return METHOD<int32_t, int32_t>(left, r_value);                                   \
-    }                                                                                   \
-    default:                                                                            \
-      break;                                                                            \
+#define INT_MODIFY_FUNC(METHOD, OP)                                \
+  switch (right.GetTypeId()) {                                     \
+    case TypeId::TYPE_INT:                                         \
+      /* NOLINTNEXTLINE */                                         \
+      return METHOD<int32_t, int32_t>(left, right);                \
+    case TypeId::TYPE_LONG:                                        \
+      /* NOLINTNEXTLINE */                                         \
+      return METHOD<int32_t, int64_t>(left, right);                \
+    case TypeId::TYPE_FLOAT:                                       \
+    case TypeId::TYPE_DOUBLE:                                      \
+      /* NOLINTNEXTLINE */                                         \
+      return Value(TypeId::TYPE_DOUBLE,                            \
+                   left.value_.integer_ OP right.GetAs<double>()); \
+    case TypeId::TYPE_CHAR:                                        \
+    case TypeId::TYPE_VARCHAR: {                                   \
+      auto r_value = right.CastAs(TypeId::TYPE_INT);               \
+      /* NOLINTNEXTLINE */                                         \
+      return METHOD<int32_t, int32_t>(left, r_value);              \
+    }                                                              \
+    default:                                                       \
+      break;                                                       \
   }  // SWITCH
 
 /**
@@ -68,7 +69,9 @@ namespace easydb {
  */
 IntegerType::IntegerType(TypeId type) : IntegerParentType(type) {}
 
-auto IntegerType::IsZero(const Value &val) const -> bool { return (val.value_.integer_ == 0); }
+auto IntegerType::IsZero(const Value &val) const -> bool {
+  return (val.value_.integer_ == 0);
+}
 
 auto IntegerType::Add(const Value &left, const Value &right) const -> Value {
   assert(left.CheckInteger());
@@ -81,7 +84,8 @@ auto IntegerType::Add(const Value &left, const Value &right) const -> Value {
   throw Exception("type error");
 }
 
-auto IntegerType::Subtract(const Value &left, const Value &right) const -> Value {
+auto IntegerType::Subtract(const Value &left, const Value &right) const
+    -> Value {
   assert(left.CheckInteger());
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -93,7 +97,8 @@ auto IntegerType::Subtract(const Value &left, const Value &right) const -> Value
   throw Exception("type error");
 }
 
-auto IntegerType::Multiply(const Value &left, const Value &right) const -> Value {
+auto IntegerType::Multiply(const Value &left, const Value &right) const
+    -> Value {
   assert(left.CheckInteger());
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -113,7 +118,8 @@ auto IntegerType::Divide(const Value &left, const Value &right) const -> Value {
   }
 
   if (right.IsZero()) {
-    throw Exception(ExceptionType::DIVIDE_BY_ZERO, "Division by zero on right-hand side");
+    throw Exception(ExceptionType::DIVIDE_BY_ZERO,
+                    "Division by zero on right-hand side");
   }
 
   INT_MODIFY_FUNC(DivideValue, /);
@@ -129,7 +135,8 @@ auto IntegerType::Modulo(const Value &left, const Value &right) const -> Value {
   }
 
   if (right.IsZero()) {
-    throw Exception(ExceptionType::DIVIDE_BY_ZERO, "Division by zero on right-hand side");
+    throw Exception(ExceptionType::DIVIDE_BY_ZERO,
+                    "Division by zero on right-hand side");
   }
 
   switch (right.GetTypeId()) {
@@ -143,7 +150,8 @@ auto IntegerType::Modulo(const Value &left, const Value &right) const -> Value {
       return ModuloValue<int32_t, int64_t>(left, right);
     case TypeId::TYPE_FLOAT:
     case TypeId::TYPE_DOUBLE:
-      return {TypeId::TYPE_DOUBLE, ValMod(left.value_.integer_, right.GetAs<double>())};
+      return {TypeId::TYPE_DOUBLE,
+              ValMod(left.value_.integer_, right.GetAs<double>())};
     case TypeId::TYPE_CHAR:
     case TypeId::TYPE_VARCHAR: {
       auto r_value = right.CastAs(TypeId::TYPE_INT);
@@ -163,12 +171,14 @@ auto IntegerType::Sqrt(const Value &val) const -> Value {
   }
 
   if (val.value_.integer_ < 0) {
-    throw Exception(ExceptionType::DECIMAL, "Cannot take square root of a negative number.");
+    throw Exception(ExceptionType::DECIMAL,
+                    "Cannot take square root of a negative number.");
   }
   return {TypeId::TYPE_DOUBLE, std::sqrt(val.value_.integer_)};
 }
 
-auto IntegerType::OperateNull(const Value &left __attribute__((unused)), const Value &right) const -> Value {
+auto IntegerType::OperateNull(const Value &left __attribute__((unused)),
+                              const Value &right) const -> Value {
   switch (right.GetTypeId()) {
       //   case TypeId::TINYINT:
       //   case TypeId::SMALLINT:
@@ -186,7 +196,8 @@ auto IntegerType::OperateNull(const Value &left __attribute__((unused)), const V
   throw Exception("type error");
 }
 
-auto IntegerType::CompareEquals(const Value &left, const Value &right) const -> CmpBool {
+auto IntegerType::CompareEquals(const Value &left, const Value &right) const
+    -> CmpBool {
   assert(left.CheckInteger());
   assert(left.CheckComparable(right));
 
@@ -199,7 +210,8 @@ auto IntegerType::CompareEquals(const Value &left, const Value &right) const -> 
   throw Exception("type error");
 }
 
-auto IntegerType::CompareNotEquals(const Value &left, const Value &right) const -> CmpBool {
+auto IntegerType::CompareNotEquals(const Value &left, const Value &right) const
+    -> CmpBool {
   assert(left.CheckInteger());
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -211,7 +223,8 @@ auto IntegerType::CompareNotEquals(const Value &left, const Value &right) const 
   throw Exception("type error");
 }
 
-auto IntegerType::CompareLessThan(const Value &left, const Value &right) const -> CmpBool {
+auto IntegerType::CompareLessThan(const Value &left, const Value &right) const
+    -> CmpBool {
   assert(left.CheckInteger());
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -223,7 +236,8 @@ auto IntegerType::CompareLessThan(const Value &left, const Value &right) const -
   throw Exception("type error");
 }
 
-auto IntegerType::CompareLessThanEquals(const Value &left, const Value &right) const -> CmpBool {
+auto IntegerType::CompareLessThanEquals(const Value &left,
+                                        const Value &right) const -> CmpBool {
   assert(left.CheckInteger());
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -235,7 +249,8 @@ auto IntegerType::CompareLessThanEquals(const Value &left, const Value &right) c
   throw Exception("type error");
 }
 
-auto IntegerType::CompareGreaterThan(const Value &left, const Value &right) const -> CmpBool {
+auto IntegerType::CompareGreaterThan(const Value &left,
+                                     const Value &right) const -> CmpBool {
   assert(left.CheckInteger());
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -247,7 +262,9 @@ auto IntegerType::CompareGreaterThan(const Value &left, const Value &right) cons
   throw Exception("type error");
 }
 
-auto IntegerType::CompareGreaterThanEquals(const Value &left, const Value &right) const -> CmpBool {
+auto IntegerType::CompareGreaterThanEquals(const Value &left,
+                                           const Value &right) const
+    -> CmpBool {
   assert(left.CheckInteger());
   assert(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull()) {
@@ -297,14 +314,17 @@ auto IntegerType::Copy(const Value &val) const -> Value {
   return {val.GetTypeId(), val.value_.integer_};
 }
 
-auto IntegerType::CastAs(const Value &val, const TypeId type_id) const -> Value {
+auto IntegerType::CastAs(const Value &val, const TypeId type_id) const
+    -> Value {
   switch (type_id) {
       //   case TypeId::TINYINT: {
       //     if (val.IsNull()) {
       //       return {type_id, EASYDB_INT8_NULL};
       //     }
-      //     if (val.GetAs<int32_t>() > EASYDB_INT8_MAX || val.GetAs<int32_t>() < EASYDB_INT8_MIN) {
-      //       throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of range.");
+      //     if (val.GetAs<int32_t>() > EASYDB_INT8_MAX || val.GetAs<int32_t>()
+      //     < EASYDB_INT8_MIN) {
+      //       throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out
+      //       of range.");
       //     }
       //     return {type_id, static_cast<int8_t>(val.GetAs<int32_t>())};
       //   }
@@ -312,8 +332,10 @@ auto IntegerType::CastAs(const Value &val, const TypeId type_id) const -> Value 
       //     if (val.IsNull()) {
       //       return {type_id, EASYDB_INT16_NULL};
       //     }
-      //     if (val.GetAs<int32_t>() > EASYDB_INT16_MAX || val.GetAs<int32_t>() < EASYDB_INT16_MIN) {
-      //       throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out of range.");
+      //     if (val.GetAs<int32_t>() > EASYDB_INT16_MAX || val.GetAs<int32_t>()
+      //     < EASYDB_INT16_MIN) {
+      //       throw Exception(ExceptionType::OUT_OF_RANGE, "Numeric value out
+      //       of range.");
       //     }
       //     return {type_id, static_cast<int16_t>(val.GetAs<int32_t>())};
       //   }
@@ -346,7 +368,8 @@ auto IntegerType::CastAs(const Value &val, const TypeId type_id) const -> Value 
     default:
       break;
   }
-  throw Exception("Integer is not coercable to " + Type::TypeIdToString(type_id));
+  throw Exception("Integer is not coercable to " +
+                  Type::TypeIdToString(type_id));
 }
 
 }  // namespace easydb

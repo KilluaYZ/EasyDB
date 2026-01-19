@@ -36,7 +36,7 @@ static constexpr uint64_t TABLE_PAGE_HEADER_SIZE = 8;
 
 /**
  * @brief 槽式页面格式说明
- * 
+ *
  * 槽式页面（Slotted Page）格式：
  *  ---------------------------------------------------------
  *  | HEADER | ... FREE SPACE ... | ... INSERTED TUPLES ... |
@@ -59,7 +59,7 @@ static constexpr uint64_t TABLE_PAGE_HEADER_SIZE = 8;
  *
  * 元组格式：
  * | meta | data |
- * 
+ *
  * 说明：
  * - NextPageId: 指向下一个表页面的页面ID（用于链表结构）
  * - NumTuples: 页面中元组的数量
@@ -70,7 +70,7 @@ static constexpr uint64_t TABLE_PAGE_HEADER_SIZE = 8;
 
 /**
  * @brief 表页面类，用于存储数据库表的元组数据
- * 
+ *
  * TablePage 实现了槽式页面格式，用于在页面中存储和管理元组。
  * 页面使用槽目录来跟踪每个元组的位置和大小，元组从页面末尾向前插入。
  */
@@ -78,7 +78,8 @@ class TablePage {
  public:
   /**
    * @brief 初始化表页面头部
-   * @note 将页面头部字段初始化为默认值（next_page_id、num_tuples、num_deleted_tuples等）
+   * @note
+   * 将页面头部字段初始化为默认值（next_page_id、num_tuples、num_deleted_tuples等）
    */
   void Init();
 
@@ -109,19 +110,21 @@ class TablePage {
    * @return 如果元组可以放入此页面，返回偏移量；否则返回nullopt
    * @note 检查页面是否有足够的空间存储元组
    */
-  auto GetNextTupleOffset(const TupleMeta &meta, const Tuple &tuple) const -> std::optional<uint16_t>;
+  auto GetNextTupleOffset(const TupleMeta &meta, const Tuple &tuple) const
+      -> std::optional<uint16_t>;
 
   /**
    * @brief 向表中插入一个元组
    * @param meta 元组的元数据（时间戳、删除标志等）
    * @param tuple 要插入的元组
    * @return 如果插入成功（有足够空间），返回槽号；否则返回nullopt
-   * @note 
+   * @note
    *   - 元组从页面末尾向前插入
    *   - 在槽目录中添加新条目
    *   - 更新元组计数
    */
-  auto InsertTuple(const TupleMeta &meta, const Tuple &tuple) -> std::optional<uint16_t>;
+  auto InsertTuple(const TupleMeta &meta, const Tuple &tuple)
+      -> std::optional<uint16_t>;
 
   /**
    * @brief 更新元组的元数据
@@ -152,12 +155,13 @@ class TablePage {
    * @param meta 新的元数据
    * @param tuple 新的元组数据
    * @param rid 要更新的元组的记录ID
-   * @note 
+   * @note
    *   - "不安全"意味着不检查新元组的大小是否与旧元组匹配
    *   - 调用者需要确保新元组的大小不超过旧元组
    *   - 用于更新操作，当新值大小不超过旧值时使用
    */
-  void UpdateTupleInPlaceUnsafe(const TupleMeta &meta, const Tuple &tuple, RID rid);
+  void UpdateTupleInPlaceUnsafe(const TupleMeta &meta, const Tuple &tuple,
+                                RID rid);
 
   static_assert(sizeof(page_id_t) == 4);
 
@@ -167,22 +171,22 @@ class TablePage {
    * @note 格式：<offset(2字节), size(2字节), TupleMeta(16字节)>
    */
   using TupleInfo = std::tuple<uint16_t, uint16_t, TupleMeta>;
-  
+
   /** @brief 页面起始位置的占位符（用于计算偏移量） */
   char page_start_[0];
-  
+
   /** @brief 下一个表页面的页面ID */
   page_id_t next_page_id_;
-  
+
   /** @brief 页面中元组的数量 */
   uint16_t num_tuples_;
-  
+
   /** @brief 页面中已删除元组的数量 */
   uint16_t num_deleted_tuples_;
-  
+
   /**
    * @brief 元组信息数组（槽目录）
-   * @note 
+   * @note
    *   - 这是一个灵活数组成员，实际大小由num_tuples_决定
    *   - 每个元素对应一个元组的槽信息
    *   - 包含元组的偏移量、大小和元数据

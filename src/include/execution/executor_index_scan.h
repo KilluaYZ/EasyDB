@@ -27,7 +27,7 @@ namespace easydb {
 
 /**
  * @brief 索引扫描执行器类
- * 
+ *
  * IndexScanExecutor 实现索引扫描操作，利用索引快速定位满足条件的元组，
  * 比顺序扫描更高效。
  */
@@ -37,36 +37,36 @@ class IndexScanExecutor : public AbstractExecutor {
    * @brief 表名称
    */
   std::string tab_name_;
-  
+
   /**
    * @brief 表的元数据
    */
   TabMeta tab_;
-  
+
   /**
    * @brief 扫描条件列表
    * @note 用于过滤元组，只有满足所有条件的元组才会被返回
    */
   std::vector<Condition> conds_;
-  
+
   /**
    * @brief 表的数据文件句柄
    * @note 用于访问表的实际数据
    */
   RmFileHandle *fh_;
-  
+
   // std::vector<ColMeta> cols_;         // 需要读取的字段
-  
+
   /**
    * @brief 扫描后生成的记录的字段模式
    */
   Schema schema_;
-  
+
   /**
    * @brief 选取出来的一条记录的长度（字节数）
    */
   size_t len_;
-  
+
   /**
    * @brief 已传递的扫描条件列表
    * @note 不一定和conds_字段相同，取决于索引的选择
@@ -78,7 +78,7 @@ class IndexScanExecutor : public AbstractExecutor {
    * @brief 索引扫描涉及到的索引包含的字段名列表
    */
   std::vector<std::string> index_col_names_;
-  
+
   /**
    * @brief 索引扫描涉及到的索引元数据
    */
@@ -88,7 +88,7 @@ class IndexScanExecutor : public AbstractExecutor {
    * @brief 当前元组的记录ID
    */
   RID rid_;
-  
+
   /**
    * @brief 索引扫描器
    * @note 用于遍历索引，获取满足条件的RID列表
@@ -109,7 +109,8 @@ class IndexScanExecutor : public AbstractExecutor {
    * @param index_col_names 索引列名列表
    * @param context 事务上下文指针
    */
-  IndexScanExecutor(SmManager *sm_manager, std::string tab_name, std::vector<Condition> conds,
+  IndexScanExecutor(SmManager *sm_manager, std::string tab_name,
+                    std::vector<Condition> conds,
                     std::vector<std::string> index_col_names, Context *context);
 
   /**
@@ -143,7 +144,7 @@ class IndexScanExecutor : public AbstractExecutor {
    * @note 初始化索引扫描器，定位到第一个满足条件的元组
    */
   void beginTuple() override;
-  
+
   /**
    * @brief 移动到下一个元组
    * @note 推进索引扫描器到下一个位置，跳过不满足条件的元组

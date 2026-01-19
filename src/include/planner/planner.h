@@ -1,7 +1,7 @@
 /* Copyright (c) 2023 Renmin University of China
 RMDB is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
+You can use this software according to the terms and conditions of the Mulan PSL
+v2. You may obtain a copy of Mulan PSL v2 at:
         http://license.coscl.org.cn/MulanPSL2
 THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
@@ -38,7 +38,8 @@ class Planner {
 
   bool enable_optimizer = true;
   double estimate_table_scan_cost(const std::string &tab_name);
-  double estimate_join_cost(const std::string &left_table, const std::string &right_table);
+  double estimate_join_cost(const std::string &left_table,
+                            const std::string &right_table);
   void reorder_conds_based_on_table_size(std::shared_ptr<Query> query);
   void reorder_joins(std::shared_ptr<Query> query);
 
@@ -64,11 +65,16 @@ class Planner {
  public:
   Planner(SmManager *sm_manager) : sm_manager_(sm_manager) {}
 
-  std::shared_ptr<Plan> do_planner(std::shared_ptr<Query> query, Context *context);
+  std::shared_ptr<Plan> do_planner(std::shared_ptr<Query> query,
+                                   Context *context);
 
-  void set_enable_nestedloop_join(bool set_val) { enable_nestedloop_join = set_val; }
+  void set_enable_nestedloop_join(bool set_val) {
+    enable_nestedloop_join = set_val;
+  }
 
-  void set_enable_sortmerge_join(bool set_val) { enable_sortmerge_join = set_val; }
+  void set_enable_sortmerge_join(bool set_val) {
+    enable_sortmerge_join = set_val;
+  }
 
   void setEnableHashJoin(bool set_val) { enable_hash_join = set_val; }
 
@@ -79,25 +85,33 @@ class Planner {
   void deduce_conditions_via_equijoin(std::shared_ptr<Query> query);
 
  private:
-  std::shared_ptr<Query> logical_optimization(std::shared_ptr<Query> query, Context *context);
-  std::shared_ptr<Plan> physical_optimization(std::shared_ptr<Query> query, Context *context);
+  std::shared_ptr<Query> logical_optimization(std::shared_ptr<Query> query,
+                                              Context *context);
+  std::shared_ptr<Plan> physical_optimization(std::shared_ptr<Query> query,
+                                              Context *context);
 
-  std::shared_ptr<Plan> make_one_rel(std::shared_ptr<Query> query, Context *context);
+  std::shared_ptr<Plan> make_one_rel(std::shared_ptr<Query> query,
+                                     Context *context);
 
-  std::shared_ptr<Plan> generate_sort_plan(std::shared_ptr<Query> query, std::shared_ptr<Plan> plan);
-  std::shared_ptr<Plan> generate_aggregation_plan(std::shared_ptr<Query> query, std::shared_ptr<Plan> plan);
+  std::shared_ptr<Plan> generate_sort_plan(std::shared_ptr<Query> query,
+                                           std::shared_ptr<Plan> plan);
+  std::shared_ptr<Plan> generate_aggregation_plan(std::shared_ptr<Query> query,
+                                                  std::shared_ptr<Plan> plan);
 
-  std::shared_ptr<Plan> generate_select_plan(std::shared_ptr<Query> query, Context *context);
+  std::shared_ptr<Plan> generate_select_plan(std::shared_ptr<Query> query,
+                                             Context *context);
 
   // int get_indexNo(std::string tab_name, std::vector<Condition> curr_conds);
   bool get_index_cols(std::string tab_name, std::vector<Condition> curr_conds,
                       std::vector<std::string> &index_col_names);
-  bool get_index_cols_swap(std::string tab_name, std::vector<Condition> curr_conds,
+  bool get_index_cols_swap(std::string tab_name,
+                           std::vector<Condition> curr_conds,
                            std::vector<std::string> &index_col_names);
 
   ColType interp_sv_type(ast::SvType sv_type) {
-    std::map<ast::SvType, ColType> m = {
-        {ast::SV_TYPE_INT, TYPE_INT}, {ast::SV_TYPE_FLOAT, TYPE_FLOAT}, {ast::SV_TYPE_STRING, TYPE_VARCHAR}};
+    std::map<ast::SvType, ColType> m = {{ast::SV_TYPE_INT, TYPE_INT},
+                                        {ast::SV_TYPE_FLOAT, TYPE_FLOAT},
+                                        {ast::SV_TYPE_STRING, TYPE_VARCHAR}};
     return m.at(sv_type);
   }
 };

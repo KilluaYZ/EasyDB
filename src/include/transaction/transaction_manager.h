@@ -31,13 +31,13 @@ namespace easydb {
  * @note 当前题目中要求两阶段封锁并发控制算法
  */
 enum class ConcurrencyMode {
-  TWO_PHASE_LOCKING = 0,  /**< 两阶段锁定（2PL）算法 */
-  BASIC_TO                /**< 基础TO（时间戳排序）算法 */
+  TWO_PHASE_LOCKING = 0, /**< 两阶段锁定（2PL）算法 */
+  BASIC_TO               /**< 基础TO（时间戳排序）算法 */
 };
 
 /**
  * @brief 事务管理器类
- * 
+ *
  * TransactionManager 负责管理事务的生命周期，包括：
  * - 事务的开始、提交和回滚
  * - 事务ID和时间戳的分配
@@ -53,8 +53,9 @@ class TransactionManager {
    * @param sm_manager 系统管理器指针
    * @param concurrency_mode 并发控制模式，默认为两阶段锁定
    */
-  explicit TransactionManager(LockManager *lock_manager, SmManager *sm_manager,
-                              ConcurrencyMode concurrency_mode = ConcurrencyMode::TWO_PHASE_LOCKING) {
+  explicit TransactionManager(
+      LockManager *lock_manager, SmManager *sm_manager,
+      ConcurrencyMode concurrency_mode = ConcurrencyMode::TWO_PHASE_LOCKING) {
     sm_manager_ = sm_manager;
     lock_manager_ = lock_manager;
     concurrency_mode_ = concurrency_mode;
@@ -107,7 +108,9 @@ class TransactionManager {
    * @brief 设置并发控制模式
    * @param concurrency_mode 新的并发控制模式
    */
-  void SetConcurrencyMode(ConcurrencyMode concurrency_mode) { concurrency_mode_ = concurrency_mode; }
+  void SetConcurrencyMode(ConcurrencyMode concurrency_mode) {
+    concurrency_mode_ = concurrency_mode;
+  }
 
   /**
    * @brief 获取锁管理器
@@ -125,7 +128,8 @@ class TransactionManager {
     if (txn_id == INVALID_TXN_ID) return nullptr;
 
     std::unique_lock<std::mutex> lock(latch_);
-    assert(TransactionManager::txn_map.find(txn_id) != TransactionManager::txn_map.end());
+    assert(TransactionManager::txn_map.find(txn_id) !=
+           TransactionManager::txn_map.end());
     auto *res = TransactionManager::txn_map[txn_id];
     lock.unlock();
     assert(res != nullptr);
@@ -164,28 +168,28 @@ class TransactionManager {
    * @note 目前只需要考虑2PL（两阶段锁定）
    */
   ConcurrencyMode concurrency_mode_;
-  
+
   /**
    * @brief 用于分发事务ID的原子计数器
    * @note 每次分配新事务时递增，确保事务ID唯一
    */
   std::atomic<txn_id_t> next_txn_id_{0};
-  
+
   /**
    * @brief 用于分发事务时间戳的原子计数器
    * @note 每次分配新事务时递增，用于MVCC和死锁预防
    */
   std::atomic<timestamp_t> next_timestamp_{0};
-  
+
   /**
    * @brief 保护txn_map的互斥锁
    * @note 确保多线程环境下事务表操作的线程安全性
    */
   std::mutex latch_;
-  
+
   /** @brief 系统管理器指针 */
   SmManager *sm_manager_;
-  
+
   /** @brief 锁管理器指针 */
   LockManager *lock_manager_;
 };

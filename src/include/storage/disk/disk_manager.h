@@ -30,8 +30,10 @@
 namespace easydb {
 
 /**
- * DiskManager takes care of the allocation and deallocation of pages within a database. It performs the reading and
- * writing of pages to and from disk, providing a logical file layer within the context of a database management system.
+ * DiskManager takes care of the allocation and deallocation of pages within a
+ * database. It performs the reading and writing of pages to and from disk,
+ * providing a logical file layer within the context of a database management
+ * system.
  */
 class DiskManager {
  public:
@@ -50,7 +52,8 @@ class DiskManager {
    * @param page_data raw page data
    * @param num_bytes number of bytes to write
    */
-  virtual void WritePage(int fd, page_id_t page_id, const char *page_data, size_t num_bytes);
+  virtual void WritePage(int fd, page_id_t page_id, const char *page_data,
+                         size_t num_bytes);
 
   /**
    * Read a page from the database file.
@@ -59,7 +62,8 @@ class DiskManager {
    * @param[out] page_data output buffer
    * @param num_bytes number of bytes to read
    */
-  virtual void ReadPage(int fd, page_id_t page_id, char *page_data, size_t num_bytes);
+  virtual void ReadPage(int fd, page_id_t page_id, char *page_data,
+                        size_t num_bytes);
 
   /**
    * Allocate a new page in the database file.
@@ -69,14 +73,18 @@ class DiskManager {
   virtual page_id_t AllocatePage(int fd);
 
   // Directory operations
-  bool IsDir(const std::string &path) { return std::filesystem::is_directory(path); }
+  bool IsDir(const std::string &path) {
+    return std::filesystem::is_directory(path);
+  }
 
   void CreateDir(const std::string &path);
 
   void DestroyDir(const std::string &path);
 
   // File operations
-  bool IsFile(const std::string &path) { return std::filesystem::is_regular_file(path); }
+  bool IsFile(const std::string &path) {
+    return std::filesystem::is_regular_file(path);
+  }
 
   void CreateFile(const std::string &path);
 
@@ -97,7 +105,9 @@ class DiskManager {
    * @param fd file descriptor of the database file
    * @param pageno page number
    */
-  inline void SetFd2Pageno(int fd, page_id_t pageno) { fd2pageno_[fd] = pageno; }
+  inline void SetFd2Pageno(int fd, page_id_t pageno) {
+    fd2pageno_[fd] = pageno;
+  }
 
   /**
    * Gets the mapping of file descriptor to page number.

@@ -40,7 +40,8 @@ class BufferPoolManager;
  * 它同时充当缓存角色，将频繁使用的页面保留在内存中以实现更快访问，
  * 并将未使用或冷页面驱逐回存储设备。
  *
- * 在实现缓冲池管理器之前，请确保完整阅读相关文档，并完成 LRUReplacer 和 DiskManager 类的实现。
+ * 在实现缓冲池管理器之前，请确保完整阅读相关文档，并完成 LRUReplacer 和
+ * DiskManager 类的实现。
  */
 class BufferPoolManager {
  public:

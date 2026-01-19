@@ -1,7 +1,7 @@
 /* Copyright (c) 2023 Renmin University of China
 RMDB is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
+You can use this software according to the terms and conditions of the Mulan PSL
+v2. You may obtain a copy of Mulan PSL v2 at:
         http://license.coscl.org.cn/MulanPSL2
 THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
@@ -23,14 +23,15 @@ namespace easydb {
  * @brief 日志刷新超时时间（秒）
  * @note 日志缓冲区每隔此时间间隔刷新到磁盘
  */
-static constexpr std::chrono::duration<int64_t> FLUSH_TIMEOUT = std::chrono::seconds(3);
+static constexpr std::chrono::duration<int64_t> FLUSH_TIMEOUT =
+    std::chrono::seconds(3);
 
 /**
  * @brief 日志头部格式说明
- * 
+ *
  * 日志记录格式：
  * | log_type_ | lsn_ | log_tot_len_ | log_tid_ | prev_lsn_ | ...log_data... |
- * 
+ *
  * 各字段的偏移量定义如下：
  */
 

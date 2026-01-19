@@ -29,7 +29,7 @@ namespace easydb {
 /**
  * @brief 拷贝构造函数
  * @param other 要复制的源值对象
- * 
+ *
  * 实现逻辑：
  * - 对于定长类型：直接复制value_联合体
  * - 对于变长类型（CHAR、VARCHAR）：
@@ -81,26 +81,29 @@ Value::Value(TypeId type, int8_t i) : Value(type) {
   switch (type) {
     // case TypeId::TYPE_BOOLEAN:
     //   value_.boolean_ = i;
-    //   size_.len_ = (value_.boolean_ == EASYDB_BOOLEAN_NULL ? EASYDB_VALUE_NULL : 0);
-    //   break;
+    //   size_.len_ = (value_.boolean_ == EASYDB_BOOLEAN_NULL ?
+    //   EASYDB_VALUE_NULL : 0); break;
     // case TypeId::TYPE_TINYINT:
     //   value_.tinyint_ = i;
-    //   size_.len_ = (value_.tinyint_ == EASYDB_INT8_NULL ? EASYDB_VALUE_NULL : 0);
-    //   break;
+    //   size_.len_ = (value_.tinyint_ == EASYDB_INT8_NULL ? EASYDB_VALUE_NULL :
+    //   0); break;
     // case TypeId::TYPE_SMALLINT:
     //   value_.smallint_ = i;
-    //   size_.len_ = (value_.smallint_ == EASYDB_INT16_NULL ? EASYDB_VALUE_NULL : 0);
-    //   break;
+    //   size_.len_ = (value_.smallint_ == EASYDB_INT16_NULL ? EASYDB_VALUE_NULL
+    //   : 0); break;
     case TypeId::TYPE_INT:
       value_.integer_ = i;
-      size_.len_ = (value_.integer_ == EASYDB_INT32_NULL ? EASYDB_VALUE_NULL : 0);
+      size_.len_ =
+          (value_.integer_ == EASYDB_INT32_NULL ? EASYDB_VALUE_NULL : 0);
       break;
     case TypeId::TYPE_LONG:
       value_.bigint_ = i;
-      size_.len_ = (value_.bigint_ == EASYDB_INT64_NULL ? EASYDB_VALUE_NULL : 0);
+      size_.len_ =
+          (value_.bigint_ == EASYDB_INT64_NULL ? EASYDB_VALUE_NULL : 0);
       break;
     default:
-      throw Exception(ExceptionType::INCOMPATIBLE_TYPE, "Invalid Type for one-byte Value constructor");
+      throw Exception(ExceptionType::INCOMPATIBLE_TYPE,
+                      "Invalid Type for one-byte Value constructor");
   }
 }
 
@@ -109,30 +112,34 @@ Value::Value(TypeId type, int16_t i) : Value(type) {
   switch (type) {
     // case TypeId::TYPE_BOOLEAN:
     //   value_.boolean_ = i;
-    //   size_.len_ = (value_.boolean_ == EASYDB_BOOLEAN_NULL ? EASYDB_VALUE_NULL : 0);
-    //   break;
+    //   size_.len_ = (value_.boolean_ == EASYDB_BOOLEAN_NULL ?
+    //   EASYDB_VALUE_NULL : 0); break;
     // case TypeId::TYPE_TINYINT:
     //   value_.tinyint_ = i;
-    //   size_.len_ = (value_.tinyint_ == EASYDB_INT8_NULL ? EASYDB_VALUE_NULL : 0);
-    //   break;
+    //   size_.len_ = (value_.tinyint_ == EASYDB_INT8_NULL ? EASYDB_VALUE_NULL :
+    //   0); break;
     // case TypeId::TYPE_SMALLINT:
     //   value_.smallint_ = i;
-    //   size_.len_ = (value_.smallint_ == EASYDB_INT16_NULL ? EASYDB_VALUE_NULL : 0);
-    //   break;
+    //   size_.len_ = (value_.smallint_ == EASYDB_INT16_NULL ? EASYDB_VALUE_NULL
+    //   : 0); break;
     case TypeId::TYPE_INT:
       value_.integer_ = i;
-      size_.len_ = (value_.integer_ == EASYDB_INT32_NULL ? EASYDB_VALUE_NULL : 0);
+      size_.len_ =
+          (value_.integer_ == EASYDB_INT32_NULL ? EASYDB_VALUE_NULL : 0);
       break;
     case TypeId::TYPE_LONG:
       value_.bigint_ = i;
-      size_.len_ = (value_.bigint_ == EASYDB_INT64_NULL ? EASYDB_VALUE_NULL : 0);
+      size_.len_ =
+          (value_.bigint_ == EASYDB_INT64_NULL ? EASYDB_VALUE_NULL : 0);
       break;
     case TypeId::TYPE_DATE:
       value_.timestamp_ = i;
-      size_.len_ = (value_.timestamp_ == EASYDB_TIMESTAMP_NULL ? EASYDB_VALUE_NULL : 0);
+      size_.len_ =
+          (value_.timestamp_ == EASYDB_TIMESTAMP_NULL ? EASYDB_VALUE_NULL : 0);
       break;
     default:
-      throw Exception(ExceptionType::INCOMPATIBLE_TYPE, "Invalid Type for two-byte Value constructor");
+      throw Exception(ExceptionType::INCOMPATIBLE_TYPE,
+                      "Invalid Type for two-byte Value constructor");
   }
 }
 
@@ -141,30 +148,34 @@ Value::Value(TypeId type, int32_t i) : Value(type) {
   switch (type) {
     // case TypeId::TYPE_BOOLEAN:
     //   value_.boolean_ = i;
-    //   size_.len_ = (value_.boolean_ == EASYDB_BOOLEAN_NULL ? EASYDB_VALUE_NULL : 0);
-    //   break;
+    //   size_.len_ = (value_.boolean_ == EASYDB_BOOLEAN_NULL ?
+    //   EASYDB_VALUE_NULL : 0); break;
     // case TypeId::TYPE_TINYINT:
     //   value_.tinyint_ = i;
-    //   size_.len_ = (value_.tinyint_ == EASYDB_INT8_NULL ? EASYDB_VALUE_NULL : 0);
-    //   break;
+    //   size_.len_ = (value_.tinyint_ == EASYDB_INT8_NULL ? EASYDB_VALUE_NULL :
+    //   0); break;
     // case TypeId::TYPE_SMALLINT:
     //   value_.smallint_ = i;
-    //   size_.len_ = (value_.smallint_ == EASYDB_INT16_NULL ? EASYDB_VALUE_NULL : 0);
-    //   break;
+    //   size_.len_ = (value_.smallint_ == EASYDB_INT16_NULL ? EASYDB_VALUE_NULL
+    //   : 0); break;
     case TypeId::TYPE_INT:
       value_.integer_ = i;
-      size_.len_ = (value_.integer_ == EASYDB_INT32_NULL ? EASYDB_VALUE_NULL : 0);
+      size_.len_ =
+          (value_.integer_ == EASYDB_INT32_NULL ? EASYDB_VALUE_NULL : 0);
       break;
     case TypeId::TYPE_LONG:
       value_.bigint_ = i;
-      size_.len_ = (value_.bigint_ == EASYDB_INT64_NULL ? EASYDB_VALUE_NULL : 0);
+      size_.len_ =
+          (value_.bigint_ == EASYDB_INT64_NULL ? EASYDB_VALUE_NULL : 0);
       break;
     case TypeId::TYPE_DATE:
       value_.timestamp_ = i;
-      size_.len_ = (value_.timestamp_ == EASYDB_TIMESTAMP_NULL ? EASYDB_VALUE_NULL : 0);
+      size_.len_ =
+          (value_.timestamp_ == EASYDB_TIMESTAMP_NULL ? EASYDB_VALUE_NULL : 0);
       break;
     default:
-      throw Exception(ExceptionType::INCOMPATIBLE_TYPE, "Invalid Type for integer_ Value constructor");
+      throw Exception(ExceptionType::INCOMPATIBLE_TYPE,
+                      "Invalid Type for integer_ Value constructor");
   }
 }
 
@@ -173,30 +184,34 @@ Value::Value(TypeId type, int64_t i) : Value(type) {
   switch (type) {
     // case TypeId::TYPE_BOOLEAN:
     //   value_.boolean_ = i;
-    //   size_.len_ = (value_.boolean_ == EASYDB_BOOLEAN_NULL ? EASYDB_VALUE_NULL : 0);
-    //   break;
+    //   size_.len_ = (value_.boolean_ == EASYDB_BOOLEAN_NULL ?
+    //   EASYDB_VALUE_NULL : 0); break;
     // case TypeId::TYPE_TINYINT:
     //   value_.tinyint_ = i;
-    //   size_.len_ = (value_.tinyint_ == EASYDB_INT8_NULL ? EASYDB_VALUE_NULL : 0);
-    //   break;
+    //   size_.len_ = (value_.tinyint_ == EASYDB_INT8_NULL ? EASYDB_VALUE_NULL :
+    //   0); break;
     // case TypeId::TYPE_SMALLINT:
     //   value_.smallint_ = i;
-    //   size_.len_ = (value_.smallint_ == EASYDB_INT16_NULL ? EASYDB_VALUE_NULL : 0);
-    //   break;
+    //   size_.len_ = (value_.smallint_ == EASYDB_INT16_NULL ? EASYDB_VALUE_NULL
+    //   : 0); break;
     case TypeId::TYPE_INT:
       value_.integer_ = i;
-      size_.len_ = (value_.integer_ == EASYDB_INT32_NULL ? EASYDB_VALUE_NULL : 0);
+      size_.len_ =
+          (value_.integer_ == EASYDB_INT32_NULL ? EASYDB_VALUE_NULL : 0);
       break;
     case TypeId::TYPE_LONG:
       value_.bigint_ = i;
-      size_.len_ = (value_.bigint_ == EASYDB_INT64_NULL ? EASYDB_VALUE_NULL : 0);
+      size_.len_ =
+          (value_.bigint_ == EASYDB_INT64_NULL ? EASYDB_VALUE_NULL : 0);
       break;
     case TypeId::TYPE_DATE:
       value_.timestamp_ = i;
-      size_.len_ = (value_.timestamp_ == EASYDB_TIMESTAMP_NULL ? EASYDB_VALUE_NULL : 0);
+      size_.len_ =
+          (value_.timestamp_ == EASYDB_TIMESTAMP_NULL ? EASYDB_VALUE_NULL : 0);
       break;
     default:
-      throw Exception(ExceptionType::INCOMPATIBLE_TYPE, "Invalid Type for eight-byte Value constructor");
+      throw Exception(ExceptionType::INCOMPATIBLE_TYPE,
+                      "Invalid Type for eight-byte Value constructor");
   }
 }
 
@@ -205,14 +220,17 @@ Value::Value(TypeId type, uint64_t i) : Value(type) {
   switch (type) {
     case TypeId::TYPE_LONG:
       value_.bigint_ = i;
-      size_.len_ = (value_.bigint_ == EASYDB_INT64_NULL ? EASYDB_VALUE_NULL : 0);
+      size_.len_ =
+          (value_.bigint_ == EASYDB_INT64_NULL ? EASYDB_VALUE_NULL : 0);
       break;
     case TypeId::TYPE_DATE:
       value_.timestamp_ = i;
-      size_.len_ = (value_.timestamp_ == EASYDB_TIMESTAMP_NULL ? EASYDB_VALUE_NULL : 0);
+      size_.len_ =
+          (value_.timestamp_ == EASYDB_TIMESTAMP_NULL ? EASYDB_VALUE_NULL : 0);
       break;
     default:
-      throw Exception(ExceptionType::INCOMPATIBLE_TYPE, "Invalid Type for timestamp_ Value constructor");
+      throw Exception(ExceptionType::INCOMPATIBLE_TYPE,
+                      "Invalid Type for timestamp_ Value constructor");
   }
 }
 
@@ -222,15 +240,18 @@ Value::Value(TypeId type, double d) : Value(type) {
     case TypeId::TYPE_FLOAT:
     case TypeId::TYPE_DOUBLE:
       value_.decimal_ = d;
-      size_.len_ = (value_.decimal_ == EASYDB_DECIMAL_NULL ? EASYDB_VALUE_NULL : 0);
+      size_.len_ =
+          (value_.decimal_ == EASYDB_DECIMAL_NULL ? EASYDB_VALUE_NULL : 0);
       break;
     default:
-      throw Exception(ExceptionType::INCOMPATIBLE_TYPE, "Invalid Type for double Value constructor");
+      throw Exception(ExceptionType::INCOMPATIBLE_TYPE,
+                      "Invalid Type for double Value constructor");
   }
 }
 
 // VARCHAR
-Value::Value(TypeId type, const char *data, uint32_t len, bool manage_data) : Value(type) {
+Value::Value(TypeId type, const char *data, uint32_t len, bool manage_data)
+    : Value(type) {
   switch (type) {
     case TypeId::TYPE_CHAR:
     case TypeId::TYPE_VARCHAR:
@@ -254,7 +275,8 @@ Value::Value(TypeId type, const char *data, uint32_t len, bool manage_data) : Va
       }
       break;
     default:
-      throw Exception(ExceptionType::INCOMPATIBLE_TYPE, "Invalid Type  for variable-length Value constructor");
+      throw Exception(ExceptionType::INCOMPATIBLE_TYPE,
+                      "Invalid Type  for variable-length Value constructor");
   }
 }
 
@@ -272,7 +294,8 @@ Value::Value(TypeId type, const std::string &data) : Value(type) {
       break;
     }
     default:
-      throw Exception(ExceptionType::INCOMPATIBLE_TYPE, "Invalid Type  for variable-length Value constructor");
+      throw Exception(ExceptionType::INCOMPATIBLE_TYPE,
+                      "Invalid Type  for variable-length Value constructor");
   }
 }
 
@@ -288,13 +311,14 @@ Value::Value(TypeId type, const std::vector<double> &data) : Value(type) {
     //   break;
     // }
     default:
-      throw Exception(ExceptionType::INCOMPATIBLE_TYPE, "Invalid Type  for variable-length Value constructor");
+      throw Exception(ExceptionType::INCOMPATIBLE_TYPE,
+                      "Invalid Type  for variable-length Value constructor");
   }
 }
 
 /**
  * @brief 析构函数，释放分配的字符数组空间
- * 
+ *
  * 如果manage_data_为true且类型为变长类型（CHAR、VARCHAR），
  * 释放value_.varlen_指向的内存。
  */
@@ -316,7 +340,7 @@ Value::~Value() {
  * @brief 检查两个值是否可比较
  * @param o 另一个值对象
  * @return true 如果两个值可以进行比较，false 否则
- * 
+ *
  * 比较规则：
  * - 数值类型（INT、LONG、FLOAT、DOUBLE）可以相互比较
  * - 字符串类型（CHAR、VARCHAR）可以与任何类型比较（通过类型转换）
@@ -325,7 +349,8 @@ Value::~Value() {
 auto Value::CheckComparable(const Value &o) const -> bool {
   switch (GetTypeId()) {
     // case TypeId::TYPE_BOOLEAN:
-    //   return (o.GetTypeId() == TypeId::TYPE_BOOLEAN || o.GetTypeId() == TypeId::TYPE_VARCHAR);
+    //   return (o.GetTypeId() == TypeId::TYPE_BOOLEAN || o.GetTypeId() ==
+    //   TypeId::TYPE_VARCHAR);
     // case TypeId::TYPE_TINYINT:
     // case TypeId::TYPE_SMALLINT:
     case TypeId::TYPE_INT:
@@ -394,7 +419,8 @@ auto Value::GetColumn() const -> Column {
 }
 
 auto Value::GetVector() const -> std::vector<double> {
-  //   return reinterpret_cast<VectorType *>(Type::GetInstance(type_id_))->GetVector(*this);
+  //   return reinterpret_cast<VectorType
+  //   *>(Type::GetInstance(type_id_))->GetVector(*this);
 }
 
 }  // namespace easydb

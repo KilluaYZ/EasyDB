@@ -31,7 +31,7 @@ namespace easydb {
 
 /**
  * @brief 双向链表的节点类，用于实现LRU替换器的链表结构
- * 
+ *
  * LinkListNode 表示LRU链表中的一个节点，包含帧ID和指向前后节点的指针。
  * 使用双向链表可以高效地实现LRU策略：最近使用的帧移到尾部，最少使用的帧在头部。
  */
@@ -39,13 +39,13 @@ class LinkListNode {
  public:
   /** @brief 存储的帧ID值 */
   frame_id_t val_{0};
-  
+
   /** @brief 指向前一个节点的指针 */
   LinkListNode *prev_{nullptr};
-  
+
   /** @brief 指向后一个节点的指针 */
   LinkListNode *next_{nullptr};
-  
+
   /**
    * @brief 构造函数，创建一个新的链表节点
    * @param Val 要存储的帧ID值
@@ -55,9 +55,9 @@ class LinkListNode {
 
 /**
  * @brief LRU替换器类，实现最近最少使用（Least Recently Used）替换策略
- * 
+ *
  * LRUReplacer 继承自 Replacer 抽象类，使用双向链表和哈希表实现LRU替换策略。
- * 
+ *
  * 工作原理：
  * - 使用双向链表维护帧的访问顺序：头部是最久未使用的帧，尾部是最近使用的帧
  * - 使用哈希表（data_idx_）实现O(1)时间复杂度的帧查找
@@ -70,7 +70,8 @@ class LRUReplacer : public Replacer {
  public:
   /**
    * @brief 创建一个新的LRU替换器实例
-   * @param num_pages LRU替换器需要管理的最大页面数量（用于预留空间，实际不限制）
+   * @param num_pages
+   * LRU替换器需要管理的最大页面数量（用于预留空间，实际不限制）
    */
   explicit LRUReplacer(size_t num_pages);
 
@@ -90,7 +91,7 @@ class LRUReplacer : public Replacer {
   /**
    * @brief 固定一个帧，将其从LRU链表中移除
    * @param frame_id 要固定的帧ID
-   * @note 
+   * @note
    *   - 固定的帧不会被选为受害者
    *   - 如果帧不在链表中（已被固定或从未取消固定），则不做任何操作
    */
@@ -99,7 +100,7 @@ class LRUReplacer : public Replacer {
   /**
    * @brief 取消固定一个帧，将其加入LRU链表的尾部
    * @param frame_id 要取消固定的帧ID
-   * @note 
+   * @note
    *   - 取消固定后，该帧可以被选为受害者
    *   - 如果帧已经在链表中，则不做任何操作（避免重复）
    *   - 新加入的帧会被放在链表尾部（标记为最近使用）
@@ -115,7 +116,7 @@ class LRUReplacer : public Replacer {
   /**
    * @brief 从双向链表中删除指定的节点
    * @param curr 要删除的节点指针
-   * @note 
+   * @note
    *   - 处理链表为空、只有一个节点、删除头节点、删除尾节点等边界情况
    *   - 删除节点后释放其内存
    *   - 更新head_和tail_指针
@@ -128,17 +129,17 @@ class LRUReplacer : public Replacer {
    * @note Key: 帧ID，Value: 指向链表中对应节点的指针
    */
   std::unordered_map<frame_id_t, LinkListNode *> data_idx_;
-  
+
   /**
    * @brief 双向链表的头指针，指向最久未使用的帧（LRU策略的受害者候选）
    */
   LinkListNode *head_{nullptr};
-  
+
   /**
    * @brief 双向链表的尾指针，指向最近使用的帧
    */
   LinkListNode *tail_{nullptr};
-  
+
   /**
    * @brief 保护LRU替换器内部数据结构的互斥锁
    * @note 确保多线程环境下LRU替换器操作的线程安全性

@@ -48,7 +48,8 @@ class MergeSorter {
   std::vector<std::string> file_paths;
 
  public:
-  MergeSorter(Column colu, std::vector<Column> colus, size_t tuple_len, bool is_desc) {
+  MergeSorter(Column colu, std::vector<Column> colus, size_t tuple_len,
+              bool is_desc) {
     colu_ = colu;
     all_colus_ = colus;
     tuple_len_ = tuple_len;
@@ -60,7 +61,8 @@ class MergeSorter {
     BUFFER_MAX_SIZE = 1 * 1024 * 1024 * 1024;  // 1Gb
     BUFFER_MAX_RECORD_COUNT = BUFFER_MAX_SIZE / tuple_len_;
     // BUFFER_MAX_RECORD_COUNT = 5;
-    // printf(" tuple.len =%d, BUFFER_MAX_RECORD_COUNT = %d\n",tuple_len_,BUFFER_MAX_RECORD_COUNT);
+    // printf(" tuple.len =%d, BUFFER_MAX_RECORD_COUNT =
+    // %d\n",tuple_len_,BUFFER_MAX_RECORD_COUNT);
     record_tmp_buffer.clear();
   }
 
@@ -82,13 +84,17 @@ class MergeSorter {
 
   void writeBuffer(Tuple current_tuple) {
     if (record_tmp_buffer.size() >= BUFFER_MAX_RECORD_COUNT) {
-      // buffer is full, sort and write buffer into disk. wait for multi-way merge sorting.
+      // buffer is full, sort and write buffer into disk. wait for multi-way
+      // merge sorting.
       k++;
-      sort(record_tmp_buffer.begin(), record_tmp_buffer.end(), cmpTuple(is_desc_, colu_));
-      std::string fileName = colu_.GetTabName() + "_" + colu_.GetName() + "_" + std::to_string(file_paths.size());
+      sort(record_tmp_buffer.begin(), record_tmp_buffer.end(),
+           cmpTuple(is_desc_, colu_));
+      std::string fileName = colu_.GetTabName() + "_" + colu_.GetName() + "_" +
+                             std::to_string(file_paths.size());
       std::ofstream fd;
       fd.open(fileName, std::ios::out);
-      for (auto rec = record_tmp_buffer.begin(); rec != record_tmp_buffer.end(); rec++) {
+      for (auto rec = record_tmp_buffer.begin(); rec != record_tmp_buffer.end();
+           rec++) {
         char *data = new char[tuple_len_ + sizeof(int32_t)];
         rec->SerializeTo(data);
         uint32_t size = *reinterpret_cast<const uint32_t *>(data);
@@ -107,12 +113,15 @@ class MergeSorter {
   void clearBuffer() {
     if (!record_tmp_buffer.empty()) {
       k++;
-      sort(record_tmp_buffer.begin(), record_tmp_buffer.end(), cmpTuple(is_desc_, colu_));
-      std::string fileName = colu_.GetTabName() + "_" + colu_.GetName() + "_" + std::to_string(file_paths.size());
+      sort(record_tmp_buffer.begin(), record_tmp_buffer.end(),
+           cmpTuple(is_desc_, colu_));
+      std::string fileName = colu_.GetTabName() + "_" + colu_.GetName() + "_" +
+                             std::to_string(file_paths.size());
       std::ofstream fd;
       fd.open(fileName, std::ios::out);
       fd.flush();
-      for (auto rec = record_tmp_buffer.begin(); rec != record_tmp_buffer.end(); rec++) {
+      for (auto rec = record_tmp_buffer.begin(); rec != record_tmp_buffer.end();
+           rec++) {
         char *data = new char[tuple_len_ + sizeof(int32_t)];
         rec->SerializeTo(data);
         uint32_t size = *reinterpret_cast<const uint32_t *>(data);
@@ -149,7 +158,8 @@ class MergeSorter {
 
   bool IsEnd() const {
     return merge_record_list.size() == 0 ||
-           (output_records_count >= total_records_count && merge_record_list[ls[0]] == NULL);
+           (output_records_count >= total_records_count &&
+            merge_record_list[ls[0]] == NULL);
   }
 
   char *getOneRecord() {
@@ -158,7 +168,8 @@ class MergeSorter {
       output_records_count++;
       char *res = (char *)malloc(sizeof(char) * (tuple_len_ + sizeof(int32_t)));
       memcpy(res, merge_record_list[ls[0]], tuple_len_ + sizeof(int32_t));
-      char *record = (char *)malloc(sizeof(char) * (tuple_len_ + sizeof(int32_t)));
+      char *record =
+          (char *)malloc(sizeof(char) * (tuple_len_ + sizeof(int32_t)));
       Value tp;
       fd_list[ls[0]].read(record, sizeof(int32_t));
       uint32_t size = *reinterpret_cast<const uint32_t *>(record);
@@ -214,14 +225,16 @@ class MergeSorter {
     while (t > 0) {
       // update s to the new winner
       // case 0: ls[t] = -1                                - ls[t] = s
-      // case 1: list[s] = null, list[ls[t]] != null.      - ls[t] = s, s = ls[t]
-      // case 2: list[s] != null, list[ls[t]] = null.      - ls[t] = ls[t], s = s;
-      // case 3: list[s] = null, list[ls[t]] = null.       - ls[t] = ls[t], s = s;
-      // case 4: list[s] != null, list[ls[t]] != null.     - ls[t] = loser, s = winner
+      // case 1: list[s] = null, list[ls[t]] != null.      - ls[t] = s, s =
+      // ls[t] case 2: list[s] != null, list[ls[t]] = null.      - ls[t] =
+      // ls[t], s = s; case 3: list[s] = null, list[ls[t]] = null.       - ls[t]
+      // = ls[t], s = s; case 4: list[s] != null, list[ls[t]] != null.     -
+      // ls[t] = loser, s = winner
       if (ls[t] == -1) {
         ls[t] = s;
       } else if (merge_record_list[ls[t]] != NULL &&
-                 (merge_record_list[s] == NULL || !cmp(merge_value_list[s], merge_value_list[ls[t]]))) {
+                 (merge_record_list[s] == NULL ||
+                  !cmp(merge_value_list[s], merge_value_list[ls[t]]))) {
         // if lose, update loser
         std::swap(s, ls[t]);
       }
@@ -230,7 +243,9 @@ class MergeSorter {
     ls[0] = s;
   }
 
-  bool cmp(const Value &leftVal, const Value &rightVal) { return !is_desc_ ? leftVal < rightVal : leftVal > rightVal; }
+  bool cmp(const Value &leftVal, const Value &rightVal) {
+    return !is_desc_ ? leftVal < rightVal : leftVal > rightVal;
+  }
 };
 
 }  // namespace easydb

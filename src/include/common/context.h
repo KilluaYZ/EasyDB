@@ -36,9 +36,13 @@ static int const_offset = -1;
 */
 class Context {
  public:
-  Context(LockManager *lock_mgr, LogManager *log_mgr, Transaction *txn, char *data_send = nullptr,
-          int *offset = &const_offset)
-      : lock_mgr_(lock_mgr), log_mgr_(log_mgr), txn_(txn), data_send_(data_send), offset_(offset) {
+  Context(LockManager *lock_mgr, LogManager *log_mgr, Transaction *txn,
+          char *data_send = nullptr, int *offset = &const_offset)
+      : lock_mgr_(lock_mgr),
+        log_mgr_(log_mgr),
+        txn_(txn),
+        data_send_(data_send),
+        offset_(offset) {
     ellipsis_ = false;
   }
 
@@ -78,11 +82,14 @@ class Context {
     buf[len] = '\0';
     return len;
   }
-  int SerializeTo(std::vector<char> &buf) { return SerializeJsonTo(result_json, buf); }
+  int SerializeTo(std::vector<char> &buf) {
+    return SerializeJsonTo(result_json, buf);
+  }
 
   int SerializeToWithLimit(std::vector<char> &buf, size_t max_size = 100) {
     auto &data_array = result_json["data"];
-    // If the size of the "data" array(excluding the header row) is greater than max_size, slice it
+    // If the size of the "data" array(excluding the header row) is greater than
+    // max_size, slice it
     if (data_array.size() > max_size + 1) {
       // Create a new json object with a limited size of "data" array
       auto limited_json = json();
@@ -90,7 +97,8 @@ class Context {
       limited_json["data"] = json::array();
       limited_json["total"] = result_json["total"];
 
-      // Copy the first max_size rows(excluding the header row) to the new json object
+      // Copy the first max_size rows(excluding the header row) to the new json
+      // object
       for (size_t i = 0; i < max_size + 1; ++i) {
         limited_json["data"].emplace_back(data_array[i]);
       }

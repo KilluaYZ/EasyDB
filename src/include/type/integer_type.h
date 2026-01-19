@@ -35,12 +35,18 @@ class IntegerType : public IntegerParentType {
   auto Sqrt(const Value &val) const -> Value override;
 
   // Comparison functions
-  auto CompareEquals(const Value &left, const Value &right) const -> CmpBool override;
-  auto CompareNotEquals(const Value &left, const Value &right) const -> CmpBool override;
-  auto CompareLessThan(const Value &left, const Value &right) const -> CmpBool override;
-  auto CompareLessThanEquals(const Value &left, const Value &right) const -> CmpBool override;
-  auto CompareGreaterThan(const Value &left, const Value &right) const -> CmpBool override;
-  auto CompareGreaterThanEquals(const Value &left, const Value &right) const -> CmpBool override;
+  auto CompareEquals(const Value &left, const Value &right) const
+      -> CmpBool override;
+  auto CompareNotEquals(const Value &left, const Value &right) const
+      -> CmpBool override;
+  auto CompareLessThan(const Value &left, const Value &right) const
+      -> CmpBool override;
+  auto CompareLessThanEquals(const Value &left, const Value &right) const
+      -> CmpBool override;
+  auto CompareGreaterThan(const Value &left, const Value &right) const
+      -> CmpBool override;
+  auto CompareGreaterThanEquals(const Value &left, const Value &right) const
+      -> CmpBool override;
 
   auto CastAs(const Value &val, TypeId type_id) const -> Value override;
 
@@ -57,7 +63,8 @@ class IntegerType : public IntegerParentType {
   auto Copy(const Value &val) const -> Value override;
 
  protected:
-  auto OperateNull(const Value &left, const Value &right) const -> Value override;
+  auto OperateNull(const Value &left, const Value &right) const
+      -> Value override;
 
   auto IsZero(const Value &val) const -> bool override;
 };

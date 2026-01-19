@@ -24,7 +24,7 @@ namespace easydb {
 
 /**
  * @brief 执行器抽象基类
- * 
+ *
  * AbstractExecutor 是所有执行器的基类，定义了执行器的通用接口。
  * 执行器负责执行查询计划中的各个操作，如扫描、连接、投影、聚合等。
  */
@@ -134,7 +134,7 @@ class AbstractExecutor {
    * @return 列元数据，默认返回空ColMeta
    */
   virtual ColMeta get_col_offset(const TabCol &target) { return ColMeta(); };
-  
+
   /**
    * @brief 根据TabCol获取列对象
    * @param target 目标列标识
@@ -149,10 +149,12 @@ class AbstractExecutor {
    * @return 找到的列的迭代器
    * @throws ColumnNotFoundError 如果列不存在
    */
-  std::vector<ColMeta>::const_iterator get_col(const std::vector<ColMeta> &rec_cols, const TabCol &target) {
-    auto pos = std::find_if(rec_cols.begin(), rec_cols.end(), [&](const ColMeta &col) {
-      return col.tab_name == target.tab_name && col.name == target.col_name;
-    });
+  std::vector<ColMeta>::const_iterator get_col(
+      const std::vector<ColMeta> &rec_cols, const TabCol &target) {
+    auto pos =
+        std::find_if(rec_cols.begin(), rec_cols.end(), [&](const ColMeta &col) {
+          return col.tab_name == target.tab_name && col.name == target.col_name;
+        });
     if (pos == rec_cols.end()) {
       throw ColumnNotFoundError(target.tab_name + '.' + target.col_name);
     }
@@ -167,11 +169,13 @@ class AbstractExecutor {
    * @return 找到的列的迭代器
    * @throws ColumnNotFoundError 如果列不存在
    */
-  std::vector<ColMeta>::const_iterator get_col(const std::vector<ColMeta> &rec_cols, const std::string &target_tab_name,
-                                               const std::string &target_col_name) {
-    auto pos = std::find_if(rec_cols.begin(), rec_cols.end(), [&](const ColMeta &col) {
-      return col.tab_name == target_tab_name && col.name == target_col_name;
-    });
+  std::vector<ColMeta>::const_iterator get_col(
+      const std::vector<ColMeta> &rec_cols, const std::string &target_tab_name,
+      const std::string &target_col_name) {
+    auto pos =
+        std::find_if(rec_cols.begin(), rec_cols.end(), [&](const ColMeta &col) {
+          return col.tab_name == target_tab_name && col.name == target_col_name;
+        });
     if (pos == rec_cols.end()) {
       throw ColumnNotFoundError(target_tab_name + '.' + target_col_name);
     }
@@ -187,10 +191,12 @@ class AbstractExecutor {
    * @throws ColumnNotFoundError 如果列不存在
    * @note 只比较列名，不比较表名（用于某些场景）
    */
-  std::vector<Column>::const_iterator get_col(const std::vector<Column> &rec_cols, const std::string &target_tab_name,
-                                              const std::string &target_col_name) {
-    auto pos = std::find_if(rec_cols.begin(), rec_cols.end(),
-                            [&](const Column &col) { return col.GetName() == target_col_name; });
+  std::vector<Column>::const_iterator get_col(
+      const std::vector<Column> &rec_cols, const std::string &target_tab_name,
+      const std::string &target_col_name) {
+    auto pos = std::find_if(
+        rec_cols.begin(), rec_cols.end(),
+        [&](const Column &col) { return col.GetName() == target_col_name; });
     if (pos == rec_cols.end()) {
       throw ColumnNotFoundError(target_tab_name + '.' + target_col_name);
     }

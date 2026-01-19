@@ -22,8 +22,11 @@ namespace easydb {
  * @param rids 要更新的记录ID列表
  * @param context 上下文指针
  */
-UpdateExecutor::UpdateExecutor(SmManager *sm_manager, const std::string &tab_name, std::vector<SetClause> set_clauses,
-                               std::vector<Condition> conds, std::vector<RID> rids, Context *context) {
+UpdateExecutor::UpdateExecutor(SmManager *sm_manager,
+                               const std::string &tab_name,
+                               std::vector<SetClause> set_clauses,
+                               std::vector<Condition> conds,
+                               std::vector<RID> rids, Context *context) {
   sm_manager_ = sm_manager;
   tab_name_ = tab_name;
   set_clauses_ = set_clauses;
@@ -59,7 +62,8 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
       auto col_id = tab_.GetColId(set_clause.lhs.col_name);
       Value val;
       if (set_clause.is_rhs_exp) {
-        // Value rhs_res = tuple->GetValue(&tab_.schema, set_clause.rhs_col.col_name);
+        // Value rhs_res = tuple->GetValue(&tab_.schema,
+        // set_clause.rhs_col.col_name);
         Value rhs_res = old_values[col_id];
         val = set_clause.cal_val(rhs_res);
       } else {
@@ -75,14 +79,18 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
     // 1. construct key_d and key_i
     // 2. delete old index entry and insert new index entry
     for (auto index : tab_.indexes) {
-      auto ih = sm_manager_->ihs_.at(sm_manager_->GetIxManager()->GetIndexName(tab_name_, index.cols)).get();
+      auto ih = sm_manager_->ihs_
+                    .at(sm_manager_->GetIxManager()->GetIndexName(tab_name_,
+                                                                  index.cols))
+                    .get();
       auto ids = index.col_ids;
       char *key_d = new char[index.col_tot_len];
       char *key_i = new char[index.col_tot_len];
       int offset = 0;
       for (int i = 0; i < index.col_num; ++i) {
-        // memcpy(key_d + offset, rec->data + index.cols[i].offset, index.cols[i].len);
-        // memcpy(key_i + offset, buf.data + index.cols[i].offset, index.cols[i].len);
+        // memcpy(key_d + offset, rec->data + index.cols[i].offset,
+        // index.cols[i].len); memcpy(key_i + offset, buf.data +
+        // index.cols[i].offset, index.cols[i].len);
         auto id = ids[i];
         auto val_d = old_values[id];
         auto val_i = new_values[id];
@@ -98,7 +106,8 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
       // Wait for GAP lock before insert
       if (context_ != nullptr) {
         Iid lower = ih->LowerBound(key_i);
-        context_->lock_mgr_->HandleIndexGapWaitDie(context_->txn_, lower, fh_->GetFd());
+        context_->lock_mgr_->HandleIndexGapWaitDie(context_->txn_, lower,
+                                                   fh_->GetFd());
       }
 
       // check if the new key duplicated
@@ -114,7 +123,8 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
       // Wait for GAP lock before delete
       if (context_ != nullptr) {
         Iid lower = ih->LowerBound(key_d);
-        context_->lock_mgr_->HandleIndexGapWaitDie(context_->txn_, lower, fh_->GetFd());
+        context_->lock_mgr_->HandleIndexGapWaitDie(context_->txn_, lower,
+                                                   fh_->GetFd());
       }
 
       ih->DeleteEntry(key_d, context_->txn_);
@@ -123,7 +133,8 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
     }
 
     // // Log the update operation(before update old value: *rec)
-    // UpdateLogRecord update_log_rec(context_->txn_->GetTransactionId(), *rec, buf, rid, tab_name_);
+    // UpdateLogRecord update_log_rec(context_->txn_->GetTransactionId(), *rec,
+    // buf, rid, tab_name_);
 
     // update records
     // fh_->UpdateTupleInPlace(TupleMeta{0, false}, new_tuple, context_);
@@ -137,7 +148,8 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
     // fh_->SetPageLSN(rid.page_no, lsn);
 
     // Update context_ for rollback
-    WriteRecord *write_record = new WriteRecord(WType::UPDATE_TUPLE, tab_name_, rid, *tuple);
+    WriteRecord *write_record =
+        new WriteRecord(WType::UPDATE_TUPLE, tab_name_, rid, *tuple);
     context_->txn_->AppendWriteRecord(write_record);
   }
 

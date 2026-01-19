@@ -28,7 +28,8 @@ namespace easydb {
  * @param {Rid&} rid 加锁的目标记录ID 记录所在的表的fd
  * @param {int} tab_fd
  */
-bool LockManager::LockSharedOnRecord(Transaction *txn, const RID &rid, int tab_fd) {
+bool LockManager::LockSharedOnRecord(Transaction *txn, const RID &rid,
+                                     int tab_fd) {
   // 1. Check the txn state(SS2PL)
   if (!CheckTxnStateLock(txn)) {
     return false;
@@ -61,7 +62,8 @@ bool LockManager::LockSharedOnRecord(Transaction *txn, const RID &rid, int tab_f
   // 3.1 If there is a conflicting lock request
   if (request_queue.group_lock_mode_ == GroupLockMode::X) {
     // /* no-wait */
-    // throw TransactionAbortException(txn->GetTransactionId(), AbortReason::DEADLOCK_PREVENTION);
+    // throw TransactionAbortException(txn->GetTransactionId(),
+    // AbortReason::DEADLOCK_PREVENTION);
     /* wait-die */
     // the condition to wake
     auto wake = [&]() {
@@ -94,8 +96,9 @@ bool LockManager::LockSharedOnRecord(Transaction *txn, const RID &rid, int tab_f
 /**
  * @brief Locks a gap on an index for a transaction.
  *
- * This function is responsible for locking a gap on an index for a given transaction.
- * It follows the SS2PL (Strict Two-Phase Locking) protocol to ensure transaction isolation and consistency.
+ * This function is responsible for locking a gap on an index for a given
+ * transaction. It follows the SS2PL (Strict Two-Phase Locking) protocol to
+ * ensure transaction isolation and consistency.
  *
  * @param txn Pointer to the transaction object.
  * @param iid The identifier of the index gap to be locked.
@@ -117,8 +120,9 @@ bool LockManager::LockGapOnIndex(Transaction *txn, const Iid &iid, int tab_fd) {
       return true;
     }
   }
-  // Because LockDataId's type is GAP, group lock mode will always be NON_LOCK/GAP
-  // We don't need to check group lock mode because there is no conflict lock request
+  // Because LockDataId's type is GAP, group lock mode will always be
+  // NON_LOCK/GAP We don't need to check group lock mode because there is no
+  // conflict lock request
   // 3. Grant the lock
   LockRequest lock_request(txn->GetTransactionId(), LockMode::GAP);
   lock_request.granted_ = true;
@@ -131,22 +135,24 @@ bool LockManager::LockGapOnIndex(Transaction *txn, const Iid &iid, int tab_fd) {
 }
 
 /**
- * Handles the wait-die mechanism for transactions waiting on a gap lock in the lock manager.
- * This function is called when a transaction is waiting for a gap lock on a specific index.
- * It checks if there are any lock requests from other transactions and applies the wait-die mechanism if necessary.
+ * Handles the wait-die mechanism for transactions waiting on a gap lock in the
+ * lock manager. This function is called when a transaction is waiting for a gap
+ * lock on a specific index. It checks if there are any lock requests from other
+ * transactions and applies the wait-die mechanism if necessary.
  *
  * @param txn       The transaction waiting for the gap lock.
  * @param iid       The identifier of the index.
  * @param tab_fd    The file descriptor of the table.
  */
-void LockManager::HandleIndexGapWaitDie(Transaction *txn, const Iid &iid, int tab_fd) {
+void LockManager::HandleIndexGapWaitDie(Transaction *txn, const Iid &iid,
+                                        int tab_fd) {
   LockDataId lock_data_id(tab_fd, iid, LockDataType::GAP);
   std::unique_lock<std::mutex> lock(latch_);
   LockRequestQueue &request_queue = lock_table_[lock_data_id];
   // the condition to wake
   auto wake = [&]() {
-    // If no other lock request or the lock request is from the same transaction, wake
-    // Note that group_lock_mode_ will only be NON_LOCK or GAP
+    // If no other lock request or the lock request is from the same
+    // transaction, wake Note that group_lock_mode_ will only be NON_LOCK or GAP
     if (request_queue.group_lock_mode_ == GroupLockMode::NON_LOCK) {
       return true;
     }
@@ -174,7 +180,8 @@ void LockManager::HandleIndexGapWaitDie(Transaction *txn, const Iid &iid, int ta
  * @param {Rid&} rid 加锁的目标记录ID
  * @param {int} tab_fd 记录所在的表的fd
  */
-bool LockManager::LockExclusiveOnRecord(Transaction *txn, const RID &rid, int tab_fd) {
+bool LockManager::LockExclusiveOnRecord(Transaction *txn, const RID &rid,
+                                        int tab_fd) {
   // 1. Check the txn state(SS2PL)
   if (!CheckTxnStateLock(txn)) {
     return false;
@@ -202,7 +209,8 @@ bool LockManager::LockExclusiveOnRecord(Transaction *txn, const RID &rid, int ta
         // If there are other lock requests, it will conflict with them
         if (request_queue.request_queue_.size() > 1) {
           // /* no-wait */
-          // throw TransactionAbortException(txn->GetTransactionId(), AbortReason::DEADLOCK_PREVENTION);
+          // throw TransactionAbortException(txn->GetTransactionId(),
+          // AbortReason::DEADLOCK_PREVENTION);
           /* wait-die */
           for (auto &r : request_queue.request_queue_) {
             if (r.txn_id_ != txn->GetTransactionId()) {
@@ -225,7 +233,8 @@ bool LockManager::LockExclusiveOnRecord(Transaction *txn, const RID &rid, int ta
   // 3.1 If there is a conflicting lock request
   if (request_queue.group_lock_mode_ != GroupLockMode::NON_LOCK) {
     // /* no-wait */
-    // throw TransactionAbortException(txn->GetTransactionId(), AbortReason::DEADLOCK_PREVENTION);
+    // throw TransactionAbortException(txn->GetTransactionId(),
+    // AbortReason::DEADLOCK_PREVENTION);
     /* wait-die */
     auto wake = [&]() {
       if (request_queue.group_lock_mode_ == GroupLockMode::NON_LOCK) {
@@ -274,26 +283,31 @@ bool LockManager::LockSharedOnTable(Transaction *txn, int tab_fd) {
   // Condition to wake
   auto wake = [&]() {
     if (request_queue.group_lock_mode_ == GroupLockMode::NON_LOCK ||
-        request_queue.group_lock_mode_ == GroupLockMode::IS || request_queue.group_lock_mode_ == GroupLockMode::S) {
+        request_queue.group_lock_mode_ == GroupLockMode::IS ||
+        request_queue.group_lock_mode_ == GroupLockMode::S) {
       return true;
     }
     return false;
   };
   for (auto &req : request_queue.request_queue_) {
     if (req.txn_id_ == txn->GetTransactionId()) {
-      if (req.lock_mode_ == LockMode::SHARED || req.lock_mode_ == LockMode::S_IX ||
+      if (req.lock_mode_ == LockMode::SHARED ||
+          req.lock_mode_ == LockMode::S_IX ||
           req.lock_mode_ == LockMode::EXCLUSIVE) {
         return true;
       } else if (req.lock_mode_ == LockMode::INTENTION_SHARED) {
         // IS lock，try to upgrade to S
-        if (request_queue.group_lock_mode_ == GroupLockMode::IS || request_queue.group_lock_mode_ == GroupLockMode::S) {
+        if (request_queue.group_lock_mode_ == GroupLockMode::IS ||
+            request_queue.group_lock_mode_ == GroupLockMode::S) {
         } else {
           // /* no-wait */
-          // throw TransactionAbortException(txn->GetTransactionId(), AbortReason::DEADLOCK_PREVENTION);
+          // throw TransactionAbortException(txn->GetTransactionId(),
+          // AbortReason::DEADLOCK_PREVENTION);
           /* wait-die */
           for (auto &r : request_queue.request_queue_) {
             if (r.txn_id_ != txn->GetTransactionId() &&
-                (r.lock_mode_ == LockMode::INTENTION_EXCLUSIVE || r.lock_mode_ == LockMode::S_IX ||
+                (r.lock_mode_ == LockMode::INTENTION_EXCLUSIVE ||
+                 r.lock_mode_ == LockMode::S_IX ||
                  r.lock_mode_ == LockMode::EXCLUSIVE)) {
               WaitDie(txn, r, request_queue, lock, wake);
               break;
@@ -308,7 +322,8 @@ bool LockManager::LockSharedOnTable(Transaction *txn, int tab_fd) {
         // Note: Now, lock_mode_ will must be IX
         auto upgrade = [&]() {
           for (auto &r : request_queue.request_queue_) {
-            if (r.lock_mode_ == LockMode::INTENTION_EXCLUSIVE && r.txn_id_ != txn->GetTransactionId()) {
+            if (r.lock_mode_ == LockMode::INTENTION_EXCLUSIVE &&
+                r.txn_id_ != txn->GetTransactionId()) {
               return false;
             }
           }
@@ -316,7 +331,8 @@ bool LockManager::LockSharedOnTable(Transaction *txn, int tab_fd) {
         };
         // If there are other IX lock requests, it will conflict with them
         for (auto &r : request_queue.request_queue_) {
-          if (r.lock_mode_ == LockMode::INTENTION_EXCLUSIVE && r.txn_id_ != txn->GetTransactionId()) {
+          if (r.lock_mode_ == LockMode::INTENTION_EXCLUSIVE &&
+              r.txn_id_ != txn->GetTransactionId()) {
             /* wait-die */
             WaitDie(txn, r, request_queue, lock, upgrade);
             break;
@@ -333,13 +349,16 @@ bool LockManager::LockSharedOnTable(Transaction *txn, int tab_fd) {
   // 3. Check the group lock mode
   LockRequest lock_request(txn->GetTransactionId(), LockMode::SHARED);
   // 3.1 If there is a conflicting lock request
-  if (request_queue.group_lock_mode_ == GroupLockMode::IX || request_queue.group_lock_mode_ == GroupLockMode::SIX ||
+  if (request_queue.group_lock_mode_ == GroupLockMode::IX ||
+      request_queue.group_lock_mode_ == GroupLockMode::SIX ||
       request_queue.group_lock_mode_ == GroupLockMode::X) {
     // /* no-wait */
-    // throw TransactionAbortException(txn->GetTransactionId(), AbortReason::DEADLOCK_PREVENTION);
+    // throw TransactionAbortException(txn->GetTransactionId(),
+    // AbortReason::DEADLOCK_PREVENTION);
     /* wait-die */
     for (auto &req : request_queue.request_queue_) {
-      if (req.lock_mode_ == LockMode::INTENTION_EXCLUSIVE || req.lock_mode_ == LockMode::S_IX ||
+      if (req.lock_mode_ == LockMode::INTENTION_EXCLUSIVE ||
+          req.lock_mode_ == LockMode::S_IX ||
           req.lock_mode_ == LockMode::EXCLUSIVE) {
         WaitDie(txn, req, request_queue, lock, wake);
         break;
@@ -392,7 +411,8 @@ bool LockManager::LockExclusiveOnTable(Transaction *txn, int tab_fd) {
         // If there are other lock requests, it will conflict with them
         if (request_queue.request_queue_.size() != 1) {
           // /* no-wait */
-          // throw TransactionAbortException(txn->GetTransactionId(), AbortReason::DEADLOCK_PREVENTION);
+          // throw TransactionAbortException(txn->GetTransactionId(),
+          // AbortReason::DEADLOCK_PREVENTION);
           /* wait-die */
           for (auto &r : request_queue.request_queue_) {
             if (r.txn_id_ != txn->GetTransactionId()) {
@@ -414,7 +434,8 @@ bool LockManager::LockExclusiveOnTable(Transaction *txn, int tab_fd) {
   // 3.1 If there is a conflicting lock request
   if (request_queue.group_lock_mode_ != GroupLockMode::NON_LOCK) {
     // /* no-wait */
-    // throw TransactionAbortException(txn->GetTransactionId(), AbortReason::DEADLOCK_PREVENTION);
+    // throw TransactionAbortException(txn->GetTransactionId(),
+    // AbortReason::DEADLOCK_PREVENTION);
     /* wait-die */
     auto wake = [&]() {
       if (request_queue.group_lock_mode_ == GroupLockMode::NON_LOCK) {
@@ -468,7 +489,8 @@ bool LockManager::LockISOnTable(Transaction *txn, int tab_fd) {
   // 3.1 If there is a conflicting lock request
   if (request_queue.group_lock_mode_ == GroupLockMode::X) {
     // /* no-wait */
-    // throw TransactionAbortException(txn->GetTransactionId(), AbortReason::DEADLOCK_PREVENTION);
+    // throw TransactionAbortException(txn->GetTransactionId(),
+    // AbortReason::DEADLOCK_PREVENTION);
     /* wait-die */
     auto wake = [&]() {
       if (request_queue.group_lock_mode_ != GroupLockMode::X) {
@@ -515,7 +537,8 @@ bool LockManager::LockIXOnTable(Transaction *txn, int tab_fd) {
   // Find or create the LockRequestQueue
   LockRequestQueue &request_queue = lock_table_[lock_data_id];
   auto wake = [&]() {
-    if (request_queue.group_lock_mode_ != GroupLockMode::S && request_queue.group_lock_mode_ != GroupLockMode::SIX &&
+    if (request_queue.group_lock_mode_ != GroupLockMode::S &&
+        request_queue.group_lock_mode_ != GroupLockMode::SIX &&
         request_queue.group_lock_mode_ != GroupLockMode::X) {
       return true;
     }
@@ -523,7 +546,8 @@ bool LockManager::LockIXOnTable(Transaction *txn, int tab_fd) {
   };
   for (auto &req : request_queue.request_queue_) {
     if (req.txn_id_ == txn->GetTransactionId()) {
-      if (req.lock_mode_ == LockMode::INTENTION_EXCLUSIVE || req.lock_mode_ == LockMode::S_IX ||
+      if (req.lock_mode_ == LockMode::INTENTION_EXCLUSIVE ||
+          req.lock_mode_ == LockMode::S_IX ||
           req.lock_mode_ == LockMode::EXCLUSIVE) {
         return true;
       } else if (req.lock_mode_ == LockMode::INTENTION_SHARED) {
@@ -532,10 +556,12 @@ bool LockManager::LockIXOnTable(Transaction *txn, int tab_fd) {
             request_queue.group_lock_mode_ == GroupLockMode::IX) {
         } else {
           // /* no-wait */
-          // throw TransactionAbortException(txn->GetTransactionId(), AbortReason::DEADLOCK_PREVENTION);
+          // throw TransactionAbortException(txn->GetTransactionId(),
+          // AbortReason::DEADLOCK_PREVENTION);
           /* wait-die */
           for (auto &r : request_queue.request_queue_) {
-            if (r.txn_id_ != txn->GetTransactionId() && r.lock_mode_ != LockMode::INTENTION_SHARED &&
+            if (r.txn_id_ != txn->GetTransactionId() &&
+                r.lock_mode_ != LockMode::INTENTION_SHARED &&
                 r.lock_mode_ != LockMode::INTENTION_EXCLUSIVE) {
               WaitDie(txn, r, request_queue, lock, wake);
               break;
@@ -551,7 +577,8 @@ bool LockManager::LockIXOnTable(Transaction *txn, int tab_fd) {
         // Note: Now, lock_mode_ will at least be S
         auto upgrade2SIX = [&]() {
           for (auto &r : request_queue.request_queue_) {
-            if (r.lock_mode_ == LockMode::SHARED && r.txn_id_ != txn->GetTransactionId()) {
+            if (r.lock_mode_ == LockMode::SHARED &&
+                r.txn_id_ != txn->GetTransactionId()) {
               return false;
             }
           }
@@ -559,7 +586,8 @@ bool LockManager::LockIXOnTable(Transaction *txn, int tab_fd) {
         };
         // If there are other S lock, upgrade
         for (auto &r : request_queue.request_queue_) {
-          if (r.lock_mode_ == LockMode::SHARED && r.txn_id_ != txn->GetTransactionId()) {
+          if (r.lock_mode_ == LockMode::SHARED &&
+              r.txn_id_ != txn->GetTransactionId()) {
             /* wait-die */
             WaitDie(txn, r, request_queue, lock, upgrade2SIX);
             break;
@@ -574,15 +602,19 @@ bool LockManager::LockIXOnTable(Transaction *txn, int tab_fd) {
   }
 
   // 3. Check the group lock mode
-  LockRequest lock_request(txn->GetTransactionId(), LockMode::INTENTION_EXCLUSIVE);
+  LockRequest lock_request(txn->GetTransactionId(),
+                           LockMode::INTENTION_EXCLUSIVE);
   // 3.1 If there is a conflicting lock request
-  if (request_queue.group_lock_mode_ == GroupLockMode::S || request_queue.group_lock_mode_ == GroupLockMode::SIX ||
+  if (request_queue.group_lock_mode_ == GroupLockMode::S ||
+      request_queue.group_lock_mode_ == GroupLockMode::SIX ||
       request_queue.group_lock_mode_ == GroupLockMode::X) {
     // /* no-wait */
-    // throw TransactionAbortException(txn->GetTransactionId(), AbortReason::DEADLOCK_PREVENTION);
+    // throw TransactionAbortException(txn->GetTransactionId(),
+    // AbortReason::DEADLOCK_PREVENTION);
     /* wait-die */
     for (auto &req : request_queue.request_queue_) {
-      if (req.lock_mode_ == LockMode::SHARED || req.lock_mode_ == LockMode::S_IX ||
+      if (req.lock_mode_ == LockMode::SHARED ||
+          req.lock_mode_ == LockMode::S_IX ||
           req.lock_mode_ == LockMode::EXCLUSIVE) {
         WaitDie(txn, req, request_queue, lock, wake);
         break;
@@ -619,8 +651,9 @@ bool LockManager::Unlock(Transaction *txn, LockDataId lock_data_id) {
   }
   LockRequestQueue &request_queue = lock_table_[lock_data_id];
   // Delete the lock request from the queue
-  request_queue.request_queue_.remove_if(
-      [&txn](const LockRequest &req) { return req.txn_id_ == txn->GetTransactionId(); });
+  request_queue.request_queue_.remove_if([&txn](const LockRequest &req) {
+    return req.txn_id_ == txn->GetTransactionId();
+  });
   // Remove the lock from the txn's lock set
   txn->GetLockSet()->erase(lock_data_id);
 
@@ -635,11 +668,13 @@ bool LockManager::Unlock(Transaction *txn, LockDataId lock_data_id) {
     request_queue.group_lock_mode_ = GroupLockMode::X;
   } else if (lock_mode_count[static_cast<int>(LockMode::S_IX)] > 0) {
     request_queue.group_lock_mode_ = GroupLockMode::SIX;
-  } else if (lock_mode_count[static_cast<int>(LockMode::INTENTION_EXCLUSIVE)] > 0) {
+  } else if (lock_mode_count[static_cast<int>(LockMode::INTENTION_EXCLUSIVE)] >
+             0) {
     request_queue.group_lock_mode_ = GroupLockMode::IX;
   } else if (lock_mode_count[static_cast<int>(LockMode::SHARED)] > 0) {
     request_queue.group_lock_mode_ = GroupLockMode::S;
-  } else if (lock_mode_count[static_cast<int>(LockMode::INTENTION_SHARED)] > 0) {
+  } else if (lock_mode_count[static_cast<int>(LockMode::INTENTION_SHARED)] >
+             0) {
     request_queue.group_lock_mode_ = GroupLockMode::IS;
   } else if (lock_mode_count[static_cast<int>(LockMode::GAP)] > 0) {
     request_queue.group_lock_mode_ = GroupLockMode::GAP;
@@ -658,7 +693,8 @@ bool LockManager::Unlock(Transaction *txn, LockDataId lock_data_id) {
  *
  * @param txn A pointer to the transaction object.
  * @return True if the transaction can acquire a lock, false otherwise.
- * @throws TransactionAbortException If the transaction is in the shrinking state.
+ * @throws TransactionAbortException If the transaction is in the shrinking
+ * state.
  * @throws InternalError If the transaction state is invalid.
  */
 bool LockManager::CheckTxnStateLock(Transaction *txn) {
@@ -676,10 +712,12 @@ bool LockManager::CheckTxnStateLock(Transaction *txn) {
       return true;
     case TransactionState::SHRINKING:
       // Transaction is in shrinking state, throw exception
-      throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHIRINKING);
+      throw TransactionAbortException(txn->GetTransactionId(),
+                                      AbortReason::LOCK_ON_SHIRINKING);
     default:
       // Transaction state is invalid, throw exception
-      throw InternalError("LockManager::check_txn_state: Invalid transaction state");
+      throw InternalError(
+          "LockManager::check_txn_state: Invalid transaction state");
   }
 }
 
@@ -706,7 +744,8 @@ bool LockManager::CheckTxnStateUnlock(Transaction *txn) {
       return true;
     default:
       // Transaction state is invalid, throw exception
-      throw InternalError("LockManager::check_txn_state_unlock: Invalid transaction state");
+      throw InternalError(
+          "LockManager::check_txn_state_unlock: Invalid transaction state");
   }
 }
 
@@ -716,14 +755,18 @@ bool LockManager::CheckTxnStateUnlock(Transaction *txn) {
  * If the transaction is younger than the requesting transaction, it aborts.
  *
  * @param txn The transaction that is requesting the lock.
- * @param req_holder The lock request holder containing the requesting transaction's information.
+ * @param req_holder The lock request holder containing the requesting
+ * transaction's information.
  * @param queue The lock request queue.
  * @param lock The unique lock on the lock manager's mutex.
  * @param wake The wake condition for waiting on the lock request queue.
- * @throws TransactionAbortException If the transaction is younger than the requesting transaction.
+ * @throws TransactionAbortException If the transaction is younger than the
+ * requesting transaction.
  */
-inline void LockManager::WaitDie(Transaction *txn, LockRequest &req_holder, LockRequestQueue &queue,
-                                 std::unique_lock<std::mutex> &lock, std::function<bool()> wake) {
+inline void LockManager::WaitDie(Transaction *txn, LockRequest &req_holder,
+                                 LockRequestQueue &queue,
+                                 std::unique_lock<std::mutex> &lock,
+                                 std::function<bool()> wake) {
   // Note: We use id instead of start_ts because we cannot get the req.start_ts,
   // but the id increments with the start_ts, which means it's ok to use id.
   if (txn->GetTransactionId() < req_holder.txn_id_) {
@@ -731,7 +774,8 @@ inline void LockManager::WaitDie(Transaction *txn, LockRequest &req_holder, Lock
     queue.cv_.wait(lock, wake);
   } else {
     // Younger transaction, abort
-    throw TransactionAbortException(txn->GetTransactionId(), AbortReason::DEADLOCK_PREVENTION);
+    throw TransactionAbortException(txn->GetTransactionId(),
+                                    AbortReason::DEADLOCK_PREVENTION);
   }
 }
 

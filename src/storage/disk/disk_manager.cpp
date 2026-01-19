@@ -35,39 +35,44 @@ namespace easydb {
 /**
  * @brief 构造函数：打开或创建数据库文件和日志文件的目录
  * @param db_dir 数据库目录名称
- * 
+ *
  * 初始化过程：
  * 1. 如果目录不存在，创建目录
  * 2. 打开或创建数据库元数据文件（.meta文件）
  * 3. 初始化文件描述符到页面号的映射数组
  */
-DiskManager::DiskManager(const std::filesystem::path &db_dir) : dir_name_(db_dir) {
+DiskManager::DiskManager(const std::filesystem::path &db_dir)
+    : dir_name_(db_dir) {
   // create directory if not exist
   if (!std::filesystem::exists(dir_name_)) {
     std::filesystem::create_directory(dir_name_);
   }
   // log_name_ = dir_name_ / (dir_name_.filename().stem().string() + ".log");
 
-  // log_io_.open(log_name_, std::ios::binary | std::ios::in | std::ios::app | std::ios::out);
+  // log_io_.open(log_name_, std::ios::binary | std::ios::in | std::ios::app |
+  // std::ios::out);
   // // directory or file does not exist
   // if (!log_io_.is_open()) {
   //   log_io_.clear();
   //   // create a new file
-  //   log_io_.open(log_name_, std::ios::binary | std::ios::trunc | std::ios::out | std::ios::in);
-  //   if (!log_io_.is_open()) {
+  //   log_io_.open(log_name_, std::ios::binary | std::ios::trunc |
+  //   std::ios::out | std::ios::in); if (!log_io_.is_open()) {
   //     throw Exception("can't open dblog file");
   //   }
   // }
 
   // meta
-  auto db_meta_file = dir_name_ / (dir_name_.filename().stem().string() + ".meta");
+  auto db_meta_file =
+      dir_name_ / (dir_name_.filename().stem().string() + ".meta");
   // std::scoped_lock scoped_db_io_latch(db_io_latch_);
-  db_meta_io_.open(db_meta_file, std::ios::binary | std::ios::in | std::ios::out);
+  db_meta_io_.open(db_meta_file,
+                   std::ios::binary | std::ios::in | std::ios::out);
   // directory or file does not exist
   if (!db_meta_io_.is_open()) {
     db_meta_io_.clear();
     // create a new file
-    db_meta_io_.open(db_meta_file, std::ios::binary | std::ios::trunc | std::ios::out | std::ios::in);
+    db_meta_io_.open(db_meta_file, std::ios::binary | std::ios::trunc |
+                                       std::ios::out | std::ios::in);
     if (!db_meta_io_.is_open()) {
       throw Exception("can't open db file");
     }
@@ -75,7 +80,8 @@ DiskManager::DiskManager(const std::filesystem::path &db_dir) : dir_name_(db_dir
   // path2fd
   // fd2path
   // fd2pageno_
-  memset(fd2pageno_, 0, MAX_FD * (sizeof(std::atomic<page_id_t>) / sizeof(char)));
+  memset(fd2pageno_, 0,
+         MAX_FD * (sizeof(std::atomic<page_id_t>) / sizeof(char)));
 }
 
 /**
@@ -84,13 +90,14 @@ DiskManager::DiskManager(const std::filesystem::path &db_dir) : dir_name_(db_dir
  * @param page_id 页面ID，标识要写入的页面
  * @param page_data 页面数据的指针
  * @param num_bytes 要写入的字节数（通常为PAGE_SIZE）
- * 
+ *
  * 实现步骤：
  * 1. 计算页面在文件中的偏移量（page_id * PAGE_SIZE）
  * 2. 使用lseek()将文件指针移动到目标页面的起始位置
  * 3. 使用write()将页面数据写入文件
  */
-void DiskManager::WritePage(int fd, page_id_t page_id, const char *page_data, size_t num_bytes) {
+void DiskManager::WritePage(int fd, page_id_t page_id, const char *page_data,
+                            size_t num_bytes) {
   // std::cerr << "[DiskManager] WritePage" << std::endl;
   // Calculate the offset in the file
   size_t offset = static_cast<size_t>(page_id) * PAGE_SIZE;
@@ -117,14 +124,15 @@ void DiskManager::WritePage(int fd, page_id_t page_id, const char *page_data, si
  * @param page_id 页面ID，标识要读取的页面
  * @param[out] page_data 输出缓冲区，用于存储读取的页面数据
  * @param num_bytes 要读取的字节数（通常为PAGE_SIZE）
- * 
+ *
  * 实现步骤：
  * 1. 计算页面在文件中的偏移量（page_id * PAGE_SIZE）
  * 2. 使用lseek()将文件指针移动到目标页面的起始位置
  * 3. 使用read()从文件读取页面数据
  * 4. 如果读取的字节数不足（文件末尾），将剩余部分填充为0
  */
-void DiskManager::ReadPage(int fd, page_id_t page_id, char *page_data, size_t num_bytes) {
+void DiskManager::ReadPage(int fd, page_id_t page_id, char *page_data,
+                           size_t num_bytes) {
   // Calculate the offset in the file
   int offset = page_id * PAGE_SIZE;
 
@@ -137,7 +145,9 @@ void DiskManager::ReadPage(int fd, page_id_t page_id, char *page_data, size_t nu
   // Read the page data from the file
   size_t read_count = read(fd, page_data, num_bytes);
   if (read_count != num_bytes) {
-    LOG_DEBUG("I/O error: Read hit the end of file at offset %d, missing %ld bytes", offset, num_bytes - read_count);
+    LOG_DEBUG(
+        "I/O error: Read hit the end of file at offset %d, missing %ld bytes",
+        offset, num_bytes - read_count);
     memset(page_data + read_count, 0, PAGE_SIZE - read_count);
     return;
   }
@@ -147,7 +157,7 @@ void DiskManager::ReadPage(int fd, page_id_t page_id, char *page_data, size_t nu
  * @brief 在文件中分配一个新页面并返回其页面ID
  * @param fd 文件描述符，标识要分配页面的文件
  * @return 新分配页面的页面ID
- * 
+ *
  * 实现方式：
  * - 使用原子操作递增fd2pageno_[fd]，返回递增前的值作为新页面的ID
  * - 这确保了每个文件中的页面ID是唯一且递增的
@@ -223,7 +233,7 @@ void DiskManager::DestroyFile(const std::string &path) {
  * @param path 文件路径
  * @return 文件描述符
  * @throws Exception 如果文件不存在、文件已被打开或打开失败
- * 
+ *
  * 实现步骤：
  * 1. 检查文件是否存在
  * 2. 检查文件是否已被打开（避免重复打开）
@@ -237,7 +247,8 @@ int DiskManager::OpenFile(const std::string &path) {
 
   // Check if the file is already opened
   if (path2fd_.find(path) != path2fd_.end() && path2fd_[path] != -1) {
-    throw Exception("file " + path + " is already opened by thread " + std::to_string(path2fd_[path]));
+    throw Exception("file " + path + " is already opened by thread " +
+                    std::to_string(path2fd_[path]));
   }
 
   // Open the file
@@ -257,7 +268,7 @@ int DiskManager::OpenFile(const std::string &path) {
 /**
  * @brief 关闭指定文件描述符的文件
  * @param fd 文件描述符
- * 
+ *
  * 实现步骤：
  * 1. 验证文件描述符的有效性
  * 2. 检查文件是否已被关闭

@@ -22,8 +22,9 @@ namespace easydb {
  * @param values 要插入的值列表
  * @param context 上下文指针
  */
-InsertExecutor::InsertExecutor(SmManager *sm_manager, const std::string &tab_name, std::vector<Value> values,
-                               Context *context) {
+InsertExecutor::InsertExecutor(SmManager *sm_manager,
+                               const std::string &tab_name,
+                               std::vector<Value> values, Context *context) {
   sm_manager_ = sm_manager;
   tab_ = sm_manager_->db_.get_table(tab_name);
   values_ = values;
@@ -52,21 +53,27 @@ std::unique_ptr<Tuple> InsertExecutor::Next() {
   // Wait for GAP lock first
   if (context_ != nullptr) {
     for (auto index : tab_.indexes) {
-      auto ih = sm_manager_->ihs_.at(sm_manager_->GetIxManager()->GetIndexName(tab_name_, index.cols)).get();
+      auto ih = sm_manager_->ihs_
+                    .at(sm_manager_->GetIxManager()->GetIndexName(tab_name_,
+                                                                  index.cols))
+                    .get();
       auto key_schema = Schema::CopySchema(&tab_.schema, index.col_ids);
-      auto key_tuple = tuple.KeyFromTuple(tab_.schema, key_schema, index.col_ids);
+      auto key_tuple =
+          tuple.KeyFromTuple(tab_.schema, key_schema, index.col_ids);
       std::vector<char> key(index.col_tot_len);
       int offset = 0;
       for (int i = 0; i < index.col_num; ++i) {
         auto val = key_tuple.GetValue(&key_schema, i);
-        // memcpy(key + offset, rec.data + index.cols[i].offset, index.cols[i].len);
+        // memcpy(key + offset, rec.data + index.cols[i].offset,
+        // index.cols[i].len);
         ix_memcpy(key.data() + offset, val, index.cols[i].len);
         offset += index.cols[i].len;
       }
       keys.emplace_back(key);
       // wait
       Iid lower = ih->LowerBound(key.data());
-      context_->lock_mgr_->HandleIndexGapWaitDie(context_->txn_, lower, fh_->GetFd());
+      context_->lock_mgr_->HandleIndexGapWaitDie(context_->txn_, lower,
+                                                 fh_->GetFd());
     }
   }
   // Now we can insert the record into the file and index safely
@@ -78,8 +85,8 @@ std::unique_ptr<Tuple> InsertExecutor::Next() {
   rid_ = RID{rid->GetPageId(), rid->GetSlotNum()};
 
   // // Log the insert operation
-  // InsertLogRecord insert_log_rec(context_->txn_->GetTransactionId(), rec, rid_, tab_name_);
-  // insert_log_rec.prev_lsn_ = context_->txn_->GetPrevLsn();
+  // InsertLogRecord insert_log_rec(context_->txn_->GetTransactionId(), rec,
+  // rid_, tab_name_); insert_log_rec.prev_lsn_ = context_->txn_->GetPrevLsn();
   // lsn_t lsn = context_->log_mgr_->add_log_to_buffer(&insert_log_rec);
   // context_->txn_->SetPrevLsn(lsn);
   // // set lsn in page header
@@ -89,7 +96,10 @@ std::unique_ptr<Tuple> InsertExecutor::Next() {
   int index_len = tab_.indexes.size();
   for (auto i = 0; i < index_len; ++i) {
     auto index = tab_.indexes[i];
-    auto ih = sm_manager_->ihs_.at(sm_manager_->GetIxManager()->GetIndexName(tab_name_, index.cols)).get();
+    auto ih = sm_manager_->ihs_
+                  .at(sm_manager_->GetIxManager()->GetIndexName(tab_name_,
+                                                                index.cols))
+                  .get();
     auto key = keys[i];
 
     auto is_insert = ih->InsertEntry(key.data(), rid_, context_->txn_);
@@ -105,7 +115,8 @@ std::unique_ptr<Tuple> InsertExecutor::Next() {
   }
 
   // Update context_ for rollback (be sure to update after record insert)
-  WriteRecord *write_record = new WriteRecord(WType::INSERT_TUPLE, tab_name_, rid_);
+  WriteRecord *write_record =
+      new WriteRecord(WType::INSERT_TUPLE, tab_name_, rid_);
   context_->txn_->AppendWriteRecord(write_record);
 
   sm_manager_->UpdateTableCount(tab_name_, 1);

@@ -1,7 +1,7 @@
 /* Copyright (c) 2023 Renmin University of China
 RMDB is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
+You can use this software according to the terms and conditions of the Mulan PSL
+v2. You may obtain a copy of Mulan PSL v2 at:
         http://license.coscl.org.cn/MulanPSL2
 THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
@@ -44,7 +44,8 @@ class RecoveryManager {
     last_txn_id_ = INVALID_TXN_ID;
     last_lsn_ = INVALID_LSN;
   }
-  RecoveryManager(DiskManager *disk_manager, BufferPoolManager *buffer_pool_manager, SmManager *sm_manager,
+  RecoveryManager(DiskManager *disk_manager,
+                  BufferPoolManager *buffer_pool_manager, SmManager *sm_manager,
                   TransactionManager *txn_manager, LogManager *log_manager) {
     disk_manager_ = disk_manager;
     buffer_pool_manager_ = buffer_pool_manager;
@@ -67,15 +68,20 @@ class RecoveryManager {
   DiskManager *disk_manager_;               // 用来读写文件
   BufferPoolManager *buffer_pool_manager_;  // 对页面进行读写
   SmManager *sm_manager_;                   // 访问数据库元数据
-  // store the running transactions, the mapping of running transactions to their lastest log records
-  std::unordered_map<txn_id_t, lsn_t> att_;            // Active Transaction Table (ATT): txn_id -> last_lsn
-  std::unordered_set<txn_id_t> aborted_txns_;          // Aborted Txn (set of aborted txn in ATT)
-  std::unordered_map<PageId, lsn_t, PageIdHash> dpt_;  // Dirty Page Table (DPT): page_id -> rec_lsn
+  // store the running transactions, the mapping of running transactions to
+  // their lastest log records
+  std::unordered_map<txn_id_t, lsn_t>
+      att_;  // Active Transaction Table (ATT): txn_id -> last_lsn
+  std::unordered_set<txn_id_t>
+      aborted_txns_;  // Aborted Txn (set of aborted txn in ATT)
+  std::unordered_map<PageId, lsn_t, PageIdHash>
+      dpt_;  // Dirty Page Table (DPT): page_id -> rec_lsn
   lsn_t min_rec_lsn_;
   std::unordered_map<lsn_t, std::pair<int, int>> lsn_mapping_;
   // better instead of must
-  TransactionManager *txn_manager_;  // 事务管理器(置next_txn_id_/next_timestamp_)
-  LogManager *log_manager_;          // 日志管理器(置global_lsn_/persist_lsn_)
+  TransactionManager
+      *txn_manager_;         // 事务管理器(置next_txn_id_/next_timestamp_)
+  LogManager *log_manager_;  // 日志管理器(置global_lsn_/persist_lsn_)
   txn_id_t last_txn_id_;
   lsn_t last_lsn_;
   // for index
@@ -101,7 +107,8 @@ class RecoveryManager {
     for (auto &[txn_id, lsn] : att_) {
       printf("|   %ld -> %d\n", txn_id, lsn);
     }
-    printf("| Aborted Txn (set of aborted txn in ATT): %lu\n", aborted_txns_.size());
+    printf("| Aborted Txn (set of aborted txn in ATT): %lu\n",
+           aborted_txns_.size());
     for (auto &txn_id : aborted_txns_) {
       printf("|   txn_id: %ld\n", txn_id);
     }

@@ -1,7 +1,7 @@
 /* Copyright (c) 2023 Renmin University of China
 RMDB is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
+You can use this software according to the terms and conditions of the Mulan PSL
+v2. You may obtain a copy of Mulan PSL v2 at:
         http://license.coscl.org.cn/MulanPSL2
 THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
@@ -25,7 +25,7 @@ namespace easydb {
 
 /**
  * @brief 查询结构体
- * 
+ *
  * Query 存储经过语义分析后的查询信息，将AST转换为执行器可用的格式。
  * 包含查询的所有组成部分：表、列、条件、聚合、排序等。
  */
@@ -36,43 +36,43 @@ class Query {
    * @note ADDED: 用于某些特殊情况（如WHERE条件永远为false）
    */
   bool no_result = false;
-  
+
   /**
    * @brief 解析后的AST根节点
    */
   std::shared_ptr<ast::TreeNode> parse;
   // TODO jointree
-  
+
   /**
    * @brief WHERE条件列表
    */
   std::vector<Condition> conds;
-  
+
   /**
    * @brief 投影列列表
    */
   std::vector<TabCol> cols;
-  
+
   /**
    * @brief 表名列表
    */
   std::vector<std::string> tables;
-  
+
   /**
    * @brief UPDATE的SET值列表
    */
   std::vector<SetClause> set_clauses;
-  
+
   /**
    * @brief INSERT的VALUES值列表
    */
   std::vector<Value> values;
-  
+
   /**
    * @brief GROUP BY条件列表
    */
   std::vector<TabCol> groupby_cols;
-  
+
   /**
    * @brief HAVING条件列表
    */
@@ -92,7 +92,7 @@ class Query {
    * @brief 默认构造函数
    */
   Query() {}
-  
+
   /**
    * @brief 从shared_ptr构造Query
    * @param ptr 指向Query对象的shared_ptr
@@ -116,14 +116,14 @@ class Query {
 
 /**
  * @brief 语义分析器类
- * 
+ *
  * 当SQL语句经过语法解析模块的处理，获得抽象语法树之后，进入分析器analyze。
  * 在分析器中需要进行语义分析，包括：
  * - 表是否存在
  * - 字段是否存在
  * - 类型是否匹配
  * - 聚合函数的合法性检查
- * 
+ *
  * 并将AST改写成Query结构，供后续的查询计划器使用。
  */
 class Analyze {
@@ -140,7 +140,7 @@ class Analyze {
    * @param sm_manager 系统管理器指针
    */
   Analyze(SmManager *sm_manager) : sm_manager_(sm_manager) {}
-  
+
   /**
    * @brief 析构函数
    */
@@ -163,66 +163,71 @@ class Analyze {
    * @note 通过遍历all_cols来填充列的表名（如果列名唯一）
    */
   TabCol check_column(const std::vector<ColMeta> &all_cols, TabCol target);
-  
+
   /**
    * @brief 获取所有表的列元数据
    * @param tab_names 表名列表
    * @param[out] all_cols 输出参数，存储所有列的元数据
    */
-  void get_all_cols(const std::vector<std::string> &tab_names, std::vector<ColMeta> &all_cols);
-  
+  void get_all_cols(const std::vector<std::string> &tab_names,
+                    std::vector<ColMeta> &all_cols);
+
   /**
    * @brief 将AST条件转换为系统条件
    * @param sv_conds AST条件列表
    * @param[out] conds 输出参数，存储转换后的条件列表
    */
-  void get_clause(const std::vector<std::shared_ptr<ast::BinaryExpr>> &sv_conds, std::vector<Condition> &conds);
-  
+  void get_clause(const std::vector<std::shared_ptr<ast::BinaryExpr>> &sv_conds,
+                  std::vector<Condition> &conds);
+
   /**
    * @brief 检查条件的合法性
    * @param tab_names 表名列表
    * @param[in,out] conds 条件列表（会被修改，填充表名等信息）
    * @note 检查条件中引用的表和列是否存在
    */
-  void check_clause(const std::vector<std::string> &tab_names, std::vector<Condition> &conds);
-  
+  void check_clause(const std::vector<std::string> &tab_names,
+                    std::vector<Condition> &conds);
+
   /**
    * @brief 在列列表中查找指定列名
    * @param cols 列列表
    * @param col_name 要查找的列名
    * @return true 如果找到，false 否则
    */
-  bool find_col(std::vector<std::shared_ptr<ast::Col>> &cols, std::string col_name);
-  
+  bool find_col(std::vector<std::shared_ptr<ast::Col>> &cols,
+                std::string col_name);
+
   /**
    * @brief 检查聚合函数的合法性
    * @param x SELECT语句节点
    * @return true 如果合法，false 否则
-   * @note 检查聚合函数的使用是否符合SQL规范（如SELECT中不能混合聚合列和非聚合列等）
+   * @note
+   * 检查聚合函数的使用是否符合SQL规范（如SELECT中不能混合聚合列和非聚合列等）
    */
   bool check_aggregation_legality(const std::shared_ptr<ast::SelectStmt> &x);
-  
+
   /**
    * @brief 初始化语义值
    * @param sv_val AST值节点
    * @return 系统Value对象
    */
   Value init_sv_value(const std::shared_ptr<ast::Value> &sv_val);
-  
+
   /**
    * @brief 转换语义值为系统Value
    * @param sv_val AST值节点
    * @return 系统Value对象
    */
   Value convert_sv_value(const std::shared_ptr<ast::Value> &sv_val);
-  
+
   /**
    * @brief 转换AST比较运算符为系统比较运算符
    * @param op AST比较运算符
    * @return 系统比较运算符
    */
   CompOp convert_sv_comp_op(ast::SvCompOp op);
-  
+
   /**
    * @brief 转换AST算术运算符为系统算术运算符
    * @param op AST算术运算符

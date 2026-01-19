@@ -29,7 +29,8 @@ std::chrono::duration<int64_t> log_timeout = std::chrono::seconds(1);
  * @brief 死锁检测的时间间隔，默认50毫秒
  * @note 系统每隔此时间间隔执行一次死锁检测，查找并处理事务等待图中的循环
  */
-std::chrono::milliseconds cycle_detection_interval = std::chrono::milliseconds(50);
+std::chrono::milliseconds cycle_detection_interval =
+    std::chrono::milliseconds(50);
 
 /**
  * @brief 全局标志：是否禁用执行异常的打印输出
