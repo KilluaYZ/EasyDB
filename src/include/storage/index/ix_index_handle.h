@@ -639,6 +639,12 @@ class IxIndexHandle {
   void ReleaseNodeHandle(IxNodeHandle &node);
 
   /**
+   * @brief 删除缓冲池中的索引页面（调试/测试辅助）
+   * @return 是否删除成功
+   */
+  bool Erase();
+
+  /**
    * @brief 将node的第child_idx个子节点的父节点设置为node
    * @param node 父节点句柄
    * @param child_idx 子节点索引
