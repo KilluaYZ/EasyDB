@@ -239,7 +239,9 @@ EasyDB2024/
 
 ## 技术文档
 
-详细的技术文档请参考 `doc/` 目录下的文档：
+**模块级架构与实现说明（推荐）**：完整索引见 [doc/README.md](doc/README.md)，按子系统分文件说明源码结构与数据流。
+
+其他专题与历史文档仍位于 `doc/` 下，例如：
 
 - [存储管理技术文档](doc/storage/storage.md)
 - [查询分析技术文档](doc/query_analyse/query_analyse.md)
