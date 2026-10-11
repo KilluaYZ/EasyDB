@@ -117,3 +117,7 @@ generated/
 result
 
 test.db/
+
+# Added by cargo
+
+/target
