@@ -6,8 +6,9 @@
 
 > **进度**：2026-10-11 — 四项决议已确认（§8）；P0 脚手架与 P1 公共基础层
 > （`common`：errors/config/RID，`types`：ColType/Value，`catalog`：Column/Schema）
-> 已完成，28 个单测通过、clippy `-D warnings` 零警告、零 unsafe。下一阶段：P2 存储层
-> （先做缓冲池 PageGuard spike）。
+> 已完成；P2 存储层已完成（`storage`：DiskManager/Page，`buffer`：LRU+缓冲池
+> PageGuard，`record`：slotted page 记录层 + 元组编解码 + 扫描器），56 个单测通过、
+> clippy `-D warnings` 零警告、零 unsafe。下一阶段：P3 B+ 树索引。
 
 ## 1. 现状评估
 

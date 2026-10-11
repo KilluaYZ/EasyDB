@@ -73,5 +73,7 @@ pub enum EasyDbError {
     // ---- 其他 ----
     #[error("Unexpected null access")]
     NullAccess,
+    #[error("Buffer pool is full: all frames are pinned")]
+    BufferPoolFull,
     // 事务中止（TransactionAbort）将随 P6 事务/锁阶段补充。
 }

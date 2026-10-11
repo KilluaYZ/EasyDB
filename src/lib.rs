@@ -4,8 +4,13 @@
 //! `doc/rust-migration-plan.md`。各阶段进度：
 //!
 //! - P1 公共基础层：`common`（错误/配置/RID）、`types`（类型与值）、`catalog`（列/模式）
-//! - P2 存储层起：磁盘管理、缓冲池、记录管理（待实现）
+//! - P2 存储层：`storage`（磁盘/页）、`buffer`（LRU 与缓冲池 PageGuard）、
+//!   `record`（slotted page 记录层与元组编解码）
+//! - P3 起：B+ 树索引、SQL 前端（待实现）
 
+pub mod buffer;
 pub mod catalog;
 pub mod common;
+pub mod record;
+pub mod storage;
 pub mod types;
