@@ -7,6 +7,8 @@ build = "build.rs"
 [dependencies]
 thiserror = "2"
 lalrpop-util = "0.22"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [build-dependencies]
 lalrpop = "0.22"

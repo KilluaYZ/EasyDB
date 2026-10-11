@@ -4,15 +4,16 @@
 > 问题（use-after-free、泄漏、悬垂指针、手工 pin/unpin 配对等）。C++ 版本（`src-cpp/`）在迁移期
 > 间保留作为参照实现与行为基准，全部完成后移除。
 
-> **进度**：2026-10-11 — 四项决议已确认（§8）；P0~P5 已完成（公共基础层、存储层
-> 【M1】、B+ 树索引、SQL 前端、计划与执行器【M2】）；P6 事务/锁/恢复已完成
-> （`transaction`：状态机 + 写集，`concurrency`：严格 2PL + wait-die，
-> `recovery`：WAL（提交刷盘）+ 重启恢复【重复历史 + 失败者逆序撤销 + 索引
-> 回填重建】），101 个单测通过、clippy `-D warnings` 零警告、零 unsafe。
-> 与 C++ 版的差异：锁点简化为表级 S/X + 记录级 X（无意向锁/间隙锁）；
-> 恢复为逻辑重放（格式自持，无需页级 LSN）；中止采用写集立即回滚。
-> 下一阶段：P7 元数据持久化（db.meta）+ TCP 服务（协议与 C++ 版兼容，
-> 达成 M3），随后 P8 TUI 客户端（ratatui）与收尾（M4 移除 src-cpp）。
+> **进度**：2026-10-12 — 四项决议已确认（§8）；P0~P6 已完成（公共基础层、存储层
+> 【M1】、B+ 树索引、SQL 前端、计划与执行器【M2】、事务/锁/恢复）；P7 持久化与
+> 服务端已完成（db.meta 经 serde JSON 持久化，DDL 后落盘；`Database::open`
+> 自动加载元数据 + WAL 恢复 + 表挂载；`system::format` 输出 C++ RecordPrinter
+> 兼容的表格文本（列宽 16 右对齐、浮点 6 位小数、Total/empty set）；`main.rs`
+> TCP 服务端（`easydb_server -p port -d dir`，文本协议 + NUL 分帧，与现有
+> C++ TUI 客户端兼容，共享 Database 的多连接线程模型）），108 个单测通过、
+> clippy `-D warnings` 零警告、零 unsafe。**里程碑 M3 达成。**
+> 下一阶段：P8 TUI 客户端（ratatui + crossterm + tui-textarea）与收尾
+> （移除 src-cpp 与 CMake 构建、更新 Nix/README，达成 M4）。
 
 ## 1. 现状评估
 

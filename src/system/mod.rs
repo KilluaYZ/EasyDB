@@ -13,6 +13,7 @@ use std::sync::{Arc, Mutex};
 use crate::analyze::{Analyzer, CatalogView, Query};
 use crate::buffer::buffer_pool::BufferPool;
 use crate::catalog::Column;
+use crate::common::config::DB_META_NAME;
 use crate::common::errors::EasyDbError;
 use crate::concurrency::LockManager;
 use crate::execution::ExecCtx;
@@ -29,6 +30,18 @@ use crate::recovery::{LogManager, LogRecord};
 use crate::storage::disk::DiskManager;
 use crate::transaction::{Transaction, TransactionState, WType, WriteRecord};
 use crate::types::ColType;
+
+pub mod format;
+
+pub use format::format_output;
+
+/// db.meta 中的单表持久化条目。
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct PersistTable {
+    name: String,
+    cols: Vec<Column>,
+    indexes: Vec<Vec<String>>,
+}
 
 /// 语句执行结果。
 #[derive(Debug, Clone, PartialEq)]
@@ -87,7 +100,7 @@ impl Database {
         let rm = RmManager::new(disk.clone(), bpm.clone());
         let ix = IxManager::new(disk.clone(), bpm.clone());
         let log_mgr = Arc::new(Mutex::new(LogManager::open(&dir)?));
-        Ok(Self {
+        let mut db = Self {
             dir,
             disk,
             rm,
@@ -98,7 +111,58 @@ impl Database {
             log_mgr,
             txn_counter: std::sync::atomic::AtomicI64::new(1),
             current_txn: None,
-        })
+        };
+        db.load_persisted()?;
+        Ok(db)
+    }
+
+    /// 加载 db.meta（若存在）：先按元数据执行崩溃恢复（重放 + 撤销 +
+    /// 索引重建），再把表挂载进目录。
+    fn load_persisted(&mut self) -> Result<(), EasyDbError> {
+        let meta_path = self.dir.join(DB_META_NAME);
+        if !meta_path.exists() {
+            return Ok(());
+        }
+        let data = std::fs::read_to_string(&meta_path)?;
+        let persisted: Vec<PersistTable> = serde_json::from_str(&data)
+            .map_err(|e| EasyDbError::Internal(format!("db.meta corrupt: {e}")))?;
+        let metas: Vec<crate::recovery::TableRecoverMeta> = persisted
+            .iter()
+            .map(|t| crate::recovery::TableRecoverMeta {
+                name: t.name.clone(),
+                cols: t.cols.clone(),
+                indexes: t.indexes.clone(),
+            })
+            .collect();
+        crate::recovery::recover(
+            &self.dir,
+            self.disk.clone(),
+            self.rm.bpm().clone(),
+            &self.rm,
+            &self.ix,
+            &metas,
+        )?;
+        for t in &persisted {
+            self.attach_table(&t.name, t.cols.clone(), t.indexes.clone())?;
+        }
+        Ok(())
+    }
+
+    /// 把目录元数据写入 db.meta（DDL 之后调用）。
+    fn save_meta(&self) -> Result<(), EasyDbError> {
+        let persisted: Vec<PersistTable> = self
+            .tables
+            .values()
+            .map(|t| PersistTable {
+                name: t.name.clone(),
+                cols: t.cols.clone(),
+                indexes: t.indexes.iter().map(|ix| ix.cols.clone()).collect(),
+            })
+            .collect();
+        let data = serde_json::to_string_pretty(&persisted)
+            .map_err(|e| EasyDbError::Internal(format!("serialize db.meta: {e}")))?;
+        std::fs::write(self.dir.join(DB_META_NAME), data)?;
+        Ok(())
     }
 
     pub fn dir(&self) -> &Path {
@@ -456,6 +520,7 @@ impl Database {
                 indexes: Vec::new(),
             },
         );
+        self.save_meta()?;
         for col_group in indexes {
             let ipath = self.index_file(name, &col_group);
             if self.ix.exists(&ipath) {
@@ -531,6 +596,7 @@ impl Database {
                 indexes: Vec::new(),
             },
         );
+        self.save_meta()?;
         Ok(Output::Ok)
     }
 
@@ -550,6 +616,7 @@ impl Database {
         // 关闭表文件并删除
         self.disk.close_file(fd)?;
         self.rm.destroy_file(&table_path)?;
+        self.save_meta()?;
         Ok(Output::Ok)
     }
 
@@ -634,6 +701,7 @@ impl Database {
             file: path,
             handle,
         });
+        self.save_meta()?;
         Ok(Output::Ok)
     }
 
@@ -652,6 +720,7 @@ impl Database {
         let fd = ix.handle.fd();
         self.disk.close_file(fd)?;
         self.ix.destroy_index(&ix.file)?;
+        self.save_meta()?;
         Ok(Output::Ok)
     }
 
@@ -1086,13 +1155,12 @@ mod txn_tests {
     #[test]
     fn crash_recovery_redo_and_undo() {
         use crate::record::tuple::encode_tuple;
-        use crate::recovery::{LogManager, LogRecord, TableRecoverMeta};
+        use crate::recovery::{LogManager, LogRecord};
 
         let dir = tempfile::tempdir().unwrap();
         let db_dir = dir.path().join("db");
 
         // 阶段一：已提交数据（WAL 随提交刷盘）
-        let metas;
         {
             let mut db = Database::open(&db_dir).unwrap();
             db.run_sql("CREATE TABLE t (id INT, name VARCHAR(16));")
@@ -1100,18 +1168,17 @@ mod txn_tests {
             db.run_sql("CREATE INDEX t (id);").unwrap();
             db.run_sql("INSERT INTO t VALUES (1, 'one');").unwrap();
             db.run_sql("INSERT INTO t VALUES (2, 'two');").unwrap();
-            let cols = db.table("t").unwrap().cols.clone();
-            metas = vec![TableRecoverMeta {
-                name: "t".to_string(),
-                cols,
-                indexes: vec![vec!["id".to_string()]],
-            }];
+            let _ = db.table("t").unwrap().cols.len();
         }
 
         // 阶段二：模拟"已刷盘但未提交"的事务 99——直接向 db.log 追加
         // （正常路径中，后续事务提交刷盘时会把缓冲里的未提交记录一并落盘）
         {
-            let schema = crate::catalog::Schema::new(metas[0].cols.clone());
+            let cols = vec![
+                Column::with_table("id", "t", ColType::Int).unwrap(),
+                Column::with_table_varlen("name", "t", ColType::VarChar, 16).unwrap(),
+            ];
+            let schema = crate::catalog::Schema::new(cols);
             let enc = |vals: &[Value]| encode_tuple(&schema, vals).unwrap();
             let mut log = LogManager::open(&db_dir).unwrap();
             log.append(&LogRecord::Begin { txn: 99 });
@@ -1140,20 +1207,9 @@ mod txn_tests {
             log.flush().unwrap();
         }
 
-        // 阶段三：恢复（重放全部 + 撤销失败者 99 + 重建索引）
-        {
-            let disk = Arc::new(DiskManager::new(&db_dir).unwrap());
-            let bpm = Arc::new(BufferPool::new(
-                crate::common::config::BUFFER_POOL_SIZE,
-                disk.clone(),
-            ));
-            let rm = RmManager::new(disk.clone(), bpm.clone());
-            let ix = IxManager::new(disk.clone(), bpm.clone());
-            crate::recovery::recover(&db_dir, disk, bpm, &rm, &ix, &metas).unwrap();
-        }
+        // 阶段三：重启即自动恢复（db.meta 提供元数据 → 重放 + 撤销 +
+        // 索引重建 + 表挂载）
         let mut db = Database::open(&db_dir).unwrap();
-        db.attach_table("t", metas[0].cols.clone(), metas[0].indexes.clone())
-            .unwrap();
 
         // 提交数据完好；未提交事务的三条修改全部撤销
         match db.run_sql("SELECT id, name FROM t ORDER BY id;").unwrap() {
@@ -1173,6 +1229,153 @@ mod txn_tests {
         }
         match db.run_sql("SELECT name FROM t WHERE id = 99;").unwrap() {
             Output::Rows { rows, .. } => assert!(rows.is_empty()),
+            other => panic!("want rows, got {other:?}"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod server_tests {
+    use super::{Database, format_output};
+    use crate::types::Value;
+    use std::io::{Read, Write};
+    use std::net::{TcpListener, TcpStream};
+    use std::sync::{Arc, Mutex};
+
+    /// 起一个监听随机端口的服务端线程；数据库目录由调用方指定，
+    /// 返回 (端口, 目录句柄)。
+    fn spawn_server(db_dir: &std::path::Path) -> (u16, tempfile::TempDir) {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Arc::new(Mutex::new(Database::open(db_dir).unwrap()));
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let db2 = db.clone();
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let Ok(stream) = stream else { continue };
+                let db = db2.clone();
+                std::thread::spawn(move || {
+                    let mut stream = stream;
+                    let mut buf = [0u8; 8192];
+                    let mut acc: Vec<u8> = Vec::new();
+                    loop {
+                        let n = match stream.read(&mut buf) {
+                            Ok(0) | Err(_) => return,
+                            Ok(n) => n,
+                        };
+                        acc.extend_from_slice(&buf[..n]);
+                        // 协议要求 NUL 结尾；未完整则继续读
+                        let Some(end) = acc.iter().position(|&b| b == 0) else {
+                            continue;
+                        };
+                        let sql = String::from_utf8_lossy(&acc[..end]).to_string();
+                        acc.drain(..=end);
+                        eprintln!("[srv] recv: {sql:?}");
+                        if sql.trim() == "exit" {
+                            return;
+                        }
+                        let resp = {
+                            let mut db = db.lock().unwrap();
+                            db.run_sql(sql.trim())
+                                .map(|o| format_output(&o))
+                                .map_err(|e| format!("{e}\n"))
+                        };
+                        let text = match resp {
+                            Ok(t) | Err(t) => t,
+                        };
+                        eprintln!("[srv] resp: {text:?}");
+                        let _ = stream.write_all(text.as_bytes());
+                        let _ = stream.write_all(b"\0");
+                    }
+                });
+            }
+        });
+        (port, dir)
+    }
+
+    fn exchange(stream: &mut TcpStream, sql: &str) -> String {
+        stream.write_all(sql.as_bytes()).unwrap();
+        stream.write_all(b"\0").unwrap();
+        // 协议：读到 NUL 为止（TCP 可能分段，必须循环读）
+        let mut acc = Vec::new();
+        let mut chunk = [0u8; 8192];
+        loop {
+            let n = stream.read(&mut chunk).unwrap();
+            acc.extend_from_slice(&chunk[..n]);
+            if acc.contains(&0) || n == 0 {
+                break;
+            }
+        }
+        let end = acc.iter().position(|&b| b == 0).unwrap_or(acc.len());
+        String::from_utf8_lossy(&acc[..end]).to_string()
+    }
+
+    #[test]
+    fn server_end_to_end_text_protocol() {
+        let dir = tempfile::tempdir().unwrap();
+        let (port, _guard) = spawn_server(&dir.path().join("db"));
+        let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+
+        // DDL / DML：成功为空响应
+        assert_eq!(
+            exchange(&mut stream, "CREATE TABLE t (id INT, name VARCHAR(16));"),
+            ""
+        );
+        assert_eq!(
+            exchange(&mut stream, "INSERT INTO t VALUES (1, 'alice');"),
+            ""
+        );
+
+        // SELECT：RecordPrinter 风格表格
+        let resp = exchange(&mut stream, "SELECT * FROM t;");
+        assert!(
+            resp.contains("|               id |             name |"),
+            "got: {resp}"
+        );
+        assert!(
+            resp.contains("|                1 |            alice |"),
+            "got: {resp}"
+        );
+        assert!(resp.contains("Total record(s): 1"));
+
+        // 空结果 → empty set
+        assert_eq!(
+            exchange(&mut stream, "SELECT * FROM t WHERE id = 99;"),
+            "empty set\n"
+        );
+
+        // 错误 → 错误文本 + 换行
+        let resp = exchange(&mut stream, "SELECT * FROM nosuch;");
+        assert!(resp.contains("Table not found"), "got: {resp}");
+
+        // 语法错误 → Internal/parse 报错文本
+        let resp = exchange(&mut stream, "SELEC;");
+        assert!(!resp.is_empty(), "syntax error must produce text");
+    }
+
+    #[test]
+    fn server_persists_across_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_dir = dir.path().join("db");
+        let (port, _guard) = spawn_server(&db_dir);
+
+        // 实例一：建表插数据后断开
+        {
+            let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+            exchange(&mut stream, "CREATE TABLE t (id INT, name VARCHAR(16));");
+            exchange(&mut stream, "INSERT INTO t VALUES (1, 'one');");
+            exchange(&mut stream, "INSERT INTO t VALUES (2, 'two');");
+            let _ = stream.shutdown(std::net::Shutdown::Both);
+        }
+
+        // 实例二：同目录重启——db.meta 自动加载 + WAL 恢复 + 表挂载
+        let mut db = Database::open(&db_dir).unwrap();
+        match db.run_sql("SELECT id FROM t ORDER BY id;").unwrap() {
+            crate::system::Output::Rows { rows, .. } => {
+                assert_eq!(rows.len(), 2);
+                assert_eq!(rows[0][0], Value::Int(1));
+                assert_eq!(rows[1][0], Value::Int(2));
+            }
             other => panic!("want rows, got {other:?}"),
         }
     }

@@ -4,7 +4,7 @@
 //! 唯一定义；存储宽度与 C++ 版 `Column::TypeSize` 保持一致。
 
 /// SQL 列数据类型。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum ColType {
     /// 空类型（对应 C++ TYPE_EMPTY）
     Empty,
@@ -58,7 +58,9 @@ impl ColType {
 /// 聚合类型，用于 SELECT 聚合查询。
 ///
 /// 对应 C++ `defs.h` 的 `AggregationType`。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
+)]
 pub enum AggregationType {
     Max,
     Min,

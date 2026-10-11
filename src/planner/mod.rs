@@ -157,11 +157,8 @@ fn output_columns(s: &BoundSelect) -> Vec<String> {
                 };
                 return format!("{func}({})", item.col);
             }
-            if item.tab.is_empty() {
-                item.col.clone()
-            } else {
-                format!("{}.{}", item.tab, item.col)
-            }
+            // C++ captions 口径：仅列名
+            item.col.clone()
         })
         .collect()
 }
@@ -587,11 +584,8 @@ fn item_display_name(item: &TabCol) -> String {
         };
         return format!("{func}({})", item.col);
     }
-    if item.tab.is_empty() {
-        item.col.clone()
-    } else {
-        format!("{}.{}", item.tab, item.col)
-    }
+    // C++ captions 口径：仅列名
+    item.col.clone()
 }
 
 /// DML 扫描计划构建：为表生成条件下推 + 索引选择的扫描节点。

@@ -518,7 +518,12 @@ pub fn recover(
             }
             // 回填产生的树页落盘（缓冲池丢弃不保证刷写）
             bpm.flush_file_pages(handle.fd())?;
+            disk.close_file(handle.fd())?;
         }
+    }
+    // 数据文件句柄同样关闭（调用方 attach 时会重新打开）
+    for (_, fh) in &handles {
+        disk.close_file(fh.fd())?;
     }
     Ok(())
 }

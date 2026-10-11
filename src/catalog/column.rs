@@ -14,7 +14,7 @@ use crate::types::{AggregationType, ColType};
 ///   （及对应的带表名变体），定长/变长错配在构造时报错而非 assert；
 /// - C++ 中参数赋值写反的 `SetStorageSize`（`length = length_`）为已知
 ///   bug，不再保留。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Column {
     name: String,
     tab_name: String,
