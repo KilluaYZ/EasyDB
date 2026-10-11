@@ -75,5 +75,7 @@ pub enum EasyDbError {
     NullAccess,
     #[error("Buffer pool is full: all frames are pinned")]
     BufferPoolFull,
+    #[error("syntax error: {0}")]
+    Syntax(#[from] crate::parser::ParseError),
     // 事务中止（TransactionAbort）将随 P6 事务/锁阶段补充。
 }
