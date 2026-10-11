@@ -1,0 +1,375 @@
+// EasyDB SQL 文法（LALRPOP）。
+//
+// 移植自 C++ 版 src-cpp/parser/yacc.y（bison），语句集与产生式一一对应：
+// DDL（CREATE/DROP/DESC/INDEX/LOAD/CHECKPOINT）、DML（INSERT/DELETE/UPDATE/
+// SELECT）、事务与 SET 开关。方言特性：UNIQUE 去重、聚合列 AS 别名、
+// WHERE 允许出现在 FROM 之前、子查询条件。
+
+use crate::parser::ast;
+use crate::parser::lexer::Tok;
+
+grammar;
+
+extern {
+    type Location = usize;
+    type Error = crate::parser::lexer::LexError;
+
+    enum Tok {
+        ";" => Tok::Semi,
+        "(" => Tok::LParen,
+        ")" => Tok::RParen,
+        "," => Tok::Comma,
+        "*" => Tok::Star,
+        "." => Tok::Dot,
+        "=" => Tok::Eq,
+        "<" => Tok::Lt,
+        ">" => Tok::Gt,
+        "<=" => Tok::Le,
+        ">=" => Tok::Ge,
+        "<>" => Tok::Ne,
+        "+" => Tok::Plus,
+        "-" => Tok::Minus,
+        "/" => Tok::Slash,
+
+        SHOW => Tok::Show,
+        TABLES => Tok::Tables,
+        CREATE => Tok::Create,
+        TABLE => Tok::Table,
+        DROP => Tok::Drop,
+        DESC => Tok::Desc,
+        INSERT => Tok::Insert,
+        INTO => Tok::Into,
+        VALUES => Tok::Values,
+        DELETE => Tok::Delete,
+        FROM => Tok::From,
+        ASC => Tok::Asc,
+        ORDER => Tok::Order,
+        BY => Tok::By,
+        AS => Tok::As,
+        COUNT => Tok::Count,
+        MAX => Tok::Max,
+        MIN => Tok::Min,
+        SUM => Tok::Sum,
+        GROUP => Tok::Group,
+        HAVING => Tok::Having,
+        IN => Tok::In,
+        WHERE => Tok::Where,
+        UPDATE => Tok::Update,
+        SET => Tok::Set,
+        SELECT => Tok::Select,
+        KW_INT => Tok::KwInt,
+        CHAR => Tok::Char,
+        VARCHAR => Tok::Varchar,
+        KW_FLOAT => Tok::KwFloat,
+        DATETIME => Tok::Datetime,
+        NOT_NULL => Tok::NotNull,
+        UNIQUE => Tok::Unique,
+        INDEX => Tok::Index,
+        AND => Tok::And,
+        JOIN => Tok::Join,
+        EXIT => Tok::Exit,
+        HELP => Tok::Help,
+        BEGIN => Tok::Begin,
+        COMMIT => Tok::Commit,
+        ABORT => Tok::Abort,
+        ROLLBACK => Tok::Rollback,
+        ENABLE_NESTLOOP => Tok::EnableNestLoop,
+        ENABLE_SORTMERGE => Tok::EnableSortMerge,
+        ENABLE_HASHJOIN => Tok::EnableHashJoin,
+        ENABLE_OPTIMIZER => Tok::EnableOptimizer,
+        STATIC_CHECKPOINT => Tok::StaticCheckpoint,
+        LOAD => Tok::Load,
+        OUTPUT_FILE => Tok::OutputFile,
+
+        IDENT => Tok::Ident(<String>),
+        STRING => Tok::Str(<String>),
+        INT_LIT => Tok::IntLit(<i32>),
+        FLOAT_LIT => Tok::FloatLit(<f64>),
+        BOOL_LIT => Tok::Bool(<bool>),
+    }
+}
+
+// ==================== 顶层 ====================
+
+pub Top: ast::Statement = {
+    <s:Stmt> ";" => s,
+    HELP => ast::Statement::Help,
+    EXIT => ast::Statement::Exit,
+};
+
+Stmt: ast::Statement = {
+    DbStmt,
+    Ddl,
+    Dml,
+    TxnStmt,
+    SetStmt,
+};
+
+// ==================== 事务 ====================
+
+TxnStmt: ast::Statement = {
+    BEGIN => ast::Statement::TxnBegin,
+    COMMIT => ast::Statement::TxnCommit,
+    ABORT => ast::Statement::TxnAbort,
+    ROLLBACK => ast::Statement::TxnRollback,
+};
+
+// ==================== SHOW / SET ====================
+
+DbStmt: ast::Statement = {
+    SHOW TABLES => ast::Statement::ShowTables,
+    SHOW INDEX FROM <t:Name> => ast::Statement::ShowIndex { table: t },
+};
+
+SetStmt: ast::Statement = {
+    // 方言：`SET knob = bool` 与 `SET knob bool` 两种形式并存
+    SET <k:SetKnob> "=" <v:BOOL_LIT> =>
+        ast::Statement::SetKnob { knob: k, value: v },
+    SET <k:SetKnob> <v:BOOL_LIT> =>
+        ast::Statement::SetKnob { knob: k, value: v },
+};
+
+SetKnob: ast::Knob = {
+    ENABLE_NESTLOOP => ast::Knob::EnableNestLoop,
+    ENABLE_SORTMERGE => ast::Knob::EnableSortMerge,
+    ENABLE_HASHJOIN => ast::Knob::EnableHashJoin,
+    ENABLE_OPTIMIZER => ast::Knob::EnableOptimizer,
+    OUTPUT_FILE => ast::Knob::OutputFile,
+};
+
+// ==================== DDL ====================
+
+Ddl: ast::Statement = {
+    CREATE TABLE <t:Name> "(" <f:FieldList> ")" =>
+        ast::Statement::CreateTable { table: t, fields: f },
+    DROP TABLE <t:Name> => ast::Statement::DropTable { table: t },
+    DESC <t:Name> => ast::Statement::DescTable { table: t },
+    CREATE INDEX <t:Name> "(" <c:NameList> ")" =>
+        ast::Statement::CreateIndex { table: t, cols: c },
+    DROP INDEX <t:Name> "(" <c:NameList> ")" =>
+        ast::Statement::DropIndex { table: t, cols: c },
+    CREATE STATIC_CHECKPOINT => ast::Statement::CreateStaticCheckpoint,
+    LOAD <f:STRING> INTO <t:Name> => ast::Statement::LoadData { file: f, table: t },
+};
+
+FieldList: Vec<ast::ColDef> = {
+    <f:Field> => vec![f],
+    <mut l:FieldList> "," <f:Field> => { l.push(f); l },
+};
+
+Field: ast::ColDef = {
+    <n:Name> <t:Type> => ast::ColDef { name: n, ty: t, not_null: false },
+    <n:Name> <t:Type> NOT_NULL => ast::ColDef { name: n, ty: t, not_null: true },
+};
+
+Type: ast::DeclType = {
+    KW_INT => ast::DeclType::Int,
+    CHAR "(" <n:INT_LIT> ")" => ast::DeclType::String(n as u32),
+    VARCHAR "(" <n:INT_LIT> ")" => ast::DeclType::String(n as u32),
+    KW_FLOAT => ast::DeclType::Float,
+    DATETIME => ast::DeclType::Datetime,
+};
+
+NameList: Vec<String> = {
+    <n:Name> => vec![n],
+    <mut l:NameList> "," <n:Name> => { l.push(n); l },
+};
+
+// ==================== DML ====================
+
+Dml: ast::Statement = {
+    INSERT INTO <t:Name> VALUES "(" <v:LitList> ")" =>
+        ast::Statement::Insert { table: t, values: v },
+    DELETE FROM <t:Name> <w:OptWhereClause> =>
+        ast::Statement::Delete { table: t, wheres: w },
+    UPDATE <t:Name> SET <c:SetClauses> <w:OptWhereClause> =>
+        ast::Statement::Update { table: t, clauses: c, wheres: w },
+    SELECT <s:SelectBody> => ast::Statement::Select(Box::new(s)),
+};
+
+// SELECT 主体（供顶层语句与子查询复用）
+pub SelectBody: ast::SelectStmt = {
+    <d:OptUnique> <s:Selector> <w1:OptWhereClause> FROM <t:TableList>
+        <w2:OptWhereClause> <g:GroupBy?> <h:Having?> <o:OrderBy?> => {
+        // 方言允许 WHERE 出现在 FROM 前后两处，两处同时给出时按 AND 合并
+        let mut wheres = w1;
+        let mut w2 = w2;
+        wheres.append(&mut w2);
+        ast::SelectStmt {
+            distinct: d,
+            cols: s,
+            tables: t,
+            wheres,
+            group_by: g.unwrap_or_default(),
+            having: h.unwrap_or_default(),
+            order_by: o,
+        }
+    },
+};
+
+Unique: bool = { UNIQUE => true };
+
+OptUnique: bool = {
+    <u:Unique> => u,
+     => false,
+};
+
+Selector: Vec<ast::Col> = {
+    "*" => Vec::new(),
+    <c:ColList> => c,
+};
+
+TableList: Vec<String> = {
+    <t:Name> => vec![t],
+    <mut l:TableList> "," <t:Name> => { l.push(t); l },
+    <mut l:TableList> JOIN <t:Name> => { l.push(t); l },
+};
+
+GroupBy: Vec<ast::Col> = {
+    GROUP BY <c:ColList> => c,
+};
+
+Having: Vec<ast::Condition> = {
+    HAVING <w:WhereClause> => w,
+};
+
+OrderBy: (ast::Col, ast::OrderDir) = {
+    ORDER BY <c:Col> <d:AscDesc?> => (c, d.unwrap_or(ast::OrderDir::Default)),
+};
+
+AscDesc: ast::OrderDir = {
+    ASC => ast::OrderDir::Asc,
+    DESC => ast::OrderDir::Desc,
+};
+
+// ==================== 条件与表达式 ====================
+
+WhereClause: Vec<ast::Condition> = {
+    <c:Condition> => vec![c],
+    <mut l:WhereClause> AND <c:Condition> => { l.push(c); l },
+};
+
+// 对应 C++ `optWhereClause: WHERE whereClause | ε`（WHERE 关键字在此消耗）
+OptWhereClause: Vec<ast::Condition> = {
+    WHERE <w:WhereClause> => w,
+     => Vec::new(),
+};
+
+Condition: ast::Condition = {
+    <lhs:Col> <op:CompOp> <rhs:Expr> =>
+        ast::Condition { lhs, op, rhs },
+    // 子查询仅支持带括号形式 `op (SELECT ...)`：裸写形式（C++ 文法允许）
+    // 与外层尾子句存在不可消除的 LALR 二义，且课程用例均为括号形式
+    <lhs:Col> <op:CompOp> "(" <sq:SubSelectBody> ")" => ast::Condition {
+        lhs, op,
+        rhs: ast::CondRhs::SubQuery(Box::new(sq)),
+    },
+    <lhs:Col> <op:CompOp> "(" <v:LitList> ")" =>
+        ast::Condition { lhs, op, rhs: ast::CondRhs::LitList(v) },
+};
+
+// 子查询主体：不含 GROUP BY / HAVING / ORDER BY（课程方言范围；同时
+// 消除子查询与外层查询尾子句的 LALR 二义）
+pub SubSelectBody: ast::SelectStmt = {
+    SELECT <d:OptUnique> <s:Selector> <w1:OptWhereClause> FROM <t:TableList>
+        <w2:OptWhereClause> => {
+        let mut wheres = w1;
+        let mut w2 = w2;
+        wheres.append(&mut w2);
+        ast::SelectStmt {
+            distinct: d,
+            cols: s,
+            tables: t,
+            wheres,
+            group_by: Vec::new(),
+            having: Vec::new(),
+            order_by: None,
+        }
+    },
+};
+
+CompOp: ast::CompOp = {
+    "=" => ast::CompOp::Eq,
+    "<" => ast::CompOp::Lt,
+    ">" => ast::CompOp::Gt,
+    "<=" => ast::CompOp::Le,
+    ">=" => ast::CompOp::Ge,
+    "<>" => ast::CompOp::Ne,
+    IN => ast::CompOp::In,
+};
+
+Expr: ast::CondRhs = {
+    <v:Lit> => ast::CondRhs::Lit(v),
+    <c:Col> => ast::CondRhs::Col(c),
+};
+
+Lit: ast::Lit = {
+    INT_LIT => ast::Lit::Int(<>),
+    FLOAT_LIT => ast::Lit::Float(<>),
+    STRING => ast::Lit::Str(<>),
+    BOOL_LIT => ast::Lit::Bool(<>),
+};
+
+LitList: Vec<ast::Lit> = {
+    <v:Lit> => vec![v],
+    <mut l:LitList> "," <v:Lit> => { l.push(v); l },
+};
+
+SetClauses: Vec<ast::SetClause> = {
+    <c:SetClause> => vec![c],
+    <mut l:SetClauses> "," <c:SetClause> => { l.push(c); l },
+};
+
+SetClause: ast::SetClause = {
+    <c:Name> "=" <o:ArithCol> <v:Lit> => ast::SetClause {
+        col: c,
+        rhs: ast::SetRhs::Arith { col: o.0, op: o.1, value: v },
+    },
+    <c:Name> "=" <v:Lit> => ast::SetClause { col: c, rhs: ast::SetRhs::Lit(v) },
+};
+
+// `col = other_col op value` 的右侧：列名与算术操作符捆绑产生，避免与
+// `col = value` 归约冲突
+ArithCol: (String, ast::ArithOp) = {
+    <c:Name> "+" => (c, ast::ArithOp::Add),
+    <c:Name> "-" => (c, ast::ArithOp::Sub),
+    <c:Name> "*" => (c, ast::ArithOp::Mul),
+    <c:Name> "/" => (c, ast::ArithOp::Div),
+};
+
+// ==================== 列引用与聚合 ====================
+
+ColList: Vec<ast::Col> = {
+    <c:Col> => vec![c],
+    <mut l:ColList> "," <c:Col> => { l.push(c); l },
+};
+
+Col: ast::Col = {
+    <t:Name> "." <c:Name> => ast::Col::plain(t, c),
+    <c:Name> => ast::Col::plain("", c),
+    COUNT "(" "*" ")" => ast::Col::agg(ast::AggFunc::Count, "*", None),
+    COUNT "(" "*" ")" AS <a:CountAlias> =>
+        ast::Col::agg(ast::AggFunc::Count, "*", Some(a)),
+    COUNT "(" <c:Name> ")" => ast::Col::agg(ast::AggFunc::Count, c, None),
+    COUNT "(" <c:Name> ")" AS <a:CountAlias> =>
+        ast::Col::agg(ast::AggFunc::Count, c, Some(a)),
+    MAX "(" <c:Name> ")" => ast::Col::agg(ast::AggFunc::Max, c, None),
+    MAX "(" <c:Name> ")" AS <a:Name> => ast::Col::agg(ast::AggFunc::Max, c, Some(a)),
+    MIN "(" <c:Name> ")" => ast::Col::agg(ast::AggFunc::Min, c, None),
+    MIN "(" <c:Name> ")" AS <a:Name> => ast::Col::agg(ast::AggFunc::Min, c, Some(a)),
+    SUM "(" <c:Name> ")" => ast::Col::agg(ast::AggFunc::Sum, c, None),
+    SUM "(" <c:Name> ")" AS <a:Name> => ast::Col::agg(ast::AggFunc::Sum, c, Some(a)),
+};
+
+// `AS COUNT` 的别名是关键字 COUNT，单独一条产生式
+CountAlias: String = {
+    IDENT => <>,
+    COUNT => "count".to_string(),
+};
+
+// ==================== 名字 ====================
+
+Name: String = {
+    IDENT => <>,
+};
+

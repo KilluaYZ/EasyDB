@@ -4,14 +4,14 @@
 > 问题（use-after-free、泄漏、悬垂指针、手工 pin/unpin 配对等）。C++ 版本（`src-cpp/`）在迁移期
 > 间保留作为参照实现与行为基准，全部完成后移除。
 
-> **进度**：2026-10-11 — 四项决议已确认（§8）；P0 脚手架与 P1 公共基础层
-> （`common`：errors/config/RID，`types`：ColType/Value，`catalog`：Column/Schema）
-> 已完成；P2 存储层已完成（`storage`：DiskManager/Page，`buffer`：LRU+缓冲池
-> PageGuard，`record`：slotted page 记录层 + 元组编解码 + 扫描器）；P3 B+ 树索引
-> 已完成（`index`：ix_defs/ix_index_handle/ix_scan/ix_manager，含对照 BTreeMap 的
-> property test 与树不变量校验），64 个单测通过、clippy `-D warnings` 零警告、
-> 零 unsafe。**里程碑 M1 达成：存储引擎独立可用。**下一阶段：P4 SQL 前端
-> （LALRPOP 文法移植），可与 P5 并行。
+> **进度**：2026-10-11 — 四项决议已确认（§8）；P0~P2 已完成（公共基础层、存储层，
+> 里程碑 M1 存储引擎达成）；P3 B+ 树索引已完成；P4 SQL 前端已完成
+> （`parser`：手写词法器 + LALRPOP 文法移植 yacc.y + AST enum，`analyze`：
+> 语义分析经 CatalogView trait 绑定 schema 产出类型化 Query），86 个单测通过、
+> clippy `-D warnings` 零警告、零 unsafe。方言范围：子查询仅带括号形式且不含
+> GROUP/HAVING/ORDER（消除 LALR 二义，课程用例均为括号形式）。
+> 下一阶段：P5 计划与执行器（13 个执行器 + Portal），接通后达成 M2
+> （单用户 SQL 子集端到端）。
 
 ## 1. 现状评估
 

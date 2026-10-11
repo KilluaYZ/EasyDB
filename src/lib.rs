@@ -8,10 +8,12 @@
 //!   `record`（slotted page 记录层与元组编解码）
 //! - P3 起：B+ 树索引、SQL 前端（待实现）
 
+pub mod analyze;
 pub mod buffer;
 pub mod catalog;
 pub mod common;
 pub mod index;
+pub mod parser;
 pub mod record;
 pub mod storage;
 pub mod types;
