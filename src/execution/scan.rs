@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use super::{Executor, ResolvedCond, Row, RowSchema, eval_cond};
+use super::{ExecCtx, Executor, ResolvedCond, Row, RowSchema, eval_cond};
 use crate::catalog::Column;
 use crate::catalog::Schema;
 use crate::common::errors::EasyDbError;
@@ -30,7 +30,29 @@ pub struct SeqScanExec {
 }
 
 impl SeqScanExec {
-    pub fn new(fh: Arc<RmFileHandle>, table_cols: Vec<Column>, conds: Vec<ResolvedCond>) -> Self {
+    /// 事务内扫描：先取表级共享锁（对应 C++ LockSharedOnTable）。
+    pub fn new(
+        fh: Arc<RmFileHandle>,
+        table_cols: Vec<Column>,
+        conds: Vec<ResolvedCond>,
+        ctx: &ExecCtx,
+        _table: &str,
+    ) -> Self {
+        // 锁失败（wait-die 中止）：标记事务状态，错误经 next() 传播
+        if let Err(e) = ctx.locks.lock_shared_on_table(&ctx.txn, fh.fd()) {
+            ctx.txn
+                .set_state(crate::transaction::TransactionState::Aborted);
+            let _ = e;
+        }
+        Self::new_unlocked(fh, table_cols, conds)
+    }
+
+    /// 无锁构造：建索引回填 / 恢复重建等 DDL 语境使用。
+    pub fn new_unlocked(
+        fh: Arc<RmFileHandle>,
+        table_cols: Vec<Column>,
+        conds: Vec<ResolvedCond>,
+    ) -> Self {
         let num_pages = fh.file_hdr().num_pages;
         let tuple_schema = Schema::new(table_cols.clone());
         let schema = RowSchema::new(
@@ -126,6 +148,7 @@ pub struct IndexScanExec {
 
 impl IndexScanExec {
     /// `lower`/`upper` 为编码好的索引键（None 表示该侧无界）。
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         ih: Arc<IxIndexHandle>,
         fh: Arc<RmFileHandle>,
@@ -133,7 +156,14 @@ impl IndexScanExec {
         lower: Option<Vec<u8>>,
         upper: Option<Vec<u8>>,
         conds: Vec<ResolvedCond>,
+        ctx: &ExecCtx,
+        _table: &str,
     ) -> Result<Self, EasyDbError> {
+        if let Err(e) = ctx.locks.lock_shared_on_table(&ctx.txn, fh.fd()) {
+            ctx.txn
+                .set_state(crate::transaction::TransactionState::Aborted);
+            let _ = e;
+        }
         let (cur, end) = match (lower, upper) {
             (Some(lo), Some(hi)) => (ih.lower_bound(&lo)?, ih.upper_bound(&hi)?),
             (Some(lo), None) => (ih.lower_bound(&lo)?, ih.leaf_end()?),

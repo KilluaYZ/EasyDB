@@ -77,5 +77,7 @@ pub enum EasyDbError {
     BufferPoolFull,
     #[error("syntax error: {0}")]
     Syntax(#[from] crate::parser::ParseError),
+    #[error("transaction {0} aborted (wait-die deadlock prevention or state violation)")]
+    TransactionAbort(crate::common::config::TxnId),
     // 事务中止（TransactionAbort）将随 P6 事务/锁阶段补充。
 }

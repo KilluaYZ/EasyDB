@@ -17,7 +17,7 @@ use crate::execution::query_execs::{
     AggItem, AggregateExec, NestedLoopJoinExec, ProjectExec, SortExec,
 };
 use crate::execution::scan::{IndexScanExec, SeqScanExec};
-use crate::execution::{Executor, ResolvedCond, ResolvedRhs, RowSchema};
+use crate::execution::{ExecCtx, Executor, ResolvedCond, ResolvedRhs, RowSchema};
 use crate::parser::ast::{CompOp, OrderDir};
 use crate::system::Database;
 use crate::types::{ColType, Value};
@@ -99,7 +99,7 @@ pub enum Plan {
 }
 
 /// 生成计划（子查询在此求值）。
-pub fn plan(query: Query, db: &mut Database) -> Result<Plan, EasyDbError> {
+pub fn plan(query: Query, db: &mut Database, ctx: &ExecCtx) -> Result<Plan, EasyDbError> {
     match query {
         Query::Insert { table, values } => {
             let cols = db.table(&table)?.cols.clone();
@@ -130,7 +130,7 @@ pub fn plan(query: Query, db: &mut Database) -> Result<Plan, EasyDbError> {
         }),
         Query::Select(s) => {
             let columns = output_columns(&s);
-            let root = plan_select(*s, db)?;
+            let root = plan_select(*s, db, ctx)?;
             Ok(Plan::Select { root, columns })
         }
         other => Err(EasyDbError::Internal(format!(
@@ -166,9 +166,13 @@ fn output_columns(s: &BoundSelect) -> Vec<String> {
         .collect()
 }
 
-fn plan_select(mut s: BoundSelect, db: &mut Database) -> Result<PlanNode, EasyDbError> {
+fn plan_select(
+    mut s: BoundSelect,
+    db: &mut Database,
+    ctx: &ExecCtx,
+) -> Result<PlanNode, EasyDbError> {
     // 0. 求解子查询（非相关）：IN → 值列表；标量 → 单值
-    resolve_subqueries_select(&mut s, db)?;
+    resolve_subqueries_select(&mut s, db, ctx)?;
 
     // 1. 单表扫描（条件下推 + 索引选择）；跨表条件留给连接
     let mut scans: Vec<PlanNode> = Vec::new();
@@ -260,7 +264,11 @@ fn plan_select(mut s: BoundSelect, db: &mut Database) -> Result<PlanNode, EasyDb
 }
 
 /// 求解 SELECT 中的子查询条件（IN → 值列表；标量比较 → 单值）。
-fn resolve_subqueries_select(s: &mut BoundSelect, db: &mut Database) -> Result<(), EasyDbError> {
+fn resolve_subqueries_select(
+    s: &mut BoundSelect,
+    db: &mut Database,
+    ctx: &ExecCtx,
+) -> Result<(), EasyDbError> {
     for conds in [&mut s.wheres, &mut s.having] {
         for cond in conds.iter_mut() {
             if let BoundRhs::SubQuery(sub) = &cond.rhs {
@@ -269,7 +277,7 @@ fn resolve_subqueries_select(s: &mut BoundSelect, db: &mut Database) -> Result<(
                         "only select subqueries are supported".to_string(),
                     ));
                 };
-                let values = db.eval_select_column(inner)?;
+                let values = db.eval_select_column(inner, ctx)?;
                 cond.rhs = match cond.op {
                     CompOp::In => BoundRhs::LitList(values),
                     _ => {
@@ -408,12 +416,16 @@ fn bound_or(cur: Option<Value>, v: Value, _ordering: std::cmp::Ordering) -> Valu
 // ==================== 执行器树构建 ====================
 
 /// 由计划构建执行器树（对应 C++ Portal）。
-pub fn build_executor(node: &PlanNode, db: &Database) -> Result<Box<dyn Executor>, EasyDbError> {
+pub fn build_executor(
+    node: &PlanNode,
+    db: &Database,
+    ctx: &ExecCtx,
+) -> Result<Box<dyn Executor>, EasyDbError> {
     match node {
-        PlanNode::Scan(scan) => build_scan(scan, db),
+        PlanNode::Scan(scan) => build_scan(scan, db, ctx),
         PlanNode::Join { left, right, conds } => {
-            let l = build_executor(left, db)?;
-            let r = build_executor(right, db)?;
+            let l = build_executor(left, db, ctx)?;
+            let r = build_executor(right, db, ctx)?;
             let mut cols = l.schema().cols.clone();
             cols.extend(r.schema().cols.clone());
             let schema = RowSchema::new(cols);
@@ -426,7 +438,7 @@ pub fn build_executor(node: &PlanNode, db: &Database) -> Result<Box<dyn Executor
             items,
             having,
         } => {
-            let inp = build_executor(input, db)?;
+            let inp = build_executor(input, db, ctx)?;
             let in_schema = inp.schema().clone();
             let group_idx: Vec<usize> = group_by
                 .iter()
@@ -529,7 +541,7 @@ pub fn build_executor(node: &PlanNode, db: &Database) -> Result<Box<dyn Executor
             )))
         }
         PlanNode::Sort { input, key, desc } => {
-            let inp = build_executor(input, db)?;
+            let inp = build_executor(input, db, ctx)?;
             let idx = inp
                 .schema()
                 .index_of(&key.tab, &key.col)
@@ -537,7 +549,7 @@ pub fn build_executor(node: &PlanNode, db: &Database) -> Result<Box<dyn Executor
             Ok(Box::new(SortExec::new(inp, idx, *desc)))
         }
         PlanNode::SortPos { input, pos, desc } => {
-            let inp = build_executor(input, db)?;
+            let inp = build_executor(input, db, ctx)?;
             Ok(Box::new(SortExec::new(inp, *pos, *desc)))
         }
         PlanNode::Project {
@@ -545,7 +557,7 @@ pub fn build_executor(node: &PlanNode, db: &Database) -> Result<Box<dyn Executor
             cols,
             distinct,
         } => {
-            let inp = build_executor(input, db)?;
+            let inp = build_executor(input, db, ctx)?;
             let in_schema = inp.schema().clone();
             let mut indices = Vec::with_capacity(cols.len());
             let mut out_cols = Vec::with_capacity(cols.len());
@@ -601,8 +613,9 @@ pub fn build_dml_scan(
     db: &Database,
     table: &str,
     conds: &[BoundCond],
+    ctx: &ExecCtx,
 ) -> Result<Box<dyn Executor>, EasyDbError> {
-    build_executor(&plan_table_scan(db, table, conds)?, db)
+    build_executor(&plan_table_scan(db, table, conds)?, db, ctx)
 }
 
 pub fn index_maintenance(db: &Database, table: &str) -> Result<Vec<IndexMaintenance>, EasyDbError> {
@@ -641,13 +654,16 @@ pub fn build_insert(
     db: &Database,
     table: &str,
     rows: Vec<Vec<Value>>,
+    ctx: &ExecCtx,
 ) -> Result<InsertExec, EasyDbError> {
     let meta = db.table(table)?;
     Ok(InsertExec::new(
         meta.fh.clone(),
+        table,
         meta.cols.clone(),
         rows,
         index_maintenance(db, table)?,
+        ctx,
     ))
 }
 
@@ -655,13 +671,16 @@ pub fn build_delete(
     db: &Database,
     table: &str,
     conds: &[BoundCond],
+    ctx: &ExecCtx,
 ) -> Result<DeleteExec, EasyDbError> {
     let meta = db.table(table)?;
-    let scan = build_dml_scan(db, table, conds)?;
+    let scan = build_dml_scan(db, table, conds, ctx)?;
     Ok(DeleteExec::new(
         scan,
         meta.fh.clone(),
+        table,
         index_maintenance(db, table)?,
+        ctx,
     ))
 }
 
@@ -670,9 +689,10 @@ pub fn build_update(
     table: &str,
     clauses: &[BoundSetClause],
     conds: &[BoundCond],
+    ctx: &ExecCtx,
 ) -> Result<UpdateExec, EasyDbError> {
     let meta = db.table(table)?;
-    let scan = build_dml_scan(db, table, conds)?;
+    let scan = build_dml_scan(db, table, conds, ctx)?;
     let schema_cols: Vec<(String, String)> = meta
         .cols
         .iter()
@@ -689,9 +709,11 @@ pub fn build_update(
     Ok(UpdateExec::new(
         scan,
         meta.fh.clone(),
+        table,
         meta.cols.clone(),
         resolved,
         index_maintenance(db, table)?,
+        ctx,
     ))
 }
 
@@ -742,7 +764,11 @@ fn resolve_conds(
     Ok(out)
 }
 
-fn build_scan(scan: &ScanPlan, db: &Database) -> Result<Box<dyn Executor>, EasyDbError> {
+fn build_scan(
+    scan: &ScanPlan,
+    db: &Database,
+    ctx: &ExecCtx,
+) -> Result<Box<dyn Executor>, EasyDbError> {
     let meta = db.table(&scan.table)?;
     let fh = meta.fh.clone();
     let cols = meta.cols.clone();
@@ -796,9 +822,17 @@ fn build_scan(scan: &ScanPlan, db: &Database) -> Result<Box<dyn Executor>, EasyD
             lower,
             upper,
             conds,
+            ctx,
+            &scan.table,
         )?))
     } else {
-        Ok(Box::new(SeqScanExec::new(fh, cols, conds)))
+        Ok(Box::new(SeqScanExec::new(
+            fh,
+            cols,
+            conds,
+            ctx,
+            &scan.table,
+        )))
     }
 }
 

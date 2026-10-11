@@ -108,6 +108,76 @@ impl RmFileHandle {
         }
     }
 
+    /// 恢复重放：在确切的 rid 处重做插入。
+    /// 页按需创建（重放按原始顺序进行，页号/槽号与原执行完全一致）。
+    pub fn recover_insert(&self, rid: Rid, data: &[u8]) -> Result<(), EasyDbError> {
+        while self.file_hdr().num_pages <= rid.page_id() {
+            self.create_new_page()?;
+        }
+        let page = self
+            .bpm
+            .fetch_page(crate::storage::page::PageId::new(self.fd, rid.page_id()))?;
+        let mut d = page.write();
+        let slot = rid.slot_num() as usize;
+        let num_records = page_num_records(&d[..]) as usize;
+        let (offset, size, meta) = if slot < num_records {
+            // 槽位已存在（原执行中先插后删再重放的场合）：直接覆写
+            read_tuple_info(&d[..], slot)
+        } else {
+            // 追加（与原执行相同的生长路径）
+            let slot_end: usize = if num_records > 0 {
+                read_tuple_info(&d[..], num_records - 1).0 as usize
+            } else {
+                PAGE_SIZE
+            };
+            use crate::record::rm_defs::{TABLE_PAGE_HEADER_SIZE, TUPLE_INFO_SIZE};
+            let dir_end = TABLE_PAGE_HEADER_SIZE + TUPLE_INFO_SIZE * (num_records + 1);
+            if slot_end < dir_end + data.len() {
+                return Err(EasyDbError::Internal(
+                    "recover_insert: page layout diverged from original execution".to_string(),
+                ));
+            }
+            (
+                (slot_end - data.len()) as u16,
+                data.len() as u16,
+                TupleMeta::default(),
+            )
+        };
+        write_tuple_info(&mut d[..], slot, offset, size, meta);
+        if slot >= num_records {
+            set_page_num_records(&mut d[..], slot as u16 + 1);
+        }
+        let off = offset as usize;
+        d[off..off + data.len()].copy_from_slice(data);
+        Ok(())
+    }
+
+    /// 回滚重写：按原始内容覆写某槽位（长度可与当前不同——槽内布局
+    /// 不会移动，扩展只写回自己原来的区域）。
+    pub fn rewrite_tuple(&self, rid: Rid, data: &[u8]) -> Result<(), EasyDbError> {
+        let page = self
+            .bpm
+            .fetch_page(crate::storage::page::PageId::new(self.fd, rid.page_id()))?;
+        let mut d = page.write();
+        let slot = rid.slot_num() as usize;
+        let num_records = page_num_records(&d[..]) as usize;
+        if slot >= num_records {
+            return Err(EasyDbError::Internal(
+                "rewrite_tuple: slot out of range".to_string(),
+            ));
+        }
+        let (offset, _, meta) = read_tuple_info(&d[..], slot);
+        let off = offset as usize;
+        if off + data.len() > PAGE_SIZE {
+            return Err(EasyDbError::Internal(
+                "rewrite_tuple: out of page".to_string(),
+            ));
+        }
+        write_tuple_info(&mut d[..], slot, offset, data.len() as u16, meta);
+        d[off..off + data.len()].copy_from_slice(data);
+        Ok(())
+    }
+
     /// 在指定位置恢复一条已删除的记录（事务回滚/恢复场景）。
     pub fn undelete_tuple(&self, rid: Rid, meta: TupleMeta) -> Result<(), EasyDbError> {
         let page = self.bpm.fetch_page(PageId::new(self.fd, rid.page_id()))?;

@@ -12,11 +12,24 @@ pub mod query_execs;
 pub mod scan;
 
 use std::cmp::Ordering;
+use std::sync::{Arc, Mutex};
 
 use crate::common::errors::EasyDbError;
 use crate::common::rid::Rid;
+use crate::concurrency::LockManager;
 use crate::parser::ast::{ArithOp, CompOp};
+use crate::recovery::LogManager;
+use crate::transaction::Transaction;
 use crate::types::Value;
+
+/// 执行上下文：当前事务 + 锁管理器 + 日志管理器
+/// （对应 C++ 的 `Context`，但持有 Arc 而非裸指针）。
+#[derive(Clone)]
+pub struct ExecCtx {
+    pub txn: Arc<Transaction>,
+    pub locks: Arc<LockManager>,
+    pub log: Arc<Mutex<LogManager>>,
+}
 
 /// 一行：RID + 已解码的列值。
 #[derive(Debug, Clone)]

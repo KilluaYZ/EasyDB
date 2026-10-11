@@ -4,16 +4,15 @@
 > 问题（use-after-free、泄漏、悬垂指针、手工 pin/unpin 配对等）。C++ 版本（`src-cpp/`）在迁移期
 > 间保留作为参照实现与行为基准，全部完成后移除。
 
-> **进度**：2026-10-11 — 四项决议已确认（§8）；P0~P4 已完成（公共基础层、存储层
-> 【M1】、B+ 树索引、SQL 前端）；P5 计划与执行器已完成
-> （`execution`：SeqScan/IndexScan/Insert/Delete/Update/Project/Filter/Sort/
-> Aggregate/NestedLoopJoin，`planner`：条件下推 + 索引选择 + 左深连接 + Portal
-> 等价物，`system`：内存 catalog 的 Database 门面），94 个单测通过、
-> clippy `-D warnings` 零警告、零 unsafe。**里程碑 M2 达成：SQL 子集端到端
-> 跑通（单用户、无事务、内存 catalog）。** 与 C++ 版的差异：聚合为真正的
-> 哈希聚合（支持 GROUP BY/HAVING）；子查询计划期求解；连接暂为嵌套循环
-> （哈希/归并随优化器开关后续接入）。下一阶段：P6 事务/锁/恢复
-> （2PL + wait-die、WAL/ARIES），随后 P7 元数据持久化 + TCP 服务（M3）。
+> **进度**：2026-10-11 — 四项决议已确认（§8）；P0~P5 已完成（公共基础层、存储层
+> 【M1】、B+ 树索引、SQL 前端、计划与执行器【M2】）；P6 事务/锁/恢复已完成
+> （`transaction`：状态机 + 写集，`concurrency`：严格 2PL + wait-die，
+> `recovery`：WAL（提交刷盘）+ 重启恢复【重复历史 + 失败者逆序撤销 + 索引
+> 回填重建】），101 个单测通过、clippy `-D warnings` 零警告、零 unsafe。
+> 与 C++ 版的差异：锁点简化为表级 S/X + 记录级 X（无意向锁/间隙锁）；
+> 恢复为逻辑重放（格式自持，无需页级 LSN）；中止采用写集立即回滚。
+> 下一阶段：P7 元数据持久化（db.meta）+ TCP 服务（协议与 C++ 版兼容，
+> 达成 M3），随后 P8 TUI 客户端（ratatui）与收尾（M4 移除 src-cpp）。
 
 ## 1. 现状评估
 

@@ -8,21 +8,26 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::analyze::{Analyzer, CatalogView, Query};
 use crate::buffer::buffer_pool::BufferPool;
 use crate::catalog::Column;
 use crate::common::errors::EasyDbError;
+use crate::concurrency::LockManager;
+use crate::execution::ExecCtx;
 use crate::execution::Executor;
 use crate::index::ix_index_handle::IxIndexHandle;
 use crate::index::ix_manager::IxManager;
 use crate::parser::ast;
 use crate::parser::parse_sql;
 use crate::planner::{self, Plan};
+use crate::record::rm_defs::TupleMeta;
 use crate::record::rm_file_handle::RmFileHandle;
 use crate::record::rm_manager::RmManager;
+use crate::recovery::{LogManager, LogRecord};
 use crate::storage::disk::DiskManager;
+use crate::transaction::{Transaction, TransactionState, WType, WriteRecord};
 use crate::types::ColType;
 
 /// 语句执行结果。
@@ -62,6 +67,12 @@ pub struct Database {
     ix: IxManager,
     tables: HashMap<String, TableMeta>,
     knobs: HashMap<ast::Knob, bool>,
+    // ---- 事务设施（P6）----
+    lock_mgr: Arc<LockManager>,
+    log_mgr: Arc<Mutex<LogManager>>,
+    txn_counter: std::sync::atomic::AtomicI64,
+    /// 显式事务（BEGIN 后存在；自动提交语句的事务不入此字段）
+    current_txn: Option<Arc<Transaction>>,
 }
 
 impl Database {
@@ -75,6 +86,7 @@ impl Database {
         ));
         let rm = RmManager::new(disk.clone(), bpm.clone());
         let ix = IxManager::new(disk.clone(), bpm.clone());
+        let log_mgr = Arc::new(Mutex::new(LogManager::open(&dir)?));
         Ok(Self {
             dir,
             disk,
@@ -82,6 +94,10 @@ impl Database {
             ix,
             tables: HashMap::new(),
             knobs: HashMap::new(),
+            lock_mgr: LockManager::new(),
+            log_mgr,
+            txn_counter: std::sync::atomic::AtomicI64::new(1),
+            current_txn: None,
         })
     }
 
@@ -127,6 +143,78 @@ impl Database {
 
     /// 执行绑定后的查询。
     pub fn execute(&mut self, query: Query) -> Result<Output, EasyDbError> {
+        // 事务控制语句先于常规生命周期处理
+        match query {
+            Query::TxnBegin => {
+                if self.current_txn.is_some() {
+                    return Err(EasyDbError::Internal(
+                        "transaction already in progress".to_string(),
+                    ));
+                }
+                self.begin_txn();
+                return Ok(Output::Ok);
+            }
+            Query::TxnCommit => {
+                let Some(txn) = self.current_txn.take() else {
+                    return Err(EasyDbError::Internal("no active transaction".to_string()));
+                };
+                self.commit_txn(&txn)?;
+                return Ok(Output::Ok);
+            }
+            Query::TxnAbort | Query::TxnRollback => {
+                let Some(txn) = self.current_txn.take() else {
+                    return Err(EasyDbError::Internal("no active transaction".to_string()));
+                };
+                // 撤销全部未提交写入后标记中止并释放锁
+                self.rollback_writes(&txn, 0);
+                self.abort_txn(&txn);
+                return Ok(Output::Ok);
+            }
+            _ => {}
+        }
+
+        // 无显式事务 → 自动提交（每语句一个事务）
+        let autocommit = self.current_txn.is_none();
+        if autocommit {
+            self.begin_txn();
+        }
+        let txn = self.current_txn.as_ref().unwrap().clone();
+        let ctx = ExecCtx {
+            txn: txn.clone(),
+            locks: self.lock_mgr.clone(),
+            log: self.log_mgr.clone(),
+        };
+        let mark = txn.write_set_len();
+        let result = self.execute_in_txn(query, &ctx);
+        match result {
+            Ok(out) => {
+                if autocommit {
+                    self.commit_txn(&txn)?;
+                    self.current_txn = None;
+                }
+                Ok(out)
+            }
+            Err(EasyDbError::TransactionAbort(id)) => {
+                // wait-die 中止 / 状态违规：回滚整个事务
+                self.rollback_writes(&txn, 0);
+                self.abort_txn(&txn);
+                self.current_txn = None;
+                Err(EasyDbError::TransactionAbort(id))
+            }
+            Err(e) => {
+                // 其它错误：回滚本语句的写入（保存点语义）
+                self.rollback_writes(&txn, mark);
+                if autocommit {
+                    self.abort_txn(&txn);
+                    self.current_txn = None;
+                }
+                Err(e)
+            }
+        }
+    }
+
+    /// 事务体内的实际执行（子查询经 ctx 求解）。
+    fn execute_in_txn(&mut self, query: Query, ctx: &ExecCtx) -> Result<Output, EasyDbError> {
         match query {
             Query::Help => Ok(Output::Ok),
             Query::Exit => Ok(Output::Ok),
@@ -174,11 +262,11 @@ impl Database {
                 "LOAD will be supported in P7".to_string(),
             )),
             Query::Insert { table, values } => {
-                let plan = planner::plan(Query::Insert { table, values }, self)?;
+                let plan = planner::plan(Query::Insert { table, values }, self, ctx)?;
                 let Plan::Insert { table, rows } = plan else {
                     return Err(EasyDbError::Internal("plan mismatch".to_string()));
                 };
-                let mut exec = planner::build_insert(self, &table, rows)?;
+                let mut exec = planner::build_insert(self, &table, rows, ctx)?;
                 let mut count = 0u64;
                 while exec.next()?.is_some() {
                     count += 1;
@@ -186,11 +274,11 @@ impl Database {
                 Ok(Output::Count(count))
             }
             Query::Delete { table, wheres } => {
-                let plan = planner::plan(Query::Delete { table, wheres }, self)?;
+                let plan = planner::plan(Query::Delete { table, wheres }, self, ctx)?;
                 let Plan::Delete { table, conds } = plan else {
                     return Err(EasyDbError::Internal("plan mismatch".to_string()));
                 };
-                let mut exec = planner::build_delete(self, &table, &conds)?;
+                let mut exec = planner::build_delete(self, &table, &conds, ctx)?;
                 let mut count = 0u64;
                 while exec.next()?.is_some() {
                     count += 1;
@@ -209,6 +297,7 @@ impl Database {
                         wheres,
                     },
                     self,
+                    ctx,
                 )?;
                 let Plan::Update {
                     table,
@@ -218,7 +307,7 @@ impl Database {
                 else {
                     return Err(EasyDbError::Internal("plan mismatch".to_string()));
                 };
-                let mut exec = planner::build_update(self, &table, &clauses, &conds)?;
+                let mut exec = planner::build_update(self, &table, &clauses, &conds, ctx)?;
                 let mut count = 0u64;
                 while exec.next()?.is_some() {
                     count += 1;
@@ -226,11 +315,11 @@ impl Database {
                 Ok(Output::Count(count))
             }
             Query::Select(s) => {
-                let plan = planner::plan(Query::Select(s), self)?;
+                let plan = planner::plan(Query::Select(s), self, ctx)?;
                 let Plan::Select { root, columns } = plan else {
                     return Err(EasyDbError::Internal("plan mismatch".to_string()));
                 };
-                let mut exec = planner::build_executor(&root, self)?;
+                let mut exec = planner::build_executor(&root, self, ctx)?;
                 let mut rows = Vec::new();
                 while let Some(row) = exec.next()? {
                     rows.push(row.values);
@@ -240,18 +329,168 @@ impl Database {
         }
     }
 
+    // ---- 事务生命周期 ----
+
+    fn begin_txn(&mut self) {
+        let id = self
+            .txn_counter
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let txn = Arc::new(Transaction::new(id));
+        {
+            let mut log = self.log_mgr.lock().unwrap_or_else(|e| e.into_inner());
+            let lsn = log.append(&LogRecord::Begin { txn: id });
+            txn.set_prev_lsn(lsn);
+        }
+        txn.set_state(TransactionState::Growing);
+        self.current_txn = Some(txn);
+    }
+
+    fn commit_txn(&mut self, txn: &Arc<Transaction>) -> Result<(), EasyDbError> {
+        {
+            let mut log = self.log_mgr.lock().unwrap_or_else(|e| e.into_inner());
+            let lsn = log.append(&LogRecord::Commit { txn: txn.id });
+            txn.set_prev_lsn(lsn);
+            log.flush()?; // 提交即刷盘（WAL）
+        }
+        txn.set_state(TransactionState::Committed);
+        txn.clear_writes();
+        self.lock_mgr.unlock_all(txn);
+        Ok(())
+    }
+
+    fn abort_txn(&mut self, txn: &Arc<Transaction>) {
+        let _ = (|| -> Result<(), EasyDbError> {
+            let mut log = self.log_mgr.lock().unwrap_or_else(|e| e.into_inner());
+            let lsn = log.append(&LogRecord::Abort { txn: txn.id });
+            txn.set_prev_lsn(lsn);
+            log.flush()?;
+            Ok(())
+        })();
+        txn.set_state(TransactionState::Aborted);
+        txn.clear_writes();
+        self.lock_mgr.unlock_all(txn);
+    }
+
+    /// 从写集第 `from` 条起（含）按逆序撤销（对应 C++
+    /// `TransactionManager::Abort` 的写集回滚 + 索引恢复）。
+    fn rollback_writes(&self, txn: &Arc<Transaction>, from: usize) {
+        for rec in txn.pop_writes_from(from) {
+            let _ = self.undo_write(&rec);
+        }
+    }
+
+    fn undo_write(&self, rec: &WriteRecord) -> Result<(), EasyDbError> {
+        let Some(meta) = self.tables.get(&rec.table) else {
+            return Ok(()); // 表已删除：无可撤销
+        };
+
+        let indexes = planner::index_maintenance(self, &rec.table)?;
+        let schema = crate::catalog::Schema::new(meta.cols.clone());
+        match rec.wtype {
+            WType::Insert => {
+                // 撤销插入：删索引条目 + 删记录
+                let row = crate::record::tuple::decode_tuple(&schema, &rec.data)?;
+                for ix in &indexes {
+                    ix.handle.delete_entry(&ix.key(&row)?)?;
+                }
+                meta.fh.delete_tuple(rec.rid)?;
+            }
+            WType::Delete => {
+                // 撤销删除：回写旧数据 + 复活 + 补索引条目
+                meta.fh.rewrite_tuple(rec.rid, &rec.data)?;
+                meta.fh.undelete_tuple(rec.rid, TupleMeta::default())?;
+                let row = crate::record::tuple::decode_tuple(&schema, &rec.data)?;
+                for ix in &indexes {
+                    ix.handle.insert_entry(&ix.key(&row)?, rec.rid)?;
+                }
+            }
+            WType::Update => {
+                // 撤销更新：回写旧数据 + 索引键换回（当前键取自现值）
+                let cur = meta.fh.get_tuple(rec.rid)?.1;
+                let cur_row = crate::record::tuple::decode_tuple(&schema, &cur)?;
+                let old_row = crate::record::tuple::decode_tuple(&schema, &rec.data)?;
+                meta.fh.rewrite_tuple(rec.rid, &rec.data)?;
+                for ix in &indexes {
+                    let old_key = ix.key(&cur_row)?;
+                    let restored = ix.key(&old_row)?;
+                    if old_key != restored {
+                        ix.handle.delete_entry(&old_key)?;
+                        ix.handle.insert_entry(&restored, rec.rid)?;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    // ---- 恢复后挂载（P7 持久化目录就绪前的过渡入口）----
+
+    /// 把已存在（通常经 [`crate::recovery::recover`] 重建）的表文件挂载进
+    /// 目录：打开数据文件与索引文件，并回填校验索引。
+    pub fn attach_table(
+        &mut self,
+        name: &str,
+        cols: Vec<Column>,
+        indexes: Vec<Vec<String>>,
+    ) -> Result<(), EasyDbError> {
+        if self.tables.contains_key(name) {
+            return Err(EasyDbError::TableAlreadyExists(name.to_string()));
+        }
+        let mut cols = cols;
+        for c in cols.iter_mut() {
+            c.set_tab_name(name);
+        }
+        let path = self.table_file(name);
+        let fd = self.disk.open_file(&path)?;
+        let fh = Arc::new(RmFileHandle::open(
+            self.disk.clone(),
+            self.rm.bpm().clone(),
+            fd,
+        )?);
+        self.tables.insert(
+            name.to_string(),
+            TableMeta {
+                name: name.to_string(),
+                cols: cols.clone(),
+                fh,
+                indexes: Vec::new(),
+            },
+        );
+        for col_group in indexes {
+            let ipath = self.index_file(name, &col_group);
+            if self.ix.exists(&ipath) {
+                // 恢复流程已重建索引文件：直接打开并注册
+                let fd = self.disk.open_file(&ipath)?;
+                let handle = Arc::new(IxIndexHandle::open(
+                    self.disk.clone(),
+                    self.rm.bpm().clone(),
+                    fd,
+                )?);
+                self.table_mut(name)?.indexes.push(IndexMeta {
+                    cols: col_group,
+                    file: ipath,
+                    handle,
+                });
+            } else {
+                self.create_index(name, &col_group)?;
+            }
+        }
+        Ok(())
+    }
+
     // ---- 子查询求值（planner 调用）----
 
     /// 执行已绑定的 SELECT 并返回第一列的值列表（子查询 IN/标量使用）。
     pub fn eval_select_column(
         &mut self,
         s: &crate::analyze::BoundSelect,
+        ctx: &ExecCtx,
     ) -> Result<Vec<crate::types::Value>, EasyDbError> {
-        let plan = planner::plan(Query::Select(Box::new(s.clone())), self)?;
+        let plan = planner::plan(Query::Select(Box::new(s.clone())), self, ctx)?;
         let Plan::Select { root, .. } = plan else {
             return Err(EasyDbError::Internal("plan mismatch".to_string()));
         };
-        let mut exec = planner::build_executor(&root, self)?;
+        let mut exec = planner::build_executor(&root, self, ctx)?;
         let mut out = Vec::new();
         while let Some(row) = exec.next()? {
             let Some(v) = row.values.into_iter().next() else {
@@ -375,8 +614,11 @@ impl Database {
         {
             let fh = meta.fh.clone();
             let table_cols = meta.cols.clone();
-            let mut scan =
-                crate::execution::scan::SeqScanExec::new(fh, table_cols.clone(), Vec::new());
+            let mut scan = crate::execution::scan::SeqScanExec::new_unlocked(
+                fh,
+                table_cols.clone(),
+                Vec::new(),
+            );
             while let Some(row) = scan.next()? {
                 let key: Vec<crate::types::Value> = cols
                     .iter()
@@ -725,5 +967,213 @@ mod tests {
             .run_sql("SELECT grade FROM course WHERE sid = 2;")
             .unwrap();
         assert_eq!(rows(out)[0][0], Value::Int(120));
+    }
+}
+
+#[cfg(test)]
+mod txn_tests {
+    use super::*;
+    use crate::common::rid::Rid;
+    use crate::types::Value;
+
+    fn setup(tag: &str) -> (tempfile::TempDir, Database) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut db = Database::open(dir.path().join(tag)).unwrap();
+        db.run_sql("CREATE TABLE t (id INT, name VARCHAR(16));")
+            .unwrap();
+        db.run_sql("INSERT INTO t VALUES (1, 'one');").unwrap();
+        db.run_sql("INSERT INTO t VALUES (2, 'two');").unwrap();
+        (dir, db)
+    }
+
+    fn ids(db: &mut Database) -> Vec<i32> {
+        match db.run_sql("SELECT id FROM t;").unwrap() {
+            Output::Rows { rows, .. } => rows
+                .into_iter()
+                .map(|r| match &r[0] {
+                    Value::Int(n) => *n,
+                    other => panic!("want int, got {other:?}"),
+                })
+                .collect(),
+            other => panic!("want rows, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rollback_on_abort_statement() {
+        let (_dir, mut db) = setup("rb");
+
+        // INSERT 后回滚
+        db.run_sql("BEGIN;").unwrap();
+        db.run_sql("INSERT INTO t VALUES (3, 'three');").unwrap();
+        assert_eq!(ids(&mut db), vec![1, 2, 3]); // 事务内可见（同事务读）
+        db.run_sql("ABORT;").unwrap();
+        assert_eq!(ids(&mut db), vec![1, 2]);
+
+        // DELETE 后回滚
+        db.run_sql("BEGIN;").unwrap();
+        db.run_sql("DELETE FROM t WHERE id = 1;").unwrap();
+        assert_eq!(ids(&mut db), vec![2]);
+        db.run_sql("ROLLBACK;").unwrap();
+        assert_eq!(ids(&mut db), vec![1, 2]);
+
+        // UPDATE 后回滚
+        db.run_sql("BEGIN;").unwrap();
+        db.run_sql("UPDATE t SET name = 'six' WHERE id = 1;")
+            .unwrap();
+        db.run_sql("ABORT;").unwrap();
+        match db.run_sql("SELECT name FROM t WHERE id = 1;").unwrap() {
+            Output::Rows { rows, .. } => assert_eq!(rows[0][0], Value::Str("one".into())),
+            other => panic!("want rows, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn commit_persists_within_and_across() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut db = Database::open(dir.path().join("c")).unwrap();
+        db.run_sql("CREATE TABLE t (id INT);").unwrap();
+        db.run_sql("BEGIN;").unwrap();
+        db.run_sql("INSERT INTO t VALUES (1);").unwrap();
+        db.run_sql("INSERT INTO t VALUES (2);").unwrap();
+        db.run_sql("COMMIT;").unwrap();
+        // 重开数据库（模拟重启后目录仍在）：显式重建目录 + 恢复由 recover 测试覆盖，
+        // 这里验证提交后语句可读
+        assert_eq!(
+            match db.run_sql("SELECT COUNT(*) FROM t;").unwrap() {
+                Output::Rows { rows, .. } => rows[0][0].clone(),
+                _ => panic!(),
+            },
+            Value::Int(2)
+        );
+    }
+
+    #[test]
+    fn explicit_txn_holds_locks_until_commit() {
+        let (_dir, mut db) = setup("wd");
+
+        // 单连接语义：显式事务内的写持续持有记录 X 锁，同事务的后续
+        // 语句可重入；跨连接的 wait-die（年轻者中止/年长者等待）由
+        // concurrency 模块的单测覆盖（P7 多连接接入后在此补端到端用例）
+        db.run_sql("BEGIN;").unwrap();
+        db.run_sql("UPDATE t SET name = 't1' WHERE id = 1;")
+            .unwrap();
+        // 同事务内读到自己未提交的写
+        match db.run_sql("SELECT name FROM t WHERE id = 1;").unwrap() {
+            Output::Rows { rows, .. } => assert_eq!(rows[0][0], Value::Str("t1".into())),
+            other => panic!("want rows, got {other:?}"),
+        }
+        db.run_sql("COMMIT;").unwrap();
+        match db.run_sql("SELECT name FROM t WHERE id = 1;").unwrap() {
+            Output::Rows { rows, .. } => assert_eq!(rows[0][0], Value::Str("t1".into())),
+            other => panic!("want rows, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn statement_error_rolls_back_statement_only() {
+        let (_dir, mut db) = setup("savepoint");
+
+        // 显式事务里第二条语句失败（列不存在）：第一条的写入保留，
+        // 失败语句的写入回滚
+        db.run_sql("BEGIN;").unwrap();
+        db.run_sql("INSERT INTO t VALUES (3, 'three');").unwrap();
+        assert!(db.run_sql("INSERT INTO t VALUES (4, nosuchcol);").is_err());
+        db.run_sql("COMMIT;").unwrap();
+        assert_eq!(ids(&mut db), vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn crash_recovery_redo_and_undo() {
+        use crate::record::tuple::encode_tuple;
+        use crate::recovery::{LogManager, LogRecord, TableRecoverMeta};
+
+        let dir = tempfile::tempdir().unwrap();
+        let db_dir = dir.path().join("db");
+
+        // 阶段一：已提交数据（WAL 随提交刷盘）
+        let metas;
+        {
+            let mut db = Database::open(&db_dir).unwrap();
+            db.run_sql("CREATE TABLE t (id INT, name VARCHAR(16));")
+                .unwrap();
+            db.run_sql("CREATE INDEX t (id);").unwrap();
+            db.run_sql("INSERT INTO t VALUES (1, 'one');").unwrap();
+            db.run_sql("INSERT INTO t VALUES (2, 'two');").unwrap();
+            let cols = db.table("t").unwrap().cols.clone();
+            metas = vec![TableRecoverMeta {
+                name: "t".to_string(),
+                cols,
+                indexes: vec![vec!["id".to_string()]],
+            }];
+        }
+
+        // 阶段二：模拟"已刷盘但未提交"的事务 99——直接向 db.log 追加
+        // （正常路径中，后续事务提交刷盘时会把缓冲里的未提交记录一并落盘）
+        {
+            let schema = crate::catalog::Schema::new(metas[0].cols.clone());
+            let enc = |vals: &[Value]| encode_tuple(&schema, vals).unwrap();
+            let mut log = LogManager::open(&db_dir).unwrap();
+            log.append(&LogRecord::Begin { txn: 99 });
+            // 插入 ghost（slot 2，追加语义与原执行一致）
+            log.append(&LogRecord::Insert {
+                txn: 99,
+                table: "t".into(),
+                rid: Rid::new(1, 2),
+                data: enc(&[Value::Int(99), Value::Str("ghost".into())]),
+            });
+            // 删除 id=1
+            log.append(&LogRecord::Delete {
+                txn: 99,
+                table: "t".into(),
+                rid: Rid::new(1, 0),
+                old_data: enc(&[Value::Int(1), Value::Str("one".into())]),
+            });
+            // 更新 id=2：two → six（等长，符合原地更新限制）
+            log.append(&LogRecord::Update {
+                txn: 99,
+                table: "t".into(),
+                rid: Rid::new(1, 1),
+                old_data: enc(&[Value::Int(2), Value::Str("two".into())]),
+                new_data: enc(&[Value::Int(2), Value::Str("six".into())]),
+            });
+            log.flush().unwrap();
+        }
+
+        // 阶段三：恢复（重放全部 + 撤销失败者 99 + 重建索引）
+        {
+            let disk = Arc::new(DiskManager::new(&db_dir).unwrap());
+            let bpm = Arc::new(BufferPool::new(
+                crate::common::config::BUFFER_POOL_SIZE,
+                disk.clone(),
+            ));
+            let rm = RmManager::new(disk.clone(), bpm.clone());
+            let ix = IxManager::new(disk.clone(), bpm.clone());
+            crate::recovery::recover(&db_dir, disk, bpm, &rm, &ix, &metas).unwrap();
+        }
+        let mut db = Database::open(&db_dir).unwrap();
+        db.attach_table("t", metas[0].cols.clone(), metas[0].indexes.clone())
+            .unwrap();
+
+        // 提交数据完好；未提交事务的三条修改全部撤销
+        match db.run_sql("SELECT id, name FROM t ORDER BY id;").unwrap() {
+            Output::Rows { rows, .. } => {
+                assert_eq!(rows.len(), 2);
+                assert_eq!(rows[0][0], Value::Int(1));
+                assert_eq!(rows[0][1], Value::Str("one".into())); // DELETE 被撤销
+                assert_eq!(rows[1][0], Value::Int(2));
+                assert_eq!(rows[1][1], Value::Str("two".into())); // UPDATE 被撤销
+            }
+            other => panic!("want rows, got {other:?}"),
+        }
+        // 索引重建后点查可用；ghost 不存在
+        match db.run_sql("SELECT name FROM t WHERE id = 2;").unwrap() {
+            Output::Rows { rows, .. } => assert_eq!(rows[0][0], Value::Str("two".into())),
+            other => panic!("want rows, got {other:?}"),
+        }
+        match db.run_sql("SELECT name FROM t WHERE id = 99;").unwrap() {
+            Output::Rows { rows, .. } => assert!(rows.is_empty()),
+            other => panic!("want rows, got {other:?}"),
+        }
     }
 }

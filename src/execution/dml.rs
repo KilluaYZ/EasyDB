@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use super::{Executor, Row, RowSchema, arith, coerce_value_to};
+use super::{ExecCtx, Executor, Row, RowSchema, arith, coerce_value_to};
 use crate::analyze::BoundSetClause;
 use crate::catalog::Column;
 use crate::common::errors::EasyDbError;
@@ -15,6 +15,8 @@ use crate::index::ix_index_handle::IxIndexHandle;
 use crate::record::rm_defs::TupleMeta;
 use crate::record::rm_file_handle::RmFileHandle;
 use crate::record::tuple::encode_tuple;
+use crate::recovery::LogRecord;
+use crate::transaction::{WType, WriteRecord};
 use crate::types::{ColType, Value};
 
 /// 一张表索引的维护信息：句柄 + 索引列在表行中的下标/类型/宽度。
@@ -36,25 +38,31 @@ impl IndexMaintenance {
 /// INSERT：每次 `next()` 写入一行，返回写入的行。
 pub struct InsertExec {
     fh: Arc<RmFileHandle>,
+    table: String,
     table_cols: Vec<Column>,
     rows: Vec<Vec<Value>>,
     next_row: usize,
     indexes: Vec<IndexMaintenance>,
+    ctx: ExecCtx,
 }
 
 impl InsertExec {
     pub fn new(
         fh: Arc<RmFileHandle>,
+        table: &str,
         table_cols: Vec<Column>,
         rows: Vec<Vec<Value>>,
         indexes: Vec<IndexMaintenance>,
+        ctx: &ExecCtx,
     ) -> Self {
         Self {
             fh,
+            table: table.to_string(),
             table_cols,
             rows,
             next_row: 0,
             indexes,
+            ctx: ctx.clone(),
         }
     }
 }
@@ -76,6 +84,26 @@ impl Executor for InsertExec {
             &values,
         )?;
         let rid = self.fh.insert_tuple(TupleMeta::default(), &data)?;
+        // 写锁 + 写集 + WAL
+        self.ctx
+            .locks
+            .lock_exclusive_on_record(&self.ctx.txn, self.fh.fd(), rid)?;
+        self.ctx.txn.append_write(WriteRecord {
+            wtype: WType::Insert,
+            table: self.table.clone(),
+            rid,
+            data: data.clone(),
+        });
+        {
+            let mut log = self.ctx.log.lock().unwrap_or_else(|e| e.into_inner());
+            let lsn = log.append(&LogRecord::Insert {
+                txn: self.ctx.txn.id,
+                table: self.table.clone(),
+                rid,
+                data: data.clone(),
+            });
+            self.ctx.txn.set_prev_lsn(lsn);
+        }
         for ix in &self.indexes {
             let key = ix.key(&values)?;
             ix.handle.insert_entry(&key, rid)?;
@@ -88,7 +116,9 @@ impl Executor for InsertExec {
 pub struct DeleteExec {
     scan: Box<dyn Executor>,
     fh: Arc<RmFileHandle>,
+    table: String,
     indexes: Vec<IndexMaintenance>,
+    ctx: ExecCtx,
     done: bool,
 }
 
@@ -96,12 +126,16 @@ impl DeleteExec {
     pub fn new(
         scan: Box<dyn Executor>,
         fh: Arc<RmFileHandle>,
+        table: &str,
         indexes: Vec<IndexMaintenance>,
+        ctx: &ExecCtx,
     ) -> Self {
         Self {
             scan,
             fh,
+            table: table.to_string(),
             indexes,
+            ctx: ctx.clone(),
             done: false,
         }
     }
@@ -121,6 +155,27 @@ impl Executor for DeleteExec {
             self.done = true;
             return Ok(None);
         };
+        // 写锁 + 写集 + WAL（旧数据随写集/日志留存以支持撤销）
+        self.ctx
+            .locks
+            .lock_exclusive_on_record(&self.ctx.txn, self.fh.fd(), row.rid)?;
+        let (_, old_data) = self.fh.get_tuple(row.rid)?;
+        self.ctx.txn.append_write(WriteRecord {
+            wtype: WType::Delete,
+            table: self.table.clone(),
+            rid: row.rid,
+            data: old_data.clone(),
+        });
+        {
+            let mut log = self.ctx.log.lock().unwrap_or_else(|e| e.into_inner());
+            let lsn = log.append(&LogRecord::Delete {
+                txn: self.ctx.txn.id,
+                table: self.table.clone(),
+                rid: row.rid,
+                old_data: old_data.clone(),
+            });
+            self.ctx.txn.set_prev_lsn(lsn);
+        }
         // 先删索引条目再删记录
         for ix in &self.indexes {
             ix.handle.delete_entry(&ix.key(&row.values)?)?;
@@ -134,10 +189,12 @@ impl Executor for DeleteExec {
 pub struct UpdateExec {
     scan: Box<dyn Executor>,
     fh: Arc<RmFileHandle>,
+    table: String,
     table_cols: Vec<Column>,
     clauses: Vec<(usize, BoundSetClause)>, // 目标列下标 + 子句
     indexes: Vec<IndexMaintenance>,
     schema: RowSchema,
+    ctx: ExecCtx,
     done: bool,
 }
 
@@ -145,9 +202,11 @@ impl UpdateExec {
     pub fn new(
         scan: Box<dyn Executor>,
         fh: Arc<RmFileHandle>,
+        table: &str,
         table_cols: Vec<Column>,
         clauses: Vec<(usize, BoundSetClause)>,
         indexes: Vec<IndexMaintenance>,
+        ctx: &ExecCtx,
     ) -> Self {
         let schema = RowSchema::new(
             table_cols
@@ -158,10 +217,12 @@ impl UpdateExec {
         Self {
             scan,
             fh,
+            table: table.to_string(),
             table_cols,
             clauses,
             indexes,
             schema,
+            ctx: ctx.clone(),
             done: false,
         }
     }
@@ -180,6 +241,11 @@ impl Executor for UpdateExec {
             self.done = true;
             return Ok(None);
         };
+        // 写锁 + 旧数据留存（写集/WAL）
+        self.ctx
+            .locks
+            .lock_exclusive_on_record(&self.ctx.txn, self.fh.fd(), old.rid)?;
+        let (_, old_data) = self.fh.get_tuple(old.rid)?;
         let mut new_values = old.values.clone();
         for (target_idx, clause) in &self.clauses {
             let v = match &clause.rhs {
@@ -197,6 +263,30 @@ impl Executor for UpdateExec {
             new_values[*target_idx] = coerced;
         }
 
+        let data = encode_tuple(
+            &crate::catalog::Schema::new(self.table_cols.clone()),
+            &new_values,
+        )?;
+
+        // 写集 + WAL（旧数据留存以支持撤销与恢复）
+        self.ctx.txn.append_write(WriteRecord {
+            wtype: WType::Update,
+            table: self.table.clone(),
+            rid: old.rid,
+            data: old_data.clone(),
+        });
+        {
+            let mut log = self.ctx.log.lock().unwrap_or_else(|e| e.into_inner());
+            let lsn = log.append(&LogRecord::Update {
+                txn: self.ctx.txn.id,
+                table: self.table.clone(),
+                rid: old.rid,
+                old_data: old_data.clone(),
+                new_data: data.clone(),
+            });
+            self.ctx.txn.set_prev_lsn(lsn);
+        }
+
         // 索引维护：键变化则删旧插新
         for ix in &self.indexes {
             let old_key = ix.key(&old.values)?;
@@ -207,10 +297,6 @@ impl Executor for UpdateExec {
             }
         }
 
-        let data = encode_tuple(
-            &crate::catalog::Schema::new(self.table_cols.clone()),
-            &new_values,
-        )?;
         self.fh
             .update_tuple_in_place(old.rid, TupleMeta::default(), &data)?;
         Ok(Some(Row {
