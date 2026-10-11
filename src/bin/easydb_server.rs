@@ -10,49 +10,49 @@
 
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+use clap::Parser;
 use easydb::system::{Database, format_output};
 
 const BUFFER_LENGTH: usize = 8192;
-const PORT_DEFAULT: i32 = 8765;
+
+#[derive(Debug, Parser)]
+#[command(name = "easydb_server", about = "EasyDB TCP server")]
+struct Args {
+    /// TCP port to listen on.
+    #[arg(short, long, default_value_t = 8765, value_name = "PORT")]
+    port: u16,
+
+    /// Directory used to store the database files.
+    #[arg(
+        short = 'd',
+        long = "db-dir",
+        default_value = "test.db",
+        value_name = "DIR"
+    )]
+    db_dir: PathBuf,
+}
 
 fn main() {
-    let mut port = PORT_DEFAULT;
-    let mut dir = String::from("test.db");
-    let mut args = std::env::args().skip(1);
-    while let Some(arg) = args.next() {
-        match arg.as_str() {
-            "-p" => {
-                if let Some(v) = args.next() {
-                    port = v.parse().unwrap_or_else(|_| {
-                        eprintln!("invalid port: {v}");
-                        std::process::exit(1);
-                    });
-                }
-            }
-            "-d" => {
-                if let Some(v) = args.next() {
-                    dir = v;
-                }
-            }
-            other => {
-                eprintln!("usage: easydb_server [-p port] [-d db_dir]  (got {other})");
-                std::process::exit(1);
-            }
-        }
-    }
+    let args = Args::parse();
 
-    let addr = format!("127.0.0.1:{port}");
+    let addr = format!("127.0.0.1:{}", args.port);
     let listener = TcpListener::bind(&addr).unwrap_or_else(|e| {
         eprintln!("failed to bind {addr}: {e}");
         std::process::exit(1);
     });
-    let db = Arc::new(Mutex::new(Database::open(&dir).unwrap_or_else(|e| {
-        eprintln!("failed to open database at {dir}: {e}");
-        std::process::exit(1);
-    })));
-    println!("EasyDB (Rust) listening on {addr}, data dir '{dir}'");
+    let db = Arc::new(Mutex::new(Database::open(&args.db_dir).unwrap_or_else(
+        |e| {
+            eprintln!("failed to open database at {}: {e}", args.db_dir.display());
+            std::process::exit(1);
+        },
+    )));
+    println!(
+        "EasyDB (Rust) listening on {addr}, data dir '{}'",
+        args.db_dir.display()
+    );
 
     for stream in listener.incoming() {
         match stream {

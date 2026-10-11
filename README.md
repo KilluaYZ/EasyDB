@@ -22,7 +22,7 @@ EasyDB 是一个用 **Rust** 从零实现的关系型数据库管理系统（RDB
 - **查询处理**：LALRPOP 自持文法解析、语义分析、条件下推与索引选择、火山模型执行器
 - **事务与并发**：严格两阶段锁 + wait-die 死锁避免，语句级保存点回滚
 - **故障恢复**：WAL（提交即刷盘）+ 重启恢复（重复历史 + 失败者撤销 + 索引重建）
-- **C/S 架构**：TCP 文本协议服务端 + ratatui 终端客户端
+- **C/S 架构**：TCP 文本协议服务端 + 命令行客户端
 
 ## 快速开始
 
@@ -40,7 +40,7 @@ cargo build --release
 产物在 `target/release/` 下：
 
 - `easydb_server`：服务端（`-p` 指定端口，`-d` 指定数据目录）
-- `easydb_client`：终端 TUI 客户端（`-h` 服务地址，`-p` 端口）
+- `easydb_client`：命令行客户端（`-H/--host` 服务地址，`-p/--port` 端口）
 
 启动服务端与客户端：
 
@@ -49,8 +49,7 @@ cargo build --release
 ./target/release/easydb_client -p 8765
 ```
 
-客户端内输入 SQL（`Enter` 执行，`Alt+Enter` 换行，`Alt+↑/↓` 历史，
-`PgUp/PgDn` 滚动结果，`exit` 退出）：
+客户端内输入以分号结尾的 SQL，支持多行语句；使用上下键查看历史，输入 `exit` 或按 `Ctrl-D` 退出：
 
 ```sql
 CREATE TABLE student (
@@ -101,7 +100,7 @@ EasyDB/
 ├── src/                    # Rust 源码（库 + 两个可执行）
 │   ├── bin/
 │   │   ├── easydb_server.rs   # TCP 服务端
-│   │   └── easydb_client.rs   # ratatui TUI 客户端
+│   │   └── easydb_client.rs   # 命令行客户端
 │   ├── parser/             # 词法器 + LALRPOP 文法 + AST
 │   ├── analyze/            # 语义分析（schema 绑定）
 │   ├── planner/            # 计划生成（条件下推/索引选择）
