@@ -4,259 +4,126 @@
 
 ---
 
-EasyDB 是一个功能完备的关系型数据库管理系统（RDBMS），采用 C++ 实现，支持大多数标准 SQL 语句。该系统实现了数据库系统的核心功能，包括存储管理、查询处理、事务管理、并发控制和故障恢复等模块。
+EasyDB 是一个用 **Rust** 从零实现的关系型数据库管理系统（RDBMS），支持大多数标准 SQL
+语句。它实现了数据库系统的核心模块：存储管理、缓冲区管理、记录与索引管理、查询解析与
+优化、执行引擎、事务管理、并发控制（2PL + wait-die）以及 WAL 故障恢复。
+
+> 本项目最初基于中国人民大学数据库系统课程实验框架（C++）实现，现已用 Rust 完整重写：
+> 全库零 `unsafe`，内存安全由类型系统保证（RAII PageGuard、写集回滚、`Result` 错误链）。
+> C++ 历史实现可参见 git 历史中的 `src-cpp/`。
 
 ## 项目特性
 
-- **完整的 SQL 支持**：支持 DDL（CREATE、DROP、ALTER）、DML（SELECT、INSERT、UPDATE、DELETE）等标准 SQL 语句
-- **高效的存储引擎**：基于页面的存储管理，支持 B+ 树索引和可扩展哈希索引
-- **智能查询优化**：实现了逻辑优化（连接重排、条件剪枝等）和物理优化（基于统计信息的查询优化）
-- **多种连接算法**：支持嵌套循环连接、归并连接、哈希连接等多种连接策略
-- **事务支持**：实现了 ACID 特性，支持显式事务和自动提交
-- **并发控制**：基于锁的并发控制机制，支持多用户并发访问
-- **故障恢复**：基于 WAL（Write-Ahead Logging）的恢复机制
-- **C/S 架构**：支持命令行客户端和 Web GUI 两种交互方式
-
-## 系统架构
-
-EasyDB 采用模块化设计，主要包含以下核心模块：
-
-- **存储管理**：磁盘管理、页面管理、表文件管理
-- **缓冲区管理**：基于 LRU 的缓冲池管理
-- **记录管理**：记录的存储、检索和扫描
-- **索引管理**：B+ 树索引和可扩展哈希索引
-- **查询处理**：词法分析、语法分析、语义分析、查询优化、查询执行
-- **事务管理**：事务的创建、提交、回滚
-- **并发控制**：锁管理器，支持多粒度锁
-- **恢复管理**：日志管理和故障恢复
-
-## 界面展示
-
-EasyDB提供了终端中使用的客户端和网页端使用的客户端，二者可同时连接服务端。
-
-### TUI
-
-![](./doc/images/tui_1.png)
-
-![](./doc/images/tui_2.png)
-
-### GUI
-
-![](./doc/images/gui.png)
-
-### GUI
+- **完整的 SQL 支持**：DDL（CREATE/DROP TABLE、CREATE/DROP INDEX、DESC、SHOW）、
+  DML（INSERT/DELETE/UPDATE/SELECT，含 GROUP BY / HAVING / ORDER BY / DISTINCT /
+  JOIN / IN 子查询）、事务（BEGIN/COMMIT/ABORT/ROLLBACK）
+- **存储引擎**：页式存储 + LRU 缓冲池（RAII PageGuard），slotted page 记录管理
+- **索引**：B+ 树索引（含自动回填、恢复后重建）
+- **查询处理**：LALRPOP 自持文法解析、语义分析、条件下推与索引选择、火山模型执行器
+- **事务与并发**：严格两阶段锁 + wait-die 死锁避免，语句级保存点回滚
+- **故障恢复**：WAL（提交即刷盘）+ 重启恢复（重复历史 + 失败者撤销 + 索引重建）
+- **C/S 架构**：TCP 文本协议服务端 + ratatui 终端客户端
 
 ## 快速开始
 
 ### 环境要求
 
-- Linux 系统（推荐 Ubuntu 24.04）
-- Nix 包管理器（用于依赖管理）
-- CMake 3.28+
-- C++ 编译器（支持 C++17）
+- Rust 工具链（rustup，edition 2024）
+- 可选：Nix（flake 已内置 Rust 工具链）
 
-### 安装 Nix 并开启 Flake
-
-编译环境的构建使用了 Nix Flake，所以在使用之前需要进行相应配置。
-
-1. 安装 Nix：
+### 构建与运行（Cargo）
 
 ```shell
-sh <(curl -L https://nixos.org/nix/install) --daemon
+cargo build --release
 ```
 
-2. 修改 `/etc/nix/nix.conf`，添加以下内容以开启 Flake：
+产物在 `target/release/` 下：
 
-```
-substituters = https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store https://cache.nixos.org/
-experimental-features = nix-command flakes
-```
+- `easydb_server`：服务端（`-p` 指定端口，`-d` 指定数据目录）
+- `easydb_client`：终端 TUI 客户端（`-h` 服务地址，`-p` 端口）
 
-### 编译
-
-运行以下命令，Nix 会自动下载项目依赖并进行编译。首次编译时间可能会比较长，请耐心等待。编译结果会放在项目目录下的 `result` 目录中。
+启动服务端与客户端：
 
 ```shell
-nix build
+./target/release/easydb_server -p 8765 -d test.db
+./target/release/easydb_client -p 8765
 ```
 
-`result` 目录结构如下：
-
-```
-result
-├── bin
-│   ├── easydb_client  # EasyDB 的 CLI 客户端
-│   └── easydb_server  # EasyDB 的服务端
-└── test               # 测试文件编译得出的二进制
-```
-
-### 开发环境
-
-运行以下命令，Nix 会开启一个新的 shell，该 shell 已经配置好了能够编译该项目的环境。在此终端中使用 `code` 等命令开启 VSCode 可以让 IDE 找到对应的环境。
-
-```shell
-nix develop
-```
-
-进入开发环境后，可以使用传统的 CMake 方式编译：
-
-```shell
-mkdir build && cd build
-cmake ..
-make -j
-```
-
-## 运行
-
-### 使用 CLI 交互
-
-1. 启动服务端：
-
-```shell
-./result/bin/easydb_server -p 8888 -d test.db
-```
-
-2. 在另一个终端启动客户端：
-
-```shell
-./result/bin/easydb_client -p 8888
-```
-
-3. 在客户端中输入 SQL 语句，例如：
+客户端内输入 SQL（`Enter` 执行，`Alt+Enter` 换行，`Alt+↑/↓` 历史，
+`PgUp/PgDn` 滚动结果，`exit` 退出）：
 
 ```sql
 CREATE TABLE student (
-    id INTEGER NOT NULL,
-    name VARCHAR(50) NOT NULL,
-    age INTEGER
+    id INT,
+    name VARCHAR(50),
+    score FLOAT
 );
-
-INSERT INTO student VALUES (1, 'Alice', 20);
-INSERT INTO student VALUES (2, 'Bob', 21);
-
-SELECT * FROM student WHERE age > 20;
+INSERT INTO student VALUES (1, 'alice', 90.5);
+SELECT name FROM student WHERE score >= 60 ORDER BY id;
 ```
 
-### 使用 Web GUI 交互
+也可以直接用 telnet 等原始 TCP 客户端连接（每条 SQL 以换行或 NUL 结尾）。
 
-1. 启动服务端（启用 Web 模式）：
+### 测试
 
 ```shell
-./result/bin/easydb_server -p 8888 -d test.db -w
+cargo test
 ```
 
-2. 激活开发环境：
-
-```shell
-nix develop .
-```
-
-3. 启动代理服务器（在一个终端中）：
-
-```shell
-cd web_client
-python ./proxy/proxy_server.py
-```
-
-4. 启动 Web 前端（在另一个终端中）：
-
-```shell
-cd web_client
-npm install
-npm run dev
-```
-
-5. 访问 http://localhost:2000/ 打开 Web 界面
+测试覆盖各层单元/集成用例：缓冲池与 B+ 树（含随机操作对照 `BTreeMap` 的
+property test）、SQL 解析与绑定、端到端 CRUD/连接/聚合、事务回滚、wait-die
+并发、崩溃恢复（redo + undo + 索引重建）、TCP 文本协议与服务端重启持久化。
 
 ## 支持的 SQL 功能
 
 ### 数据定义语言 (DDL)
 
-- `CREATE TABLE`：创建表
-- `DROP TABLE`：删除表
-- `CREATE INDEX`：创建索引
-- `DROP INDEX`：删除索引
-- `DESC TABLE`：查看表结构
-- `SHOW TABLES`：显示所有表
-- `SHOW INDEX`：显示表的索引
+- `CREATE TABLE` / `DROP TABLE` / `DESC TABLE`
+- `CREATE INDEX` / `DROP INDEX` / `SHOW TABLES` / `SHOW INDEX`
 
 ### 数据操作语言 (DML)
 
-- `SELECT`：查询数据，支持：
-  - WHERE 条件过滤
-  - JOIN 操作（嵌套循环、归并、哈希连接）
-  - GROUP BY 和 HAVING
-  - ORDER BY 排序
-  - 聚合函数（COUNT、SUM、MAX、MIN）
-  - DISTINCT/UNIQUE
-- `INSERT`：插入数据
-- `UPDATE`：更新数据
-- `DELETE`：删除数据
+- `SELECT`：WHERE、JOIN、GROUP BY、HAVING、ORDER BY、DISTINCT、
+  聚合（COUNT/SUM/MAX/MIN）、`IN` 子查询
+- `INSERT` / `DELETE` / `UPDATE`（支持 `col = col op value` 算术赋值）
 
-### 事务控制
+### 事务与其他
 
-- `BEGIN`：开始事务
-- `COMMIT`：提交事务
-- `ROLLBACK`：回滚事务
-- `ABORT`：中止事务
-
-### 其他功能
-
-- `LOAD`：从文件加载数据
-- `SET`：设置系统参数（如启用/禁用特定连接算法）
+- `BEGIN` / `COMMIT` / `ABORT` / `ROLLBACK`
+- `SET ENABLE_NESTLOOP = ON|OFF` 等运行开关（语法兼容，执行器当前恒用
+  嵌套循环）
+- `LOAD` 数据加载（开发中）
 
 ## 项目结构
 
 ```
-EasyDB2024/
-├── src/                    # 源代码目录
-│   ├── storage/           # 存储管理模块
-│   ├── buffer/             # 缓冲区管理模块
-│   ├── record/             # 记录管理模块
-│   ├── catalog/            # 目录管理模块
-│   ├── parser/             # SQL 解析器（词法/语法分析）
-│   ├── analyze/             # 语义分析模块
-│   ├── planner/             # 查询计划生成模块
-│   ├── optimizer/           # 查询优化模块
-│   ├── execution/          # 查询执行模块
-│   ├── transaction/        # 事务管理模块
-│   ├── concurrency/          # 并发控制模块
-│   ├── recovery/          # 恢复管理模块
-│   └── system/            # 系统管理模块
-├── include/                # 头文件目录
-├── test/                   # 测试代码
-├── doc/                    # 文档目录
-│   ├── storage/           # 存储管理文档
-│   ├── query_analyse/     # 查询分析文档
-│   ├── spj/               # SPJ 算法文档
-│   └── optimizer/         # 查询优化文档
-├── web_client/            # Web 客户端
-├── deps/                  # 第三方依赖
-├── CMakeLists.txt         # CMake 构建配置
-├── flake.nix              # Nix Flake 配置
-└── README.md              # 本文件
+EasyDB/
+├── src/                    # Rust 源码（库 + 两个可执行）
+│   ├── bin/
+│   │   ├── easydb_server.rs   # TCP 服务端
+│   │   └── easydb_client.rs   # ratatui TUI 客户端
+│   ├── parser/             # 词法器 + LALRPOP 文法 + AST
+│   ├── analyze/            # 语义分析（schema 绑定）
+│   ├── planner/            # 计划生成（条件下推/索引选择）
+│   ├── execution/          # 火山模型执行器
+│   ├── catalog/            # 列/模式定义
+│   ├── storage/            # 磁盘管理与页
+│   ├── buffer/             # LRU 缓冲池（PageGuard）
+│   ├── record/             # 记录管理 / 元组编解码
+│   ├── index/              # B+ 树索引
+│   ├── transaction/        # 事务与写集
+│   ├── concurrency/        # 锁管理器（2PL + wait-die）
+│   ├── recovery/           # WAL 与重启恢复
+│   └── system/             # 目录管理 / 持久化 / 格式化
+├── doc/                    # 技术文档（含 Rust 重构迁移计划）
+├── web_client/             # Web 前端（沿用原实现）
+└── flake.nix               # Nix 开发环境 / 构建
 ```
 
 ## 技术文档
 
-**模块级架构与实现说明（推荐）**：完整索引见 [doc/README.md](doc/README.md)，按子系统分文件说明源码结构与数据流。
-
-其他专题与历史文档仍位于 `doc/` 下，例如：
-
-- [存储管理技术文档](doc/storage/storage.md)
-- [查询分析技术文档](doc/query_analyse/query_analyse.md)
-- [SPJ 算法技术文档](doc/spj/spj.md)
-- [查询优化技术文档](doc/optimizer/optimizer.md)
-- [模块技术细节文档](doc/architecture.md) - 各模块的详细技术实现
-
-## 测试
-
-项目包含完整的测试套件，位于 `test/` 目录下。运行测试：
-
-```shell
-cd build/test
-./comprehensive_test
-```
+模块级架构与实现说明见 [doc/README.md](doc/README.md)；Rust 重构的动机、
+决议与阶段计划见 [doc/rust-migration-plan.md](doc/rust-migration-plan.md)。
 
 ## 贡献
 
@@ -264,8 +131,10 @@ cd build/test
 
 ## 许可证
 
-本项目采用 GNU General Public License v3.0 (GPL-3.0) 许可证。详情请参阅 [LICENSE](LICENSE) 文件。
+本项目采用 GNU General Public License v3.0 (GPL-3.0) 许可证。详情请参阅
+[LICENSE](LICENSE) 文件。
 
 ## 致谢
 
-本项目基于中国人民大学数据库系统课程实验框架开发。
+本项目基于中国人民大学数据库系统课程实验框架（C++ 版）的语义设计，使用 Rust
+完整重写。

@@ -11,6 +11,7 @@
 pub mod analyze;
 pub mod buffer;
 pub mod catalog;
+pub mod client;
 pub mod common;
 pub mod concurrency;
 pub mod execution;
