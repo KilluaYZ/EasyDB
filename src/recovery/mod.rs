@@ -22,6 +22,7 @@ use crate::common::config::{LOG_FILE_NAME, Lsn, TxnId};
 use crate::common::errors::EasyDbError;
 use crate::common::rid::Rid;
 use crate::execution::Executor;
+use crate::index::extendible_hash::ExtendibleHashIndex;
 use crate::index::ix_index_handle::IxIndexHandle;
 use crate::index::ix_manager::IxManager;
 use crate::record::rm_defs::TupleMeta;
@@ -338,6 +339,7 @@ pub struct TableRecoverMeta {
     pub name: String,
     pub cols: Vec<Column>,
     pub indexes: Vec<Vec<String>>,
+    pub hash_indexes: Vec<Vec<String>>,
 }
 
 /// 重启恢复：按日志重放全部操作，撤销崩溃时未完成的事务，并回填索引。
@@ -388,7 +390,6 @@ pub fn recover(
         let fh = Arc::new(RmFileHandle::open(disk.clone(), bpm.clone(), fd)?);
         handles.push((meta.name.clone(), fh));
     }
-
     // 4. 重放全部操作（重复历史，未提交事务的修改随后撤销）
     for record in &records {
         match record {
@@ -463,6 +464,45 @@ pub fn recover(
     // 5.5 刷盘：重放产生的脏页与文件头落盘（缓冲池丢弃不保证刷写）
     for (_, fh) in &handles {
         fh.flush_all()?;
+    }
+
+    // Rebuild hash indexes only after REDO/UNDO has produced the final rows.
+    for meta in metas {
+        let Some((_, fh)) = handles.iter().find(|(n, _)| n == &meta.name) else {
+            continue;
+        };
+        for cols in &meta.hash_indexes {
+            let path = dir.join(IxManager::hash_index_name(
+                &format!("{}.data", meta.name),
+                cols,
+            ));
+            if path.exists() {
+                std::fs::remove_file(&path)?;
+            }
+            let handle = ExtendibleHashIndex::create(&path, &disk)?;
+            let mut scan = crate::execution::scan::SeqScanExec::new_unlocked(
+                fh.clone(),
+                meta.cols.clone(),
+                Vec::new(),
+            );
+            while let Some(row) = scan.next()? {
+                let values: Vec<crate::types::Value> = cols
+                    .iter()
+                    .map(|n| row.values[meta.col_pos(n)].clone())
+                    .collect();
+                let types: Vec<crate::types::ColType> = cols
+                    .iter()
+                    .map(|n| meta.cols[meta.col_pos(n)].col_type())
+                    .collect();
+                let lens: Vec<usize> = cols
+                    .iter()
+                    .map(|n| meta.cols[meta.col_pos(n)].storage_size() as usize)
+                    .collect();
+                let key = crate::index::ix_defs::encode_key(&types, &lens, &values)?;
+                handle.insert_entry(&key, row.rid)?;
+            }
+            disk.close_file(handle.fd())?;
+        }
     }
 
     // 6. 重建索引（回填恢复后的数据）

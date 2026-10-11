@@ -18,6 +18,7 @@ use crate::common::errors::EasyDbError;
 use crate::concurrency::LockManager;
 use crate::execution::ExecCtx;
 use crate::execution::Executor;
+use crate::index::extendible_hash::ExtendibleHashIndex;
 use crate::index::ix_index_handle::IxIndexHandle;
 use crate::index::ix_manager::IxManager;
 use crate::parser::ast;
@@ -41,6 +42,8 @@ struct PersistTable {
     name: String,
     cols: Vec<Column>,
     indexes: Vec<Vec<String>>,
+    #[serde(default)]
+    hash_indexes: Vec<Vec<String>>,
 }
 
 /// 语句执行结果。
@@ -64,12 +67,19 @@ pub struct IndexMeta {
     pub handle: Arc<IxIndexHandle>,
 }
 
+pub struct HashIndexMeta {
+    pub cols: Vec<String>,
+    pub file: PathBuf,
+    pub handle: Arc<ExtendibleHashIndex>,
+}
+
 /// 表元数据：schema + 记录文件句柄 + 索引。
 pub struct TableMeta {
     pub name: String,
     pub cols: Vec<Column>,
     pub fh: Arc<RmFileHandle>,
     pub indexes: Vec<IndexMeta>,
+    pub hash_indexes: Vec<HashIndexMeta>,
 }
 
 /// 内存数据库：表目录 + 存储设施 + SQL 执行门面。
@@ -132,6 +142,7 @@ impl Database {
                 name: t.name.clone(),
                 cols: t.cols.clone(),
                 indexes: t.indexes.clone(),
+                hash_indexes: t.hash_indexes.clone(),
             })
             .collect();
         crate::recovery::recover(
@@ -143,7 +154,12 @@ impl Database {
             &metas,
         )?;
         for t in &persisted {
-            self.attach_table(&t.name, t.cols.clone(), t.indexes.clone())?;
+            self.attach_table(
+                &t.name,
+                t.cols.clone(),
+                t.indexes.clone(),
+                t.hash_indexes.clone(),
+            )?;
         }
         Ok(())
     }
@@ -157,6 +173,7 @@ impl Database {
                 name: t.name.clone(),
                 cols: t.cols.clone(),
                 indexes: t.indexes.iter().map(|ix| ix.cols.clone()).collect(),
+                hash_indexes: t.hash_indexes.iter().map(|ix| ix.cols.clone()).collect(),
             })
             .collect();
         let data = serde_json::to_string_pretty(&persisted)
@@ -195,6 +212,11 @@ impl Database {
 
     fn index_file(&self, table: &str, cols: &[String]) -> PathBuf {
         let file = IxManager::index_name(&format!("{table}.data"), cols);
+        self.dir.join(file)
+    }
+
+    fn hash_index_file(&self, table: &str, cols: &[String]) -> PathBuf {
+        let file = IxManager::hash_index_name(&format!("{table}.data"), cols);
         self.dir.join(file)
     }
 
@@ -298,10 +320,21 @@ impl Database {
                 let rows = meta
                     .indexes
                     .iter()
-                    .map(|ix| vec![crate::types::Value::Str(ix.cols.join(","))])
+                    .map(|ix| {
+                        vec![
+                            crate::types::Value::Str(ix.cols.join(",")),
+                            crate::types::Value::Str("B+Tree".into()),
+                        ]
+                    })
+                    .chain(meta.hash_indexes.iter().map(|ix| {
+                        vec![
+                            crate::types::Value::Str(ix.cols.join(",")),
+                            crate::types::Value::Str("ExtendibleHash".into()),
+                        ]
+                    }))
                     .collect();
                 Ok(Output::Rows {
-                    columns: vec!["index_cols".to_string()],
+                    columns: vec!["index_cols".to_string(), "type".to_string()],
                     rows,
                 })
             }
@@ -317,7 +350,9 @@ impl Database {
             Query::DropTable { table } => self.drop_table(&table),
             Query::DescTable { table } => self.desc_table(&table),
             Query::CreateIndex { table, cols } => self.create_index(&table, &cols),
+            Query::CreateHashIndex { table, cols } => self.create_hash_index(&table, &cols),
             Query::DropIndex { table, cols } => self.drop_index(&table, &cols),
+            Query::DropHashIndex { table, cols } => self.drop_hash_index(&table, &cols),
             Query::CreateStaticCheckpoint => {
                 // 检查点随 P6 WAL 落地
                 Ok(Output::Ok)
@@ -455,7 +490,7 @@ impl Database {
                 // 撤销插入：删索引条目 + 删记录
                 let row = crate::record::tuple::decode_tuple(&schema, &rec.data)?;
                 for ix in &indexes {
-                    ix.handle.delete_entry(&ix.key(&row)?)?;
+                    ix.handle.delete_entry(&ix.key(&row)?, rec.rid)?;
                 }
                 meta.fh.delete_tuple(rec.rid)?;
             }
@@ -478,7 +513,7 @@ impl Database {
                     let old_key = ix.key(&cur_row)?;
                     let restored = ix.key(&old_row)?;
                     if old_key != restored {
-                        ix.handle.delete_entry(&old_key)?;
+                        ix.handle.delete_entry(&old_key, rec.rid)?;
                         ix.handle.insert_entry(&restored, rec.rid)?;
                     }
                 }
@@ -496,6 +531,7 @@ impl Database {
         name: &str,
         cols: Vec<Column>,
         indexes: Vec<Vec<String>>,
+        hash_indexes: Vec<Vec<String>>,
     ) -> Result<(), EasyDbError> {
         if self.tables.contains_key(name) {
             return Err(EasyDbError::TableAlreadyExists(name.to_string()));
@@ -518,6 +554,7 @@ impl Database {
                 cols: cols.clone(),
                 fh,
                 indexes: Vec::new(),
+                hash_indexes: Vec::new(),
             },
         );
         self.save_meta()?;
@@ -540,6 +577,23 @@ impl Database {
                 self.create_index(name, &col_group)?;
             }
         }
+        for col_group in hash_indexes {
+            let hpath = self.hash_index_file(name, &col_group);
+            if self.ix.exists(&hpath) {
+                let handle = ExtendibleHashIndex::open(&hpath, &self.disk)?;
+                self.table_mut(name)?.hash_indexes.push(HashIndexMeta {
+                    cols: col_group,
+                    file: hpath,
+                    handle,
+                });
+            } else {
+                self.create_hash_index(name, &col_group)?;
+            }
+        }
+        // Persist the now-attached index metadata. Saving only before opening
+        // the index files would overwrite the index list with an empty one
+        // during restart.
+        self.save_meta()?;
         Ok(())
     }
 
@@ -594,6 +648,7 @@ impl Database {
                 cols,
                 fh,
                 indexes: Vec::new(),
+                hash_indexes: Vec::new(),
             },
         );
         self.save_meta()?;
@@ -605,6 +660,9 @@ impl Database {
         let fd = meta.fh.fd();
         let index_files: Vec<PathBuf> = meta.indexes.iter().map(|ix| ix.file.clone()).collect();
         let index_fds: Vec<i32> = meta.indexes.iter().map(|ix| ix.handle.fd()).collect();
+        let hash_index_files: Vec<PathBuf> =
+            meta.hash_indexes.iter().map(|ix| ix.file.clone()).collect();
+        let hash_index_fds: Vec<i32> = meta.hash_indexes.iter().map(|ix| ix.handle.fd()).collect();
         let table_path = self.table_file(table);
         self.tables.remove(table);
 
@@ -613,9 +671,55 @@ impl Database {
             self.disk.close_file(ifd)?;
             self.ix.destroy_index(&path)?;
         }
+        for (path, ifd) in hash_index_files.into_iter().zip(hash_index_fds) {
+            self.disk.close_file(ifd)?;
+            self.ix.destroy_index(&path)?;
+        }
         // 关闭表文件并删除
         self.disk.close_file(fd)?;
         self.rm.destroy_file(&table_path)?;
+        self.save_meta()?;
+        Ok(Output::Ok)
+    }
+
+    fn create_hash_index(&mut self, table: &str, cols: &[String]) -> Result<Output, EasyDbError> {
+        let meta = self.table(table)?;
+        let mut types = Vec::with_capacity(cols.len());
+        let mut lens = Vec::with_capacity(cols.len());
+        for name in cols {
+            let col = meta
+                .cols
+                .iter()
+                .find(|c| c.name() == *name)
+                .ok_or_else(|| EasyDbError::ColumnNotFound(name.clone()))?;
+            types.push(col.col_type());
+            lens.push(col.storage_size() as usize);
+        }
+        let path = self.hash_index_file(table, cols);
+        if self.ix.exists(&path) {
+            return Err(EasyDbError::IndexAlreadyExists {
+                table: table.into(),
+                cols: cols.to_vec(),
+            });
+        }
+        let handle = ExtendibleHashIndex::create(&path, &self.disk)?;
+        let fh = meta.fh.clone();
+        let table_cols = meta.cols.clone();
+        let mut scan =
+            crate::execution::scan::SeqScanExec::new_unlocked(fh, table_cols, Vec::new());
+        while let Some(row) = scan.next()? {
+            let values: Vec<crate::types::Value> = cols
+                .iter()
+                .map(|n| row.values[meta.col_pos(n)].clone())
+                .collect();
+            let key = crate::index::ix_defs::encode_key(&types, &lens, &values)?;
+            handle.insert_entry(&key, row.rid)?;
+        }
+        self.table_mut(table)?.hash_indexes.push(HashIndexMeta {
+            cols: cols.to_vec(),
+            file: path,
+            handle,
+        });
         self.save_meta()?;
         Ok(Output::Ok)
     }
@@ -719,6 +823,24 @@ impl Database {
         let ix = meta.indexes.remove(pos);
         let fd = ix.handle.fd();
         self.disk.close_file(fd)?;
+        self.ix.destroy_index(&ix.file)?;
+        self.save_meta()?;
+        Ok(Output::Ok)
+    }
+
+    fn drop_hash_index(&mut self, table: &str, cols: &[String]) -> Result<Output, EasyDbError> {
+        let pos = self
+            .table(table)?
+            .hash_indexes
+            .iter()
+            .position(|ix| ix.cols == cols)
+            .ok_or_else(|| EasyDbError::IndexNotFound {
+                table: table.into(),
+                cols: cols.to_vec(),
+            })?;
+        let meta = self.table_mut(table)?;
+        let ix = meta.hash_indexes.remove(pos);
+        self.disk.close_file(ix.handle.fd())?;
         self.ix.destroy_index(&ix.file)?;
         self.save_meta()?;
         Ok(Output::Ok)

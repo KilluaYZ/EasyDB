@@ -18,7 +18,7 @@ EasyDB 是一个用 **Rust** 从零实现的关系型数据库管理系统（RDB
   DML（INSERT/DELETE/UPDATE/SELECT，含 GROUP BY / HAVING / ORDER BY / DISTINCT /
   JOIN / IN 子查询）、事务（BEGIN/COMMIT/ABORT/ROLLBACK）
 - **存储引擎**：页式存储 + LRU 缓冲池（RAII PageGuard），slotted page 记录管理
-- **索引**：B+ 树索引（含自动回填、恢复后重建）
+- **索引**：B+ 树与可扩展哈希索引（哈希索引支持等值查询，含自动回填、DML 维护与恢复后重建）
 - **查询处理**：LALRPOP 自持文法解析、语义分析、条件下推与索引选择、火山模型执行器
 - **事务与并发**：严格两阶段锁 + wait-die 死锁避免，语句级保存点回滚
 - **故障恢复**：WAL（提交即刷盘）+ 重启恢复（重复历史 + 失败者撤销 + 索引重建）
@@ -78,7 +78,9 @@ property test）、SQL 解析与绑定、端到端 CRUD/连接/聚合、事务�
 ### 数据定义语言 (DDL)
 
 - `CREATE TABLE` / `DROP TABLE` / `DESC TABLE`
-- `CREATE INDEX` / `DROP INDEX` / `SHOW TABLES` / `SHOW INDEX`
+- `CREATE INDEX` / `DROP INDEX`：B+ 树索引
+- `CREATE HASH INDEX` / `DROP HASH INDEX`：可扩展哈希索引
+- `SHOW TABLES` / `SHOW INDEX`
 
 ### 数据操作语言 (DML)
 

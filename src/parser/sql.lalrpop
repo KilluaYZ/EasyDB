@@ -65,6 +65,7 @@ extern {
         NOT_NULL => Tok::NotNull,
         UNIQUE => Tok::Unique,
         INDEX => Tok::Index,
+        HASH => Tok::Hash,
         AND => Tok::And,
         JOIN => Tok::Join,
         EXIT => Tok::Exit,
@@ -146,8 +147,12 @@ Ddl: ast::Statement = {
     DESC <t:Name> => ast::Statement::DescTable { table: t },
     CREATE INDEX <t:Name> "(" <c:NameList> ")" =>
         ast::Statement::CreateIndex { table: t, cols: c },
+    CREATE HASH INDEX <t:Name> "(" <c:NameList> ")" =>
+        ast::Statement::CreateHashIndex { table: t, cols: c },
     DROP INDEX <t:Name> "(" <c:NameList> ")" =>
         ast::Statement::DropIndex { table: t, cols: c },
+    DROP HASH INDEX <t:Name> "(" <c:NameList> ")" =>
+        ast::Statement::DropHashIndex { table: t, cols: c },
     CREATE STATIC_CHECKPOINT => ast::Statement::CreateStaticCheckpoint,
     LOAD <f:STRING> INTO <t:Name> => ast::Statement::LoadData { file: f, table: t },
 };

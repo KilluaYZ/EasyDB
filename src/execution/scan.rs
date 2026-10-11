@@ -12,6 +12,7 @@ use crate::catalog::Column;
 use crate::catalog::Schema;
 use crate::common::errors::EasyDbError;
 use crate::common::rid::Rid;
+use crate::index::extendible_hash::ExtendibleHashIndex;
 use crate::index::ix_defs::Iid;
 use crate::index::ix_index_handle::IxIndexHandle;
 use crate::record::rm_file_handle::RmFileHandle;
@@ -144,6 +145,71 @@ pub struct IndexScanExec {
     end: Iid,
     last_leaf: i32,
     done: bool,
+}
+
+/// 等值哈希索引扫描：哈希索引只负责定位 RID，结果仍回表并执行残余条件。
+pub struct HashIndexScanExec {
+    fh: Arc<RmFileHandle>,
+    tuple_schema: Schema,
+    schema: RowSchema,
+    conds: Vec<ResolvedCond>,
+    rids: Vec<Rid>,
+    pos: usize,
+}
+
+impl HashIndexScanExec {
+    pub fn new(
+        ih: Arc<ExtendibleHashIndex>,
+        fh: Arc<RmFileHandle>,
+        table_cols: Vec<Column>,
+        key: Vec<u8>,
+        conds: Vec<ResolvedCond>,
+        ctx: &ExecCtx,
+    ) -> Result<Self, EasyDbError> {
+        ctx.locks.lock_shared_on_table(&ctx.txn, fh.fd())?;
+        let rids = ih.get_equal(&key)?;
+        let tuple_schema = Schema::new(table_cols.clone());
+        let schema = RowSchema::new(
+            table_cols
+                .iter()
+                .map(|c| (c.tab_name().to_string(), c.name().to_string()))
+                .collect(),
+        );
+        Ok(Self {
+            fh,
+            tuple_schema,
+            schema,
+            conds,
+            rids,
+            pos: 0,
+        })
+    }
+}
+
+impl Executor for HashIndexScanExec {
+    fn schema(&self) -> &RowSchema {
+        &self.schema
+    }
+
+    fn next(&mut self) -> Result<Option<Row>, EasyDbError> {
+        while self.pos < self.rids.len() {
+            let rid = self.rids[self.pos];
+            self.pos += 1;
+            let Ok((_, data)) = self.fh.get_tuple(rid) else {
+                continue;
+            };
+            let values = decode_tuple(&self.tuple_schema, &data)?;
+            let row = Row { rid, values };
+            if self
+                .conds
+                .iter()
+                .all(|c| eval_cond(c, &row).unwrap_or(false))
+            {
+                return Ok(Some(row));
+            }
+        }
+        Ok(None)
+    }
 }
 
 impl IndexScanExec {

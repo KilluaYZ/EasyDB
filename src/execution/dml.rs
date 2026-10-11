@@ -11,6 +11,7 @@ use super::{ExecCtx, Executor, Row, RowSchema, arith, coerce_value_to};
 use crate::analyze::BoundSetClause;
 use crate::catalog::Column;
 use crate::common::errors::EasyDbError;
+use crate::index::extendible_hash::ExtendibleHashIndex;
 use crate::index::ix_index_handle::IxIndexHandle;
 use crate::record::rm_defs::TupleMeta;
 use crate::record::rm_file_handle::RmFileHandle;
@@ -22,10 +23,39 @@ use crate::types::{ColType, Value};
 /// 一张表索引的维护信息：句柄 + 索引列在表行中的下标/类型/宽度。
 #[derive(Clone)]
 pub struct IndexMaintenance {
-    pub handle: Arc<IxIndexHandle>,
+    pub handle: IndexMaintenanceHandle,
     pub col_idx: Vec<usize>,
     pub col_types: Vec<ColType>,
     pub col_lens: Vec<usize>,
+}
+
+#[derive(Clone)]
+pub enum IndexMaintenanceHandle {
+    BTree(Arc<IxIndexHandle>),
+    Hash(Arc<ExtendibleHashIndex>),
+}
+
+impl IndexMaintenanceHandle {
+    pub fn insert_entry(
+        &self,
+        key: &[u8],
+        rid: crate::common::rid::Rid,
+    ) -> Result<(), EasyDbError> {
+        match self {
+            Self::BTree(h) => h.insert_entry(key, rid).map(|_| ()),
+            Self::Hash(h) => h.insert_entry(key, rid),
+        }
+    }
+    pub fn delete_entry(
+        &self,
+        key: &[u8],
+        rid: crate::common::rid::Rid,
+    ) -> Result<(), EasyDbError> {
+        match self {
+            Self::BTree(h) => h.delete_entry(key).map(|_| ()),
+            Self::Hash(h) => h.delete_entry(key, rid),
+        }
+    }
 }
 
 impl IndexMaintenance {
@@ -178,7 +208,7 @@ impl Executor for DeleteExec {
         }
         // 先删索引条目再删记录
         for ix in &self.indexes {
-            ix.handle.delete_entry(&ix.key(&row.values)?)?;
+            ix.handle.delete_entry(&ix.key(&row.values)?, row.rid)?;
         }
         self.fh.delete_tuple(row.rid)?;
         Ok(Some(row))
@@ -292,7 +322,7 @@ impl Executor for UpdateExec {
             let old_key = ix.key(&old.values)?;
             let new_key = ix.key(&new_values)?;
             if old_key != new_key {
-                ix.handle.delete_entry(&old_key)?;
+                ix.handle.delete_entry(&old_key, old.rid)?;
                 ix.handle.insert_entry(&new_key, old.rid)?;
             }
         }

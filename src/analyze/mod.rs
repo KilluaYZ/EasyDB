@@ -122,7 +122,15 @@ pub enum Query {
         table: String,
         cols: Vec<String>,
     },
+    CreateHashIndex {
+        table: String,
+        cols: Vec<String>,
+    },
     DropIndex {
+        table: String,
+        cols: Vec<String>,
+    },
+    DropHashIndex {
         table: String,
         cols: Vec<String>,
     },
@@ -191,6 +199,12 @@ impl<'a> Analyzer<'a> {
             ast::Statement::DropTable { table } => Ok(Query::DropTable { table }),
             ast::Statement::DescTable { table } => Ok(Query::DescTable { table }),
             ast::Statement::CreateIndex { table, cols } => Ok(Query::CreateIndex { table, cols }),
+            ast::Statement::CreateHashIndex { table, cols } => {
+                Ok(Query::CreateHashIndex { table, cols })
+            }
+            ast::Statement::DropHashIndex { table, cols } => {
+                Ok(Query::DropHashIndex { table, cols })
+            }
             ast::Statement::DropIndex { table, cols } => Ok(Query::DropIndex { table, cols }),
             ast::Statement::CreateStaticCheckpoint => Ok(Query::CreateStaticCheckpoint),
             ast::Statement::LoadData { file, table } => Ok(Query::LoadData { file, table }),

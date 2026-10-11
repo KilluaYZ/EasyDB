@@ -12,11 +12,13 @@
 
 use crate::analyze::{BoundCond, BoundRhs, BoundSelect, BoundSetClause, Query, TabCol};
 use crate::common::errors::EasyDbError;
-use crate::execution::dml::{DeleteExec, IndexMaintenance, InsertExec, UpdateExec};
+use crate::execution::dml::{
+    DeleteExec, IndexMaintenance, IndexMaintenanceHandle, InsertExec, UpdateExec,
+};
 use crate::execution::query_execs::{
     AggItem, AggregateExec, NestedLoopJoinExec, ProjectExec, SortExec,
 };
-use crate::execution::scan::{IndexScanExec, SeqScanExec};
+use crate::execution::scan::{HashIndexScanExec, IndexScanExec, SeqScanExec};
 use crate::execution::{ExecCtx, Executor, ResolvedCond, ResolvedRhs, RowSchema};
 use crate::parser::ast::{CompOp, OrderDir};
 use crate::system::Database;
@@ -30,6 +32,7 @@ pub struct IndexPlan {
     pub lower: Option<Vec<Value>>,
     /// 上界键
     pub upper: Option<Vec<Value>>,
+    pub hash: bool,
 }
 
 /// 单表扫描。
@@ -362,6 +365,7 @@ fn choose_index(db: &Database, table: &str, conds: &[BoundCond]) -> Option<Index
                     cols: vec![col.clone()],
                     lower: Some(vec![v.clone()]),
                     upper: Some(vec![v]),
+                    hash: false,
                 });
             }
             if lower.is_some() || upper.is_some() {
@@ -369,6 +373,7 @@ fn choose_index(db: &Database, table: &str, conds: &[BoundCond]) -> Option<Index
                     cols: vec![col.clone()],
                     lower: lower.map(|v| vec![v]),
                     upper: upper.map(|v| vec![v]),
+                    hash: false,
                 });
             }
         } else {
@@ -396,8 +401,37 @@ fn choose_index(db: &Database, table: &str, conds: &[BoundCond]) -> Option<Index
                     cols: ix.cols.clone(),
                     lower: Some(key.clone()),
                     upper: Some(key),
+                    hash: false,
                 });
             }
+        }
+    }
+    for ix in &meta.hash_indexes {
+        let mut key = Vec::with_capacity(ix.cols.len());
+        let mut ok = true;
+        for col in &ix.cols {
+            let hit = conds.iter().find_map(|c| {
+                let tab_ok = c.lhs.tab == table || c.lhs.tab.is_empty();
+                match (&c.rhs, tab_ok && c.lhs.col == *col && c.op == CompOp::Eq) {
+                    (BoundRhs::Value(v), true) => Some(v.clone()),
+                    _ => None,
+                }
+            });
+            match hit {
+                Some(v) => key.push(v),
+                None => {
+                    ok = false;
+                    break;
+                }
+            }
+        }
+        if ok {
+            return Some(IndexPlan {
+                cols: ix.cols.clone(),
+                lower: Some(key.clone()),
+                upper: Some(key),
+                hash: true,
+            });
         }
     }
     None
@@ -635,7 +669,28 @@ pub fn index_maintenance(db: &Database, table: &str) -> Result<Vec<IndexMaintena
             col_lens.push(col.storage_size() as usize);
         }
         out.push(IndexMaintenance {
-            handle: ix.handle.clone(),
+            handle: IndexMaintenanceHandle::BTree(ix.handle.clone()),
+            col_idx,
+            col_types,
+            col_lens,
+        });
+    }
+    for ix in &meta.hash_indexes {
+        let mut col_idx = Vec::with_capacity(ix.cols.len());
+        let mut col_types = Vec::with_capacity(ix.cols.len());
+        let mut col_lens = Vec::with_capacity(ix.cols.len());
+        for name in &ix.cols {
+            let col = meta
+                .cols
+                .iter()
+                .find(|c| c.name() == *name)
+                .ok_or_else(|| EasyDbError::Internal("index column missing".to_string()))?;
+            col_idx.push(meta.col_pos(name));
+            col_types.push(col.col_type());
+            col_lens.push(col.storage_size() as usize);
+        }
+        out.push(IndexMaintenance {
+            handle: IndexMaintenanceHandle::Hash(ix.handle.clone()),
             col_idx,
             col_types,
             col_lens,
@@ -774,6 +829,41 @@ fn build_scan(
     let conds = resolve_conds(&scan.conds, &schema)?;
 
     if let Some(ix) = &scan.index {
+        if ix.hash {
+            let index_meta = meta
+                .hash_indexes
+                .iter()
+                .find(|m| m.cols == ix.cols)
+                .ok_or_else(|| EasyDbError::Internal("hash index meta missing".to_string()))?;
+            let values = ix
+                .lower
+                .as_ref()
+                .ok_or_else(|| EasyDbError::Internal("hash index needs an equality key".into()))?;
+            let types: Vec<ColType> = ix
+                .cols
+                .iter()
+                .map(|name| cols.iter().find(|c| c.name() == *name).unwrap().col_type())
+                .collect();
+            let lens: Vec<usize> = ix
+                .cols
+                .iter()
+                .map(|name| {
+                    cols.iter()
+                        .find(|c| c.name() == *name)
+                        .unwrap()
+                        .storage_size() as usize
+                })
+                .collect();
+            let key = crate::index::ix_defs::encode_key(&types, &lens, values)?;
+            return Ok(Box::new(HashIndexScanExec::new(
+                index_meta.handle.clone(),
+                fh,
+                cols,
+                key,
+                conds,
+                ctx,
+            )?));
+        }
         let index_meta = meta
             .indexes
             .iter()

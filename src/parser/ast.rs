@@ -200,7 +200,15 @@ pub enum Statement {
         table: String,
         cols: Vec<String>,
     },
+    CreateHashIndex {
+        table: String,
+        cols: Vec<String>,
+    },
     DropIndex {
+        table: String,
+        cols: Vec<String>,
+    },
+    DropHashIndex {
         table: String,
         cols: Vec<String>,
     },

@@ -46,6 +46,16 @@ impl IxManager {
         name
     }
 
+    pub fn hash_index_name(file: &str, cols: &[String]) -> String {
+        let mut name = file.to_string();
+        for c in cols {
+            name.push('_');
+            name.push_str(c);
+        }
+        name.push_str(".hash.idx");
+        name
+    }
+
     pub fn exists(&self, path: impl AsRef<std::path::Path>) -> bool {
         path.as_ref().is_file()
     }
