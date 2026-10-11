@@ -11,6 +11,7 @@
 pub mod buffer;
 pub mod catalog;
 pub mod common;
+pub mod index;
 pub mod record;
 pub mod storage;
 pub mod types;
