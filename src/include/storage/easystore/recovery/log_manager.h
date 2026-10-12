@@ -16,6 +16,8 @@
 
 namespace easydb {
 
+class UndoManager;
+
 enum class LogKind : uint8_t { REDO = 0, UNDO = 1, SYSTEM = 2 };
 
 enum LogType : int {
@@ -93,9 +95,32 @@ class BeginLogRecord : public TransactionLogRecord {
 
 class CommitLogRecord : public TransactionLogRecord {
  public:
-  CommitLogRecord() : TransactionLogRecord(COMMIT) {}
+  CommitLogRecord() : TransactionLogRecord(COMMIT) {
+    log_tot_len_ = LOG_HEADER_SIZE + sizeof(timestamp_t);
+  }
+  CommitLogRecord(txn_id_t txn_id, lsn_t prev_lsn, timestamp_t commit_ts)
+      : CommitLogRecord() {
+    log_tid_ = txn_id;
+    prev_lsn_ = prev_lsn;
+    commit_ts_ = commit_ts;
+  }
   CommitLogRecord(txn_id_t txn_id, lsn_t prev_lsn)
-      : TransactionLogRecord(COMMIT, txn_id, prev_lsn) {}
+      : CommitLogRecord(txn_id, prev_lsn, INVALID_TS) {}
+
+  void serialize(char *dest) const override {
+    LogRecord::serialize(dest);
+    memcpy(dest + OFFSET_LOG_DATA, &commit_ts_, sizeof(commit_ts_));
+  }
+
+  void deserialize(const char *src) override {
+    LogRecord::deserialize(src);
+    memcpy(&commit_ts_, src + OFFSET_LOG_DATA, sizeof(commit_ts_));
+  }
+
+  timestamp_t GetCommitTs() const { return commit_ts_; }
+
+ private:
+  timestamp_t commit_ts_{INVALID_TS};
 };
 
 class AbortLogRecord : public TransactionLogRecord {
@@ -230,6 +255,7 @@ class LogManager {
   lsn_t GetNextLsn() const;
   auto ReadAllLogs() const -> std::vector<std::unique_ptr<LogRecord>>;
   auto FindLog(lsn_t lsn) const -> std::unique_ptr<LogRecord>;
+  UndoManager *GetUndoManager() const { return undo_manager_.get(); }
   LogBuffer *get_log_buffer() { return &log_buffer_; }
 
  private:
@@ -242,6 +268,7 @@ class LogManager {
   lsn_t persist_lsn_{INVALID_LSN};
   size_t log_file_offset_{0};
   DiskManager *disk_manager_;
+  std::unique_ptr<UndoManager> undo_manager_;
 };
 
 }  // namespace easydb

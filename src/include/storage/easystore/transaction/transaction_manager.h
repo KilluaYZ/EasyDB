@@ -79,6 +79,9 @@ class TransactionManager {
    */
   Transaction *Begin(Transaction *txn, LogManager *log_manager);
 
+  /** Rebuild committed transaction state after opening a database. */
+  void RecoverFromLogs(LogManager *log_manager);
+
   /**
    * @brief 提交事务
    * @param txn 要提交的事务对象指针

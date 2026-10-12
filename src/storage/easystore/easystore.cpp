@@ -91,6 +91,8 @@ void EasyStore::OpenDB(const std::string &db_name) {
   for (const auto &entry : runtime_->catalog_manager->Tables()) {
     runtime_->clustered_table_manager->Open(entry.first, entry.second.schema);
   }
+  runtime_->transaction_manager->RecoverFromLogs(
+      runtime_->log_manager.get());
   RecoveryManager recovery(runtime_->clustered_table_manager.get(),
                            runtime_->log_manager.get());
   recovery.Recover();

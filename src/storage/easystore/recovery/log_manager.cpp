@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 #include <array>
 #include <cstring>
 #include "common/errors.h"
+#include "storage/easystore/recovery/undo_manager.h"
 
 namespace easydb {
 
@@ -22,6 +23,7 @@ LogManager::LogManager(DiskManager *disk_manager)
   if (disk_manager_ == nullptr) {
     throw InternalError("LogManager requires a DiskManager");
   }
+  undo_manager_ = std::make_unique<UndoManager>(disk_manager_);
   recover_lsn_state();
 }
 
@@ -47,6 +49,10 @@ lsn_t LogManager::add_log_to_buffer(LogRecord *log_record) {
   // Assign a new LSN to the log record
   lsn_t new_lsn = global_lsn_.fetch_add(1);
   log_record->lsn_ = new_lsn;
+
+  if (log_record->log_kind_ == LogKind::UNDO) {
+    return undo_manager_->Append(log_record);
+  }
 
   // Get the log record size
   int log_size = log_record->log_tot_len_;
@@ -131,6 +137,8 @@ auto LogManager::ReadAllLogs() const
         header_record.log_type_ <= DELETE;
     if (is_tuple_operation) {
       record = std::make_unique<TupleLogRecord>();
+    } else if (header_record.log_type_ == COMMIT) {
+      record = std::make_unique<CommitLogRecord>();
     } else {
       record = std::make_unique<LogRecord>();
     }
@@ -139,6 +147,12 @@ auto LogManager::ReadAllLogs() const
     offset += record_size;
   }
 
+  auto undo_logs = undo_manager_->ReadAll();
+  for (auto &undo_log : undo_logs) logs.emplace_back(std::move(undo_log));
+  std::sort(logs.begin(), logs.end(),
+            [](const auto &lhs, const auto &rhs) {
+              return lhs->lsn_ < rhs->lsn_;
+            });
   return logs;
 }
 
@@ -175,6 +189,10 @@ void LogManager::recover_lsn_state() {
   if (offset != log_file_offset_) {
     disk_manager_->TruncateLog(offset);
     log_file_offset_ = offset;
+  }
+  persist_lsn_ = last_lsn;
+  for (const auto &undo_log : undo_manager_->ReadAll()) {
+    last_lsn = std::max(last_lsn, undo_log->lsn_);
   }
   persist_lsn_ = last_lsn;
   global_lsn_.store(last_lsn == INVALID_LSN ? 0 : last_lsn + 1);

@@ -21,10 +21,30 @@
 #include "storage/easystore/catalog/catalog_manager.h"
 #include "storage/easystore/catalog/ddl_manager.h"
 #include "storage/easystore/recovery/recovery_manager.h"
+#include "storage/easystore/recovery/undo_manager.h"
 #include "storage/easystore/table/clustered_table_manager.h"
 #include "storage/easystore/transaction/txn_defs.h"
 
 namespace easydb {
+
+void TransactionManager::RecoverFromLogs(LogManager *log_manager) {
+  if (log_manager == nullptr) return;
+  const auto logs = log_manager->ReadAllLogs();
+  txn_id_t max_txn_id = INVALID_TXN_ID;
+  timestamp_t max_timestamp = INVALID_TS;
+  std::scoped_lock lock(latch_);
+  committed_txns_.clear();
+  for (const auto &log : logs) {
+    max_txn_id = std::max(max_txn_id, log->log_tid_);
+    if (log->log_type_ != COMMIT) continue;
+    const auto *commit = dynamic_cast<const CommitLogRecord *>(log.get());
+    if (commit == nullptr) continue;
+    committed_txns_[log->log_tid_] = commit->GetCommitTs();
+    max_timestamp = std::max(max_timestamp, commit->GetCommitTs());
+  }
+  next_txn_id_.store(max_txn_id == INVALID_TXN_ID ? 0 : max_txn_id + 1);
+  next_timestamp_.store(max_timestamp == INVALID_TS ? 0 : max_timestamp + 1);
+}
 
 /**
  * @description: 事务的开始方法
@@ -82,7 +102,8 @@ void TransactionManager::Commit(Transaction *txn, LogManager *log_manager) {
 
   // Log the commit
   txn->SetCommitTs(next_timestamp_.fetch_add(1));
-  CommitLogRecord commit_log_record(txn->GetTransactionId(), txn->GetPrevLsn());
+  CommitLogRecord commit_log_record(txn->GetTransactionId(),
+                                    txn->GetPrevLsn(), txn->GetCommitTs());
   lsn_t lsn = log_manager->add_log_to_buffer(&commit_log_record);
   txn->SetPrevLsn(lsn);
 
@@ -113,7 +134,12 @@ void TransactionManager::Commit(Transaction *txn, LogManager *log_manager) {
       std::scoped_lock lock(latch_);
       committed_txns = committed_txns_;
     }
-    clustered_table_manager_->Purge(GetOldestReadViewTs(), committed_txns);
+    const auto obsolete = clustered_table_manager_->Purge(
+        GetOldestReadViewTs(), committed_txns);
+    std::unordered_set<lsn_t> obsolete_lsns(obsolete.begin(), obsolete.end());
+    if (log_manager->GetUndoManager() != nullptr) {
+      log_manager->GetUndoManager()->Purge(obsolete_lsns);
+    }
   }
 }
 
