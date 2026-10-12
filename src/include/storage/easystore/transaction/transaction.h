@@ -22,6 +22,7 @@
 #include <unordered_set>
 
 #include "common/config.h"
+#include "storage/easystore/transaction/read_view.h"
 #include "storage/easystore/transaction/txn_defs.h"
 #include "storage/page/page.h"
 
@@ -99,6 +100,14 @@ class Transaction {
   inline void SetCommitTs(timestamp_t commit_ts) { commit_ts_ = commit_ts; }
 
   inline timestamp_t GetCommitTs() { return commit_ts_; }
+
+  inline const std::shared_ptr<ReadView> &GetReadView() const {
+    return read_view_;
+  }
+
+  inline void SetReadView(std::shared_ptr<ReadView> read_view) {
+    read_view_ = std::move(read_view);
+  }
 
   /**
    * @brief 获取隔离级别
@@ -215,6 +224,7 @@ class Transaction {
 
   /** Commit timestamp assigned when the transaction becomes durable. */
   timestamp_t commit_ts_{INVALID_TS};
+  std::shared_ptr<ReadView> read_view_;
 
   /**
    * @brief 事务申请的所有锁

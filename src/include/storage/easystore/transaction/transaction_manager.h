@@ -122,6 +122,26 @@ class TransactionManager {
    */
   LockManager *GetLockManager() { return lock_manager_; }
 
+  /** Create or return the repeatable-read snapshot for a transaction. */
+  std::shared_ptr<ReadView> GetReadView(Transaction *txn) {
+    if (txn == nullptr) return nullptr;
+    std::scoped_lock lock(latch_);
+    if (txn->GetReadView() != nullptr) return txn->GetReadView();
+
+    std::unordered_set<txn_id_t> active_txns;
+    for (const auto &[txn_id, other] : txn_map) {
+      if (other != nullptr && other->GetState() != TransactionState::COMMITTED &&
+          other->GetState() != TransactionState::ABORTED) {
+        active_txns.insert(txn_id);
+      }
+    }
+    auto view = std::make_shared<ReadView>(
+        next_timestamp_.load(), txn->GetTransactionId(),
+        std::move(active_txns), committed_txns_);
+    txn->SetReadView(view);
+    return view;
+  }
+
   /**
    * @brief 获取事务ID为txn_id的事务对象
    * @param txn_id 事务ID
@@ -183,6 +203,8 @@ class TransactionManager {
    * @note 每次分配新事务时递增，用于MVCC和死锁预防
    */
   std::atomic<timestamp_t> next_timestamp_{0};
+
+  std::unordered_map<txn_id_t, timestamp_t> committed_txns_;
 
   /**
    * @brief 保护txn_map的互斥锁

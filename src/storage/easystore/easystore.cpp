@@ -1,5 +1,6 @@
 #include "storage/easystore/easystore.h"
 
+#include <algorithm>
 #include <unistd.h>
 #include <filesystem>
 #include <fstream>
@@ -171,24 +172,62 @@ int EasyStore::GetTableLockId(const std::string &name) const {
 }
 
 std::unique_ptr<TableScan> EasyStore::ScanTable(const std::string &name,
-                                                Context *) {
-  return std::make_unique<ClusteredScan>(
-      runtime_->clustered_table_manager->Get(name)->Scan());
+                                                Context *context) {
+  auto records = runtime_->clustered_table_manager->Get(name)->ScanRecords();
+  if (context != nullptr && context->txn_ != nullptr) {
+    if (context->read_view_ == nullptr) {
+      context->read_view_ =
+          runtime_->transaction_manager->GetReadView(context->txn_);
+    }
+    records.erase(std::remove_if(records.begin(), records.end(),
+                                 [&](const auto &record) {
+                                   return !context->read_view_->IsVisible(
+                                       record.meta);
+                                 }),
+                  records.end());
+  }
+  std::vector<Tuple> tuples;
+  tuples.reserve(records.size());
+  for (const auto &record : records) tuples.emplace_back(record.tuple);
+  return std::make_unique<ClusteredScan>(std::move(tuples));
 }
 
 std::unique_ptr<IndexScan> EasyStore::ScanIndex(
     const std::string &table, const std::vector<std::string> &columns,
     const std::vector<char> &lower_key, const std::vector<char> &upper_key,
     Context *context) {
-  return std::make_unique<ClusteredScan>(
-      runtime_->clustered_table_manager->Get(table)->Scan());
+  auto records = runtime_->clustered_table_manager->Get(table)->ScanRecords();
+  if (context != nullptr && context->txn_ != nullptr) {
+    if (context->read_view_ == nullptr) {
+      context->read_view_ =
+          runtime_->transaction_manager->GetReadView(context->txn_);
+    }
+    records.erase(std::remove_if(records.begin(), records.end(),
+                                 [&](const auto &record) {
+                                   return !context->read_view_->IsVisible(
+                                       record.meta);
+                                 }),
+                  records.end());
+  }
+  std::vector<Tuple> tuples;
+  tuples.reserve(records.size());
+  for (const auto &record : records) tuples.emplace_back(record.tuple);
+  return std::make_unique<ClusteredScan>(std::move(tuples));
 }
 
 std::unique_ptr<Tuple> EasyStore::ReadTuple(const std::string &table,
-                                            const Tuple &key, Context *) {
-  auto tuple = runtime_->clustered_table_manager->Get(table)->Get(key);
-  if (!tuple.has_value()) return nullptr;
-  return std::make_unique<Tuple>(*tuple);
+                                            const Tuple &key,
+                                            Context *context) {
+  auto record = runtime_->clustered_table_manager->Get(table)->GetRecord(key);
+  if (!record.has_value()) return nullptr;
+  if (context != nullptr && context->txn_ != nullptr) {
+    if (context->read_view_ == nullptr) {
+      context->read_view_ =
+          runtime_->transaction_manager->GetReadView(context->txn_);
+    }
+    if (!context->read_view_->IsVisible(record->meta)) return nullptr;
+  }
+  return std::make_unique<Tuple>(record->tuple);
 }
 
 bool EasyStore::InsertTuple(const std::string &table, const Tuple &tuple,

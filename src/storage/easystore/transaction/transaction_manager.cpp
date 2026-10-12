@@ -103,6 +103,10 @@ void TransactionManager::Commit(Transaction *txn, LogManager *log_manager) {
 
   // 4. Update transaction state
   txn->SetState(TransactionState::COMMITTED);
+  {
+    std::scoped_lock lock(latch_);
+    committed_txns_[txn->GetTransactionId()] = txn->GetCommitTs();
+  }
 }
 
 /**

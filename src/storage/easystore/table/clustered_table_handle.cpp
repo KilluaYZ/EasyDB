@@ -74,4 +74,9 @@ auto ClusteredTableHandle::Scan() -> std::vector<Tuple> {
   return result;
 }
 
+auto ClusteredTableHandle::ScanRecords() -> std::vector<ClusteredLeafEntry> {
+  if (index_ == nullptr) return {};
+  return index_->ScanAll();
+}
+
 }  // namespace easydb

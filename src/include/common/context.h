@@ -23,6 +23,7 @@
 #include "storage/easystore/concurrency/lock_manager.h"
 #include "storage/easystore/recovery/log_manager.h"
 #include "storage/easystore/transaction/transaction.h"
+#include "storage/easystore/transaction/read_view.h"
 
 using json = nlohmann::json;
 
@@ -53,6 +54,7 @@ class Context {
   char *data_send_;
   int *offset_;
   bool ellipsis_;
+  std::shared_ptr<ReadView> read_view_;
   json result_json;
 
   void InitJson() {
