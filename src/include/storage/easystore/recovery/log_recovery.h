@@ -19,10 +19,16 @@ See the Mulan PSL v2 for more details. */
 #include "log_manager.h"
 #include "storage/disk/disk_manager.h"
 #include "storage/page/page.h"
-#include "system/sm_manager.h"
 #include "storage/easystore/transaction/transaction_manager.h"
+#include "storage/easystore/catalog/catalog_manager.h"
+#include "storage/easystore/catalog/ddl_manager.h"
+#include "storage/easystore/table/table_manager.h"
 
 namespace easydb {
+
+class CatalogManager;
+class DdlManager;
+class TableManager;
 
 class RedoLogsInPage {
  public:
@@ -33,25 +39,17 @@ class RedoLogsInPage {
 
 class RecoveryManager {
  public:
-  RecoveryManager(SmManager *sm_manager, LogManager *log_manager) {
-    disk_manager_ = sm_manager->GetDiskManager();
-    buffer_pool_manager_ = sm_manager->GetBpm();
-    sm_manager_ = sm_manager;
-    min_rec_lsn_ = INVALID_LSN;
-
-    txn_manager_ = nullptr;
-    log_manager_ = log_manager;
-    last_txn_id_ = INVALID_TXN_ID;
-    last_lsn_ = INVALID_LSN;
-  }
   RecoveryManager(DiskManager *disk_manager,
-                  BufferPoolManager *buffer_pool_manager, SmManager *sm_manager,
-                  TransactionManager *txn_manager, LogManager *log_manager) {
+                  BufferPoolManager *buffer_pool_manager,
+                  CatalogManager *catalog_manager, TableManager *table_manager,
+                  DdlManager *ddl_manager, TransactionManager *txn_manager,
+                  LogManager *log_manager) {
     disk_manager_ = disk_manager;
     buffer_pool_manager_ = buffer_pool_manager;
-    sm_manager_ = sm_manager;
+    catalog_manager_ = catalog_manager;
+    table_manager_ = table_manager;
+    ddl_manager_ = ddl_manager;
     min_rec_lsn_ = INVALID_LSN;
-
     txn_manager_ = txn_manager;
     log_manager_ = log_manager;
     last_txn_id_ = INVALID_TXN_ID;
@@ -67,7 +65,9 @@ class RecoveryManager {
   LogBuffer buffer_;                        // 读入日志
   DiskManager *disk_manager_;               // 用来读写文件
   BufferPoolManager *buffer_pool_manager_;  // 对页面进行读写
-  SmManager *sm_manager_;                   // 访问数据库元数据
+  CatalogManager *catalog_manager_ = nullptr;
+  TableManager *table_manager_ = nullptr;
+  DdlManager *ddl_manager_ = nullptr;
   // store the running transactions, the mapping of running transactions to
   // their lastest log records
   std::unordered_map<txn_id_t, lsn_t>

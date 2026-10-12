@@ -40,7 +40,6 @@ DiskManager *disk_manager;
 BufferPoolManager *buffer_pool_manager;
 RmManager *rm_manager;
 IxManager *ix_manager;
-SmManager *sm_manager;
 std::unique_ptr<EasyStore> storage_engine;
 LockManager *lock_manager;
 TransactionManager *txn_manager;
@@ -183,7 +182,7 @@ void *client_handler(void *sock_fd) {
           txn_manager->Abort(context->txn_, log_manager);
           std::cout << e.GetInfo() << std::endl;
 
-          if (sm_manager->IsEnableOutput()) {
+          if (storage_engine->IsEnableOutput()) {
             std::fstream outfile;
             outfile.open("output.txt", std::ios::out | std::ios::app);
             outfile << str;
@@ -200,7 +199,7 @@ void *client_handler(void *sock_fd) {
           context->SetJsonMsg(e.what());
 
           // 将报错信息写入output.txt
-          if (sm_manager->IsEnableOutput()) {
+          if (storage_engine->IsEnableOutput()) {
             std::fstream outfile;
             outfile.open("output.txt", std::ios::out | std::ios::app);
             outfile << "failure\n";
@@ -382,11 +381,10 @@ int main(int argc, char **argv) {
     buffer_pool_manager = storage_engine->GetBufferPoolManager();
     rm_manager = storage_engine->GetRecordManager();
     ix_manager = storage_engine->GetIndexManager();
-    sm_manager = storage_engine->GetSystemManager();
     lock_manager = storage_engine->GetLockManager();
     txn_manager = storage_engine->GetTransactionManager();
     planner = std::make_unique<Planner>(storage_engine.get());
-    optimizer = std::make_unique<Optimizer>(sm_manager, planner.get());
+    optimizer = std::make_unique<Optimizer>(storage_engine.get(), planner.get());
     ql_manager = std::make_unique<QlManager>(storage_engine.get(), txn_manager,
                                              planner.get());
     log_manager = storage_engine->GetLogManager();

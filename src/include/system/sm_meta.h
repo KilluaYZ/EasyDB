@@ -214,8 +214,6 @@ struct TabMeta {
 // >>
 /* 数据库元数据 */
 class DbMeta {
-  friend class SmManager;
-
  private:
   std::string name_;                     // 数据库名称
   std::map<std::string, TabMeta> tabs_;  // 数据库中包含的表
@@ -228,14 +226,32 @@ class DbMeta {
     return tabs_.find(tab_name) != tabs_.end();
   }
 
+  void Reset(const std::string &db_name) {
+    name_ = db_name;
+    tabs_.clear();
+  }
+
   void SetTabMeta(const std::string &tab_name, const TabMeta &meta) {
     tabs_[tab_name] = meta;
   }
+
+  void RemoveTable(const std::string &tab_name) { tabs_.erase(tab_name); }
+
+  const std::map<std::string, TabMeta> &tables() const { return tabs_; }
 
   /* 获取指定名称表的元数据
    * @note 返回值为引用，调用者需要保留引用
    */
   TabMeta &get_table(const std::string &tab_name) {
+    auto pos = tabs_.find(tab_name);
+    if (pos == tabs_.end()) {
+      throw TableNotFoundError(tab_name);
+    }
+
+    return pos->second;
+  }
+
+  const TabMeta &get_table(const std::string &tab_name) const {
     auto pos = tabs_.find(tab_name);
     if (pos == tabs_.end()) {
       throw TableNotFoundError(tab_name);

@@ -17,8 +17,12 @@
 #include "storage/easystore/transaction/transaction_manager.h"
 
 #include "common/context.h"
+#include "buffer/buffer_pool_manager.h"
+#include "storage/easystore/catalog/catalog_manager.h"
+#include "storage/easystore/catalog/ddl_manager.h"
 #include "storage/easystore/recovery/log_recovery.h"
-#include "system/sm_manager.h"
+#include "storage/easystore/transaction/rollback_manager.h"
+#include "storage/easystore/table/table_manager.h"
 #include "storage/easystore/transaction/txn_defs.h"
 
 namespace easydb {
@@ -138,7 +142,7 @@ void TransactionManager::Abort(Transaction *txn, LogManager *log_manager) {
   auto write_set = txn->GetWriteSet();
   while (!write_set->empty()) {
     auto write_record = write_set->back();
-    sm_manager_->Rollback(write_record, context);
+    rollback_manager_->Rollback(write_record, context);
     write_set->pop_back();
     delete write_record;
   }
@@ -174,7 +178,9 @@ void TransactionManager::CreateStaticCheckpoint(Transaction *txn,
 
   // 2. Create a checkpoint
   CheckpointLogRecord checkpoint(txn->GetTransactionId(), txn->GetPrevLsn());
-  RecoveryManager *recovery = new RecoveryManager(sm_manager_, log_manager);
+  auto *recovery = new RecoveryManager(
+      disk_manager_, buffer_pool_manager_, catalog_manager_, table_manager_,
+      ddl_manager_, this, log_manager);
   recovery->analyze4chkpt(&checkpoint);
   delete recovery;
 
@@ -184,11 +190,10 @@ void TransactionManager::CreateStaticCheckpoint(Transaction *txn,
   log_manager->flush_log_to_disk();
 
   // 3. Flush all dirty pages to disk
-  auto bpm = sm_manager_->GetBpm();
+  auto *bpm = buffer_pool_manager_;
   bpm->FlushAllDirtyPages();
 
   // // 4. Write checkpoint to disk
-  // auto disk_mgr = sm_manager_->GetDiskManager();
   // disk_mgr->write_checkpoint(checkpoint_lsn);
 }
 

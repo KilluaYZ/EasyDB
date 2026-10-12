@@ -7,7 +7,6 @@
 
 namespace easydb {
 
-class SmManager;
 class DiskManager;
 class BufferPoolManager;
 class RmManager;
@@ -16,6 +15,10 @@ class LockManager;
 class TransactionManager;
 class LogManager;
 class RecoveryManager;
+class CatalogManager;
+class TableManager;
+class IndexManager;
+class StatisticsManager;
 
 /** Adapter exposing the current EasyDB storage implementation. */
 class EasyStore final : public StorageEngine {
@@ -39,10 +42,10 @@ class EasyStore final : public StorageEngine {
   TransactionManager *GetTransactionManager() const;
   LogManager *GetLogManager() const;
   RecoveryManager *GetRecoveryManager() const;
-
-  // Temporary compatibility access for components that still depend on the
-  // legacy system-manager API. This object is owned by EasyStore.
-  SmManager *GetSystemManager() const;
+  CatalogManager *GetCatalogManager() const;
+  TableManager *GetTableManager() const;
+  IndexManager *GetIndexComponent() const;
+  StatisticsManager *GetStatisticsManager() const;
 
   bool HasTable(const std::string &table_name) const override;
   TabMeta &GetTableMeta(const std::string &table_name) override;
@@ -97,6 +100,7 @@ class EasyStore final : public StorageEngine {
  private:
   class Runtime;
   std::unique_ptr<Runtime> runtime_;
+  bool enable_output_;
 };
 
 }  // namespace easydb

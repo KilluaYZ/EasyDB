@@ -20,18 +20,18 @@ See the Mulan PSL v2 for more details. */
 #include "planner/plan.h"
 #include "planner/planner.h"
 #include "storage/easystore/record/record_printer.h"
-#include "system/sm.h"
+#include "storage/storage_engine.h"
 #include "storage/easystore/transaction/transaction_manager.h"
 
 namespace easydb {
 class Optimizer {
  private:
-  SmManager *sm_manager_;
+  StorageEngine *storage_engine_;
   Planner *planner_;
 
  public:
-  Optimizer(SmManager *sm_manager, Planner *planner)
-      : sm_manager_(sm_manager), planner_(planner) {}
+  Optimizer(StorageEngine *storage_engine, Planner *planner)
+      : storage_engine_(storage_engine), planner_(planner) {}
 
   std::shared_ptr<Plan> plan_query(std::shared_ptr<Query> query,
                                    Context *context) {
@@ -89,7 +89,7 @@ class Optimizer {
         query->conds.empty()) {
       // bypass count(*) from table_name;
       if (query->cols[0].aggregation_type == COUNT_AGG) {
-        int count = sm_manager_->GetTableCount(query->tables[0]);
+        int count = storage_engine_->GetTableCount(query->tables[0]);
         if (count != -1) {
           std::vector<std::string> captions;
           captions.push_back(query->cols[0].new_col_name);
@@ -100,7 +100,7 @@ class Optimizer {
           rec_printer.print_separator(context);
           // print header into file
           std::fstream outfile;
-          bool enable_output = sm_manager_->IsEnableOutput();
+          bool enable_output = storage_engine_->IsEnableOutput();
           if (enable_output) {
             outfile.open("output.txt", std::ios::out | std::ios::app);
             outfile << "|";

@@ -519,7 +519,7 @@ void RecoveryManager::redo_insert(InsertLogRecord *insert_log) {
   int fd = disk_manager_->GetFileFd(tab_name);
   PageId page_id{fd, insert_log->rid_.GetPageId()};
 
-  auto fh = sm_manager_->fhs_.at(tab_name).get();
+  auto fh = table_manager_->Get(tab_name);
   Page *page = buffer_pool_manager_->RecoverPage(page_id);
 
   // 1. Skip or not
@@ -528,7 +528,7 @@ void RecoveryManager::redo_insert(InsertLogRecord *insert_log) {
   }
 
   // 2. Redo the operation
-  auto &tab = sm_manager_->db_.get_table(tab_name);
+  auto &tab = catalog_manager_->GetTable(tab_name);
   int index_len = tab.indexes.size();
   auto &rec = insert_log->insert_value_;
   RID rid = insert_log->rid_;
@@ -550,7 +550,7 @@ void RecoveryManager::redo_delete(DeleteLogRecord *delete_log) {
   int fd = disk_manager_->GetFileFd(tab_name);
   PageId page_id{fd, delete_log->rid_.GetPageId()};
 
-  auto fh = sm_manager_->fhs_.at(tab_name).get();
+  auto fh = table_manager_->Get(tab_name);
   Page *page = buffer_pool_manager_->RecoverPage(page_id);
 
   // 1. Skip or not
@@ -559,7 +559,7 @@ void RecoveryManager::redo_delete(DeleteLogRecord *delete_log) {
   }
 
   // 2. Redo the operation
-  auto &tab = sm_manager_->db_.get_table(tab_name);
+  auto &tab = catalog_manager_->GetTable(tab_name);
   int index_len = tab.indexes.size();
   // auto& rec = delete_log->delete_value_;
   RID rid = delete_log->rid_;
@@ -608,14 +608,14 @@ void RecoveryManager::redo_update(UpdateLogRecord *update_log) {
 
 void RecoveryManager::redo_index() {
   for (auto &tab_name : tab_name_with_index_) {
-    auto &tab = sm_manager_->db_.get_table(tab_name);
+    auto &tab = catalog_manager_->GetTable(tab_name);
     for (auto &index : tab.indexes) {
       std::vector<std::string> col_names;
       for (auto col : index.cols) {
         col_names.emplace_back(col.name);
       }
-      sm_manager_->DropIndex(tab_name, col_names, nullptr);
-      sm_manager_->CreateIndex(tab_name, col_names, nullptr);
+      ddl_manager_->DropIndex(tab_name, col_names, nullptr);
+      ddl_manager_->CreateIndex(tab_name, col_names, nullptr);
     }
   }
 }
