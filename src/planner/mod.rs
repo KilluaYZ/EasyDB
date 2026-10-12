@@ -916,7 +916,7 @@ fn build_scan(
             conds,
             ctx,
             &scan.table,
-        )))
+        )?))
     }
 }
 
