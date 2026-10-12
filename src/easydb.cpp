@@ -24,7 +24,7 @@
 #include "optimizer/optimizer.h"
 #include "planner/plan.h"
 #include "planner/planner.h"
-#include "recovery/log_recovery.h"
+#include "storage/easystore/recovery/log_recovery.h"
 #include "storage/easystore/easystore.h"
 
 // #define SOCK_PORT 8765
@@ -36,19 +36,19 @@ int SOCK_PORT = 8765;
 static bool should_exit = false;
 bool for_web = false;
 
-std::unique_ptr<DiskManager> disk_manager;
-std::unique_ptr<BufferPoolManager> buffer_pool_manager;
-std::unique_ptr<RmManager> rm_manager;
-std::unique_ptr<IxManager> ix_manager;
-std::unique_ptr<SmManager> sm_manager;
+DiskManager *disk_manager;
+BufferPoolManager *buffer_pool_manager;
+RmManager *rm_manager;
+IxManager *ix_manager;
+SmManager *sm_manager;
 std::unique_ptr<EasyStore> storage_engine;
-std::unique_ptr<LockManager> lock_manager;
-std::unique_ptr<TransactionManager> txn_manager;
+LockManager *lock_manager;
+TransactionManager *txn_manager;
 std::unique_ptr<Planner> planner;
 std::unique_ptr<Optimizer> optimizer;
 std::unique_ptr<QlManager> ql_manager;
-std::unique_ptr<LogManager> log_manager;
-std::unique_ptr<RecoveryManager> recovery;
+LogManager *log_manager;
+RecoveryManager *recovery;
 std::unique_ptr<Analyze> analyze;
 std::unique_ptr<Portal> portal;
 
@@ -127,7 +127,7 @@ void *client_handler(void *sock_fd) {
     offset = 0;
 
     // 开启事务，初始化系统所需的上下文信息（包括事务对象指针、锁管理器指针、日志管理器指针、存放结果的buffer、记录结果长度的变量）
-    Context *context = new Context(lock_manager.get(), log_manager.get(),
+    Context *context = new Context(lock_manager, log_manager,
                                    nullptr, data_send, &offset);
     SetTransaction(&txn_id, context);
     context->InitJson();
@@ -180,7 +180,7 @@ void *client_handler(void *sock_fd) {
           context->SetJsonMsg("abort");
 
           // 回滚事务
-          txn_manager->Abort(context->txn_, log_manager.get());
+          txn_manager->Abort(context->txn_, log_manager);
           std::cout << e.GetInfo() << std::endl;
 
           if (sm_manager->IsEnableOutput()) {
@@ -328,7 +328,7 @@ void start_server() {
     printf("%s\n", strerror(errno));
   }
   //    assert(ret != -1);
-  sm_manager->CloseDB();
+  storage_engine->CloseDB();
   std::cout << " DB has been closed.\n";
   std::cout << "Server shuts down." << std::endl;
 }
@@ -377,39 +377,31 @@ int main(int argc, char **argv) {
                  "\n";
     // Database name is passed by args
 
-    disk_manager = std::make_unique<DiskManager>(db_name);
-    buffer_pool_manager = std::make_unique<BufferPoolManager>(
-        BUFFER_POOL_SIZE, disk_manager.get());
-    rm_manager = std::make_unique<RmManager>(disk_manager.get(),
-                                             buffer_pool_manager.get());
-    ix_manager = std::make_unique<IxManager>(disk_manager.get(),
-                                             buffer_pool_manager.get());
-    sm_manager = std::make_unique<SmManager>(
-        disk_manager.get(), buffer_pool_manager.get(), rm_manager.get(),
-        ix_manager.get());
-    storage_engine = std::make_unique<EasyStore>(sm_manager.get());
-    lock_manager = std::make_unique<LockManager>();
-    txn_manager = std::make_unique<TransactionManager>(lock_manager.get(),
-                                                       sm_manager.get());
+    storage_engine = std::make_unique<EasyStore>(db_name);
+    disk_manager = storage_engine->GetDiskManager();
+    buffer_pool_manager = storage_engine->GetBufferPoolManager();
+    rm_manager = storage_engine->GetRecordManager();
+    ix_manager = storage_engine->GetIndexManager();
+    sm_manager = storage_engine->GetSystemManager();
+    lock_manager = storage_engine->GetLockManager();
+    txn_manager = storage_engine->GetTransactionManager();
     planner = std::make_unique<Planner>(storage_engine.get());
-    optimizer = std::make_unique<Optimizer>(sm_manager.get(), planner.get());
-    ql_manager = std::make_unique<QlManager>(storage_engine.get(),
-                                             txn_manager.get(), planner.get());
-    log_manager = std::make_unique<LogManager>(disk_manager.get());
-    recovery = std::make_unique<RecoveryManager>(
-        disk_manager.get(), buffer_pool_manager.get(), sm_manager.get(),
-        txn_manager.get(), log_manager.get());
+    optimizer = std::make_unique<Optimizer>(sm_manager, planner.get());
+    ql_manager = std::make_unique<QlManager>(storage_engine.get(), txn_manager,
+                                             planner.get());
+    log_manager = storage_engine->GetLogManager();
+    recovery = storage_engine->GetRecoveryManager();
 
     portal = std::make_unique<Portal>(storage_engine.get());
     analyze = std::make_unique<Analyze>(storage_engine.get());
 
     signal(SIGINT, sigint_handler);
-    if (!sm_manager->IsDir(db_name)) {
+    if (!storage_engine->IsDir(db_name)) {
       // Database not found, create a new one
-      sm_manager->CreateDB(db_name);
+      storage_engine->CreateDB(db_name);
     }
     // Open database
-    sm_manager->OpenDB(db_name);
+    storage_engine->OpenDB(db_name);
 
     // recovery database
     recovery->analyze();

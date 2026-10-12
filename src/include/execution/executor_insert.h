@@ -15,7 +15,7 @@
 #include "executor_abstract.h"
 #include "system/sm_defs.h"
 #include "system/sm_meta.h"
-#include "transaction/txn_defs.h"
+#include "storage/easystore/transaction/txn_defs.h"
 
 namespace easydb {
 

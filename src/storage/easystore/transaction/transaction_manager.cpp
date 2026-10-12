@@ -4,7 +4,7 @@
  *
  * transaction_manager.cpp
  *
- * Identification: src/transaction/transaction_manager.cpp
+ * Identification: src/storage/easystore/transaction/transaction_manager.cpp
  *
  *-------------------------------------------------------------------------
  */
@@ -14,12 +14,12 @@
  * Copyright (c) 2023 Renmin University of China
  */
 
-#include "transaction/transaction_manager.h"
+#include "storage/easystore/transaction/transaction_manager.h"
 
 #include "common/context.h"
-#include "recovery/log_recovery.h"
+#include "storage/easystore/recovery/log_recovery.h"
 #include "system/sm_manager.h"
-#include "transaction/txn_defs.h"
+#include "storage/easystore/transaction/txn_defs.h"
 
 namespace easydb {
 

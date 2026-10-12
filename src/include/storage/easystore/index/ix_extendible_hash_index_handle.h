@@ -15,7 +15,7 @@
 #include "common/rid.h"
 #include "storage/disk/disk_manager.h"
 #include "storage/easystore/index/ix_defs.h"
-#include "storage/easystore/page/page.h"
+#include "storage/page/page.h"
 
 namespace easydb {
 

@@ -12,7 +12,7 @@
 #pragma once
 #include <cstring>
 // #include "common/config.h"
-// #include "storage/easystore/page/page.h"
+// #include "storage/page/page.h"
 // #include "storage/easystore/table/tuple.h"
 
 namespace easydb {

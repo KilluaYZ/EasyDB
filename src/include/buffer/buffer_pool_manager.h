@@ -25,9 +25,9 @@
 #include "buffer/lru_replacer.h"
 #include "common/config.h"
 #include "common/errors.h"
-// #include "recovery/log_manager.h"
+// #include "storage/easystore/recovery/log_manager.h"
 #include "storage/disk/disk_manager.h"
-#include "storage/easystore/page/page.h"
+#include "storage/page/page.h"
 
 namespace easydb {
 

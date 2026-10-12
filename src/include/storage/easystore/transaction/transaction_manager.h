@@ -19,8 +19,8 @@
 #include <atomic>
 #include <unordered_map>
 
-#include "concurrency/lock_manager.h"
-#include "recovery/log_manager.h"
+#include "storage/easystore/concurrency/lock_manager.h"
+#include "storage/easystore/recovery/log_manager.h"
 #include "system/sm_manager.h"
 #include "transaction.h"
 

@@ -21,11 +21,11 @@
 #include "executor_abstract.h"
 #include "planner/plan.h"
 #include "planner/planner.h"
-#include "record/record_printer.h"
-#include "record/rm.h"
+#include "storage/easystore/record/record_printer.h"
+#include "storage/easystore/record/rm.h"
 #include "system/sm_defs.h"
 #include "system/sm_meta.h"
-#include "transaction/transaction_manager.h"
+#include "storage/easystore/transaction/transaction_manager.h"
 
 // class Planner;
 namespace easydb {

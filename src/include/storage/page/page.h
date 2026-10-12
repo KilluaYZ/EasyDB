@@ -4,7 +4,7 @@
  *
  * page.h
  *
- * Identification: src/include/storage/easystore/page/page.h
+ * Identification: src/include/storage/page/page.h
  *
  *-------------------------------------------------------------------------
  */

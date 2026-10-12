@@ -4,7 +4,7 @@
  *
  * lock_manager.cpp
  *
- * Identification: src/concurrency/lock_manager.cpp
+ * Identification: src/storage/easystore/concurrency/lock_manager.cpp
  *
  *-------------------------------------------------------------------------
  */
@@ -14,10 +14,10 @@
  * Copyright (c) 2023 Renmin University of China
  */
 
-#include "concurrency/lock_manager.h"
+#include "storage/easystore/concurrency/lock_manager.h"
 
 #include "common/errors.h"
-#include "transaction/txn_defs.h"
+#include "storage/easystore/transaction/txn_defs.h"
 
 namespace easydb {
 

@@ -8,15 +8,15 @@ EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
 MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
 
-#include "recovery/log_recovery.h"
+#include "storage/easystore/recovery/log_recovery.h"
 
 #include <queue>
 #include <string>
 
 #include "common/config.h"
 #include "common/errors.h"
-#include "recovery/log_manager.h"
-#include "storage/easystore/page/page.h"
+#include "storage/easystore/recovery/log_manager.h"
+#include "storage/page/page.h"
 
 namespace easydb {
 

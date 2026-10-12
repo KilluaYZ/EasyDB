@@ -4,7 +4,7 @@
  *
  * rm_file_handle.cpp
  *
- * Identification: src/record/rm_file_handle.cpp
+ * Identification: src/storage/easystore/record/rm_file_handle.cpp
  *
  *-------------------------------------------------------------------------
  */
@@ -33,7 +33,7 @@
  * | meta | data |
  */
 
-#include "record/rm_file_handle.h"
+#include "storage/easystore/record/rm_file_handle.h"
 #include "common/exception.h"
 #include "common/macros.h"
 #include "common/rid.h"

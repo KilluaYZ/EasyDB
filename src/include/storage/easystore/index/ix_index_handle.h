@@ -28,12 +28,12 @@
 #include <string>
 #include "storage/disk/disk_manager.h"
 #include "storage/easystore/index/ix_defs.h"
-#include "storage/easystore/page/page.h"
+#include "storage/page/page.h"
 
 #include "buffer/buffer_pool_manager.h"
 #include "common/errors.h"
 #include "common/rid.h"
-#include "transaction/transaction.h"
+#include "storage/easystore/transaction/transaction.h"
 
 namespace easydb {
 

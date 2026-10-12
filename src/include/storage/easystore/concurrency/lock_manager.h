@@ -20,7 +20,7 @@
 #include <functional>
 #include <list>
 #include <mutex>
-#include "transaction/transaction.h"
+#include "storage/easystore/transaction/transaction.h"
 
 namespace easydb {
 

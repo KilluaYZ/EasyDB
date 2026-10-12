@@ -11,7 +11,7 @@
 
 #pragma once
 #include "common/rid.h"
-#include "record/rm_scan.h"
+#include "storage/easystore/record/rm_scan.h"
 #include "storage/easystore/index/ix_defs.h"
 #include "storage/easystore/index/ix_index_handle.h"
 

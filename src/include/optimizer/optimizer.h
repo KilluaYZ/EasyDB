@@ -19,9 +19,9 @@ See the Mulan PSL v2 for more details. */
 #include "parser/parser.h"
 #include "planner/plan.h"
 #include "planner/planner.h"
-#include "record/record_printer.h"
+#include "storage/easystore/record/record_printer.h"
 #include "system/sm.h"
-#include "transaction/transaction_manager.h"
+#include "storage/easystore/transaction/transaction_manager.h"
 
 namespace easydb {
 class Optimizer {

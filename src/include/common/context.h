@@ -20,9 +20,9 @@
 #include <cstdlib>
 #include <nlohmann/json.hpp>
 #include <vector>
-#include "concurrency/lock_manager.h"
-#include "recovery/log_manager.h"
-#include "transaction/transaction.h"
+#include "storage/easystore/concurrency/lock_manager.h"
+#include "storage/easystore/recovery/log_manager.h"
+#include "storage/easystore/transaction/transaction.h"
 
 using json = nlohmann::json;
 

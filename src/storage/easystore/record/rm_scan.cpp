@@ -4,14 +4,14 @@
  *
  * rm_scan.cpp
  *
- * Identification: src/record/rm_scan.cpp
+ * Identification: src/storage/easystore/record/rm_scan.cpp
  *
  *-------------------------------------------------------------------------
  */
 
-#include "record/rm_scan.h"
+#include "storage/easystore/record/rm_scan.h"
 #include <cstdint>
-#include "record/rm_file_handle.h"
+#include "storage/easystore/record/rm_file_handle.h"
 
 namespace easydb {
 

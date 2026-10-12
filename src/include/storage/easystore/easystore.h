@@ -1,15 +1,48 @@
 #pragma once
 
+#include <memory>
+#include <string>
+
 #include "storage/storage_engine.h"
 
 namespace easydb {
 
 class SmManager;
+class DiskManager;
+class BufferPoolManager;
+class RmManager;
+class IxManager;
+class LockManager;
+class TransactionManager;
+class LogManager;
+class RecoveryManager;
 
 /** Adapter exposing the current EasyDB storage implementation. */
 class EasyStore final : public StorageEngine {
  public:
-  explicit EasyStore(SmManager *manager) : manager_(manager) {}
+  explicit EasyStore(const std::string &db_name, bool enable_output = true);
+  ~EasyStore() override;
+
+  EasyStore(const EasyStore &) = delete;
+  EasyStore &operator=(const EasyStore &) = delete;
+
+  bool IsDir(const std::string &db_name) const;
+  void CreateDB(const std::string &db_name);
+  void OpenDB(const std::string &db_name);
+  void CloseDB();
+
+  DiskManager *GetDiskManager() const;
+  BufferPoolManager *GetBufferPoolManager() const;
+  RmManager *GetRecordManager() const;
+  IxManager *GetIndexManager() const;
+  LockManager *GetLockManager() const;
+  TransactionManager *GetTransactionManager() const;
+  LogManager *GetLogManager() const;
+  RecoveryManager *GetRecoveryManager() const;
+
+  // Temporary compatibility access for components that still depend on the
+  // legacy system-manager API. This object is owned by EasyStore.
+  SmManager *GetSystemManager() const;
 
   bool HasTable(const std::string &table_name) const override;
   TabMeta &GetTableMeta(const std::string &table_name) override;
@@ -62,7 +95,8 @@ class EasyStore final : public StorageEngine {
   void UpdateTableCount(const std::string &, int) override;
 
  private:
-  SmManager *manager_;
+  class Runtime;
+  std::unique_ptr<Runtime> runtime_;
 };
 
 }  // namespace easydb
