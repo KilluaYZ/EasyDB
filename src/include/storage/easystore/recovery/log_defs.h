@@ -30,7 +30,8 @@ static constexpr std::chrono::duration<int64_t> FLUSH_TIMEOUT =
  * @brief 日志头部格式说明
  *
  * 日志记录格式：
- * | log_type_ | lsn_ | log_tot_len_ | log_tid_ | prev_lsn_ | ...log_data... |
+ * | log_type_ | log_kind_ | lsn_ | log_tot_len_ | log_tid_ | prev_lsn_ |
+ * ...log_data...
  *
  * 各字段的偏移量定义如下：
  */
@@ -38,8 +39,11 @@ static constexpr std::chrono::duration<int64_t> FLUSH_TIMEOUT =
 /** @brief log_type_在日志头部中的偏移量 */
 static constexpr int OFFSET_LOG_TYPE = 0;
 
+/** @brief 日志类别（Redo/Undo/System）在日志头部中的偏移量 */
+static constexpr int OFFSET_LOG_KIND = sizeof(int);
+
 /** @brief lsn_在日志头部中的偏移量 */
-static constexpr int OFFSET_LSN = sizeof(int);
+static constexpr int OFFSET_LSN = OFFSET_LOG_KIND + sizeof(uint8_t);
 
 /** @brief log_tot_len_在日志头部中的偏移量 */
 static constexpr int OFFSET_LOG_TOT_LEN = OFFSET_LSN + sizeof(lsn_t);

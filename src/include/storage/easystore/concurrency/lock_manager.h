@@ -32,7 +32,7 @@ namespace easydb {
  *
  * LockManager 实现了两阶段锁定（2PL）协议，支持多种锁类型和死锁预防策略。
  * 主要功能：
- * - 管理表级锁和行级锁
+ * - 管理表级锁
  * - 支持锁的升级和降级
  * - 实现wait-die死锁预防策略
  * - 维护全局锁表
@@ -125,15 +125,6 @@ class LockManager {
   ~LockManager() { lock_table_.clear(); }
 
   /**
-   * @brief 在记录上申请共享锁（行级读锁）
-   * @param txn 要申请锁的事务对象指针
-   * @param rid 加锁的目标记录ID
-   * @param tab_fd 记录所在的表的文件描述符
-   * @return true 如果加锁成功，false 否则
-   */
-  bool LockSharedOnRecord(Transaction *txn, const RID &rid, int tab_fd);
-
-  /**
    * @brief 在索引间隙上申请间隙锁
    * @param txn 要申请锁的事务对象指针
    * @param iid 索引项ID
@@ -147,15 +138,6 @@ class LockManager {
    * @param iid 索引项ID
    * @param tab_fd 表文件描述符
    */
-
-  /**
-   * @brief 在记录上申请排他锁（行级写锁）
-   * @param txn 要申请锁的事务对象指针
-   * @param rid 加锁的目标记录ID
-   * @param tab_fd 记录所在的表的文件描述符
-   * @return true 如果加锁成功，false 否则
-   */
-  bool LockExclusiveOnRecord(Transaction *txn, const RID &rid, int tab_fd);
 
   /**
    * @brief 在表上申请共享锁（表级读锁）

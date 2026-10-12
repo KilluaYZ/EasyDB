@@ -52,17 +52,28 @@ std::unique_ptr<Tuple> DeleteExecutor::Next() {
 
     // get records
     auto rec = storage_engine_->ReadTuple(tab_name_, key_tuple, context_);
+    if (rec == nullptr) continue;
+
+    if (context_ != nullptr && context_->txn_ != nullptr &&
+        context_->log_mgr_ != nullptr) {
+      RedoLogRecord redo(LogKind::REDO, DELETE,
+                         context_->txn_->GetTransactionId(),
+                         context_->txn_->GetPrevLsn(), tab_name_, key_tuple,
+                         *rec, Tuple{});
+      auto lsn = context_->log_mgr_->add_log_to_buffer(&redo);
+      context_->txn_->SetPrevLsn(lsn);
+
+      UndoLogRecord undo(LogKind::UNDO, DELETE,
+                         context_->txn_->GetTransactionId(),
+                         context_->txn_->GetPrevLsn(), tab_name_, key_tuple,
+                         *rec, Tuple{});
+      lsn = context_->log_mgr_->add_log_to_buffer(&undo);
+      context_->txn_->SetPrevLsn(lsn);
+      context_->log_mgr_->flush_log_to_disk();
+    }
 
     // delete records
     storage_engine_->DeleteTuple(tab_name_, key_tuple, context_);
-
-    // // Log the delete operation
-    // DeleteLogRecord del_log_rec(context_->txn_->GetTransactionId(), *rec,
-    // rid, tab_name_); del_log_rec.prev_lsn_ = context_->txn_->GetPrevLsn();
-    // lsn_t lsn = context_->log_mgr_->add_log_to_buffer(&del_log_rec);
-    // context_->txn_->SetPrevLsn(lsn);
-    // // set lsn in page header
-    // fh_->SetPageLSN(rid.GetPageId(), lsn);
 
     // Update context_ for rollback
     WriteRecord *write_record =

@@ -1,8 +1,8 @@
+#include <stdio.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <readline/history.h>
 #include <readline/readline.h>
-#include <stdio.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>

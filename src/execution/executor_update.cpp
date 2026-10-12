@@ -75,20 +75,27 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
 
     Tuple new_tuple{new_values, &tab_.schema};
 
-    // // Log the update operation(before update old value: *rec)
-    // UpdateLogRecord update_log_rec(context_->txn_->GetTransactionId(), *rec,
-    // buf, rid, tab_name_);
+    if (context_ != nullptr && context_->txn_ != nullptr &&
+        context_->log_mgr_ != nullptr) {
+      RedoLogRecord redo(LogKind::REDO, UPDATE,
+                         context_->txn_->GetTransactionId(),
+                         context_->txn_->GetPrevLsn(), tab_name_, key_tuple,
+                         *tuple, new_tuple);
+      auto lsn = context_->log_mgr_->add_log_to_buffer(&redo);
+      context_->txn_->SetPrevLsn(lsn);
+
+      UndoLogRecord undo(LogKind::UNDO, UPDATE,
+                         context_->txn_->GetTransactionId(),
+                         context_->txn_->GetPrevLsn(), tab_name_, key_tuple,
+                         *tuple, new_tuple);
+      lsn = context_->log_mgr_->add_log_to_buffer(&undo);
+      context_->txn_->SetPrevLsn(lsn);
+      context_->log_mgr_->flush_log_to_disk();
+    }
 
     // update records
     // fh_->UpdateTupleInPlace(TupleMeta{0, false}, new_tuple, context_);
     storage_engine_->UpdateTuple(tab_name_, key_tuple, new_tuple, context_);
-
-    // // Log the update operation(after update)
-    // update_log_rec.prev_lsn_ = context_->txn_->GetPrevLsn();
-    // lsn_t lsn = context_->log_mgr_->add_log_to_buffer(&update_log_rec);
-    // context_->txn_->SetPrevLsn(lsn);
-    // // set lsn in page header
-    // fh_->SetPageLSN(rid.page_no, lsn);
 
     // Update context_ for rollback
     WriteRecord *write_record =

@@ -78,4 +78,31 @@ TEST_F(DiskManagerTest, LogPersistsAndResumesLsn) {
   EXPECT_GT(dm.GetLogSize(), static_cast<size_t>(LOG_HEADER_SIZE));
 }
 
+// NOLINTNEXTLINE
+TEST_F(DiskManagerTest, ClusteredRedoUndoLogRoundTrip) {
+  const Tuple key(std::vector<char>{'k', 'e', 'y'});
+  const Tuple old_tuple(std::vector<char>{'o', 'l', 'd'});
+  const Tuple new_tuple(std::vector<char>{'n', 'e', 'w'});
+
+  RedoLogRecord redo(LogKind::REDO, UPDATE, 7, INVALID_LSN, "users", key,
+                     old_tuple, new_tuple);
+  std::vector<char> buffer(redo.log_tot_len_);
+  redo.serialize(buffer.data());
+
+  TupleLogRecord restored;
+  restored.deserialize(buffer.data());
+
+  EXPECT_EQ(restored.GetKind(), LogKind::REDO);
+  EXPECT_EQ(restored.GetOperation(), UPDATE);
+  EXPECT_EQ(restored.log_tid_, 7);
+  EXPECT_EQ(restored.GetTableName(), "users");
+  EXPECT_TRUE(IsTupleContentEqual(restored.GetKey(), key));
+  EXPECT_TRUE(IsTupleContentEqual(restored.GetOldTuple(), old_tuple));
+  EXPECT_TRUE(IsTupleContentEqual(restored.GetNewTuple(), new_tuple));
+
+  UndoLogRecord undo(LogKind::UNDO, UPDATE, 7, redo.lsn_, "users", key,
+                     old_tuple, new_tuple);
+  EXPECT_EQ(undo.GetKind(), LogKind::UNDO);
+}
+
 }  // namespace easydb

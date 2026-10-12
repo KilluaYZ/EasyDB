@@ -134,18 +134,17 @@ class WriteRecord {
 };
 
 /**
- * @brief 多粒度锁的加锁对象类型枚举
- * @note 包括表和记录两种类型
+ * @brief 加锁对象类型。
+ *
+ * 聚簇表的记录由主键定位，不再使用 RID 作为运行时存储标识。
+ * 当前锁管理器只保留表级锁；记录级锁将在基于主键的锁键设计完成后再引入。
  */
-enum class LockDataType {
-  TABLE = 0,  /**< 表级锁 */
-  RECORD = 1, /**< 行级锁（记录锁） */
-};
+enum class LockDataType { TABLE = 0 };
 
 /**
  * @brief 加锁对象的唯一标识类
  *
- * LockDataId 用于唯一标识一个加锁对象，可以是表、记录或索引间隙。
+ * LockDataId 用于唯一标识一个表级加锁对象。
  * 用于在锁表中查找和管理锁请求。
  */
 class LockDataId {
@@ -159,43 +158,14 @@ class LockDataId {
     assert(type == LockDataType::TABLE);
     fd_ = fd;
     type_ = type;
-    // rid_.page_no = -1;
-    // rid_.slot_no = -1;
-    rid_.Set(0, 0);
-  }
-
-  /**
-   * @brief 行级锁的构造函数
-   * @param fd 文件描述符
-   * @param rid 记录ID
-   * @param type 锁数据类型（必须是LockDataType::RECORD）
-   */
-  LockDataId(int fd, const RID &rid, LockDataType type) {
-    assert(type == LockDataType::RECORD);
-    fd_ = fd;
-    rid_ = rid;
-    type_ = type;
   }
 
   /**
    * @brief 将LockDataId编码为64位整数
    * @return 64位整数表示
-   * @note
-   *   - 如果type_是GAP，由于2的二进制是10，移位会导致溢出
-   *   - 但由于RECORD类型的二进制表示是1，且fd_不同，仍然可以区分
-   *   - 避免与TABLE类型的二进制表示冲突
    */
   inline int64_t Get() const {
-    if (type_ == LockDataType::TABLE) {
-      // fd_
-      return static_cast<int64_t>(fd_);
-    } else {
-      // fd_, rid_.page_no, rid.slot_no
-      return ((static_cast<int64_t>(type_)) << 63) |
-             ((static_cast<int64_t>(fd_)) << 31) |
-             ((static_cast<int64_t>(rid_.GetPageId())) << 16) |
-             rid_.GetSlotNum();
-    }
+    return static_cast<int64_t>(fd_);
   }
 
   /**
@@ -205,15 +175,11 @@ class LockDataId {
    */
   bool operator==(const LockDataId &other) const {
     if (type_ != other.type_) return false;
-    if (fd_ != other.fd_) return false;
-    return rid_ == other.rid_;
+    return fd_ == other.fd_;
   }
 
   /** @brief 文件描述符 */
   int fd_;
-
-  /** @brief 记录ID（对于表级锁，此字段未使用） */
-  RID rid_;
 
   /** @brief 锁数据类型 */
   LockDataType type_;

@@ -48,17 +48,29 @@ InsertExecutor::InsertExecutor(StorageEngine *storage_engine,
 std::unique_ptr<Tuple> InsertExecutor::Next() {
   // 构造元组
   Tuple tuple{values_, &tab_.schema};
+
+  if (context_ != nullptr && context_->txn_ != nullptr &&
+      context_->log_mgr_ != nullptr) {
+    RedoLogRecord redo(LogKind::REDO, INSERT,
+                       context_->txn_->GetTransactionId(),
+                       context_->txn_->GetPrevLsn(), tab_name_, tuple, Tuple{},
+                       tuple);
+    auto lsn = context_->log_mgr_->add_log_to_buffer(&redo);
+    context_->txn_->SetPrevLsn(lsn);
+
+    UndoLogRecord undo(LogKind::UNDO, INSERT,
+                       context_->txn_->GetTransactionId(),
+                       context_->txn_->GetPrevLsn(), tab_name_, tuple, Tuple{},
+                       tuple);
+    lsn = context_->log_mgr_->add_log_to_buffer(&undo);
+    context_->txn_->SetPrevLsn(lsn);
+    // The clustered page must not become durable before both records are durable.
+    context_->log_mgr_->flush_log_to_disk();
+  }
+
   if (!storage_engine_->InsertTuple(tab_name_, tuple, context_)) {
     throw InternalError("failed to insert tuple into clustered table");
   }
-
-  // // Log the insert operation
-  // InsertLogRecord insert_log_rec(context_->txn_->GetTransactionId(), rec,
-  // rid_, tab_name_); insert_log_rec.prev_lsn_ = context_->txn_->GetPrevLsn();
-  // lsn_t lsn = context_->log_mgr_->add_log_to_buffer(&insert_log_rec);
-  // context_->txn_->SetPrevLsn(lsn);
-  // // set lsn in page header
-  // fh_->SetPageLSN(rid_.GetPageId(), lsn);
 
   // Update context_ for rollback (be sure to update after record insert)
   WriteRecord *write_record =
