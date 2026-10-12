@@ -41,7 +41,7 @@ class ClusteredTableHandle {
   auto ScanRecords() -> std::vector<ClusteredLeafEntry>;
   auto Purge(timestamp_t oldest_snapshot_ts,
              const std::unordered_map<txn_id_t, timestamp_t> &committed_txns)
-      -> size_t;
+      -> std::vector<lsn_t>;
 
  private:
   auto MakeKey(const Tuple &tuple) const -> std::vector<char>;

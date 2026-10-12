@@ -96,10 +96,13 @@ void ClusteredTableManager::Flush() {
 
 auto ClusteredTableManager::Purge(
     timestamp_t oldest_snapshot_ts,
-    const std::unordered_map<txn_id_t, timestamp_t> &committed_txns) -> size_t {
-  size_t purged = 0;
+    const std::unordered_map<txn_id_t, timestamp_t> &committed_txns)
+    -> std::vector<lsn_t> {
+  std::vector<lsn_t> purged;
   for (auto &entry : entries_) {
-    purged += entry.second->table->Purge(oldest_snapshot_ts, committed_txns);
+    auto table_purged =
+        entry.second->table->Purge(oldest_snapshot_ts, committed_txns);
+    purged.insert(purged.end(), table_purged.begin(), table_purged.end());
   }
   return purged;
 }

@@ -99,6 +99,7 @@ class DiskManager {
   auto GetFileName(int fd) -> std::filesystem::path;
 
   int GetFileFd(const std::string &path);
+  const std::filesystem::path &GetDatabasePath() const { return dir_name_; }
 
   /**
    * Sets the mapping of file descriptor to page number.

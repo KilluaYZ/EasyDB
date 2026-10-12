@@ -84,6 +84,7 @@ static constexpr int VARCHAR_DEFAULT_LENGTH = 128;
 
 /** @brief 日志文件名 */
 static const std::string LOG_FILE_NAME = "db.log";
+static const std::string UNDO_LOG_FILE_NAME = "undo.log";
 /** @brief 重启文件名（用于恢复） */
 static const std::string RESTART_FILE_NAME = "db.restart";
 

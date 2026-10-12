@@ -29,7 +29,7 @@ class ClusteredTableManager {
   void Flush();
   auto Purge(timestamp_t oldest_snapshot_ts,
              const std::unordered_map<txn_id_t, timestamp_t> &committed_txns)
-      -> size_t;
+      -> std::vector<lsn_t>;
 
   auto Get(const std::string &table_name) const -> ClusteredTableHandle *;
   bool Has(const std::string &table_name) const;
