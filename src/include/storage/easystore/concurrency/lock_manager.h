@@ -32,7 +32,7 @@ namespace easydb {
  *
  * LockManager 实现了两阶段锁定（2PL）协议，支持多种锁类型和死锁预防策略。
  * 主要功能：
- * - 管理表级锁
+ * - 管理表级、记录级和索引范围锁
  * - 支持锁的升级和降级
  * - 实现wait-die死锁预防策略
  * - 维护全局锁表
@@ -50,6 +50,7 @@ class LockManager {
                           */
     S_IX, /**< SIX锁（意向排他锁+共享锁），表级锁，允许在表上加S锁，在行上加X锁
            */
+    INSERT_INTENTION, /**< 插入意向锁，只用于索引间隙 */
   };
 
   /**
@@ -171,6 +172,39 @@ class LockManager {
    */
   bool LockIXOnTable(Transaction *txn, int tab_fd);
 
+  /** @brief 在聚簇索引记录上申请共享锁。 */
+  bool LockSharedOnRecord(Transaction *txn, int tab_fd,
+                          const std::vector<char> &key);
+
+  /** @brief 在聚簇索引记录上申请排他锁。 */
+  bool LockExclusiveOnRecord(Transaction *txn, int tab_fd,
+                             const std::vector<char> &key);
+
+  /** @brief 在索引间隙上申请共享锁。 */
+  bool LockSharedOnGap(Transaction *txn, int tab_fd,
+                       const std::vector<char> &lower_key,
+                       const std::vector<char> &upper_key);
+
+  /** @brief 在索引间隙上申请排他锁。 */
+  bool LockExclusiveOnGap(Transaction *txn, int tab_fd,
+                          const std::vector<char> &lower_key,
+                          const std::vector<char> &upper_key);
+
+  /** @brief 在索引记录及其前置间隙上申请共享 Next-Key 锁。 */
+  bool LockSharedOnNextKey(Transaction *txn, int tab_fd,
+                           const std::vector<char> &lower_key,
+                           const std::vector<char> &upper_key);
+
+  /** @brief 在索引记录及其前置间隙上申请排他 Next-Key 锁。 */
+  bool LockExclusiveOnNextKey(Transaction *txn, int tab_fd,
+                              const std::vector<char> &lower_key,
+                              const std::vector<char> &upper_key);
+
+  /** @brief 申请插入意向锁。 */
+  bool LockInsertIntention(Transaction *txn, int tab_fd,
+                           const std::vector<char> &lower_key,
+                           const std::vector<char> &upper_key);
+
   /**
    * @brief 释放锁
    * @param txn 要释放锁的事务对象指针
@@ -212,6 +246,20 @@ class LockManager {
                       std::function<bool()> wake);
 
  private:
+  bool LockResource(Transaction *txn, const LockDataId &lock_data_id,
+                    LockMode lock_mode);
+
+  static bool Compatible(LockMode requested, LockMode held);
+
+  /**
+   * @brief 判断两个记录/索引范围锁对象是否相交。
+   *
+   * 记录锁被视为单点，GAP/NEXT_KEY/INSERT_INTENTION 被视为索引区间。
+   * 空的下界或上界分别表示负无穷和正无穷。
+   */
+  static bool ResourcesConflict(const LockDataId &left,
+                                const LockDataId &right);
+
   /**
    * @brief 保护锁表的互斥锁，用于确保锁表操作的线程安全性
    */

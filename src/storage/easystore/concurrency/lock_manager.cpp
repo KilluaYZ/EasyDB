@@ -391,6 +391,248 @@ bool LockManager::LockIXOnTable(Transaction *txn, int tab_fd) {
   return true;
 }
 
+bool LockManager::Compatible(LockMode requested, LockMode held) {
+  // Insert intention locks from different transactions can coexist. They are
+  // blocked by a gap/next-key lock, while record S/X and all table locks use
+  // the normal compatibility rules in their own lock queues.
+  if (requested == LockMode::INSERT_INTENTION &&
+      held == LockMode::INSERT_INTENTION) {
+    return true;
+  }
+  if (requested == LockMode::INSERT_INTENTION ||
+      held == LockMode::INSERT_INTENTION) {
+    return false;
+  }
+  if (requested == LockMode::EXCLUSIVE || held == LockMode::EXCLUSIVE) {
+    return false;
+  }
+  if (requested == LockMode::SHARED && held == LockMode::SHARED) {
+    return true;
+  }
+  // Intention modes are only used by the existing table-lock paths. Treat
+  // them as compatible in resource queues; table lock compatibility remains
+  // handled by the existing table-specific code above.
+  return requested == LockMode::INTENTION_SHARED &&
+         held == LockMode::INTENTION_SHARED;
+}
+
+bool LockManager::ResourcesConflict(const LockDataId &left,
+                                    const LockDataId &right) {
+  if (left.fd_ != right.fd_) {
+    return false;
+  }
+
+  const bool left_record = left.type_ == LockDataType::RECORD;
+  const bool right_record = right.type_ == LockDataType::RECORD;
+  const bool left_range = left.type_ == LockDataType::GAP ||
+                          left.type_ == LockDataType::NEXT_KEY ||
+                          left.type_ == LockDataType::INSERT_INTENTION;
+  const bool right_range = right.type_ == LockDataType::GAP ||
+                           right.type_ == LockDataType::NEXT_KEY ||
+                           right.type_ == LockDataType::INSERT_INTENTION;
+
+  if (!((left_record || left_range) && (right_record || right_range))) {
+    // Table locks are maintained in their own table-lock queue. Hierarchical
+    // table-vs-record checks are performed by the intention-lock protocol.
+    return false;
+  }
+
+  if (left_record && right_record) {
+    return left.lower_key_ == right.lower_key_;
+  }
+
+  auto point_in_range = [](const std::vector<char> &point,
+                           const std::vector<char> &lower,
+                           const std::vector<char> &upper) {
+    const bool after_lower = lower.empty() || point >= lower;
+    const bool before_upper = upper.empty() || point < upper;
+    return after_lower && before_upper;
+  };
+
+  if (left_record) {
+    return point_in_range(left.lower_key_, right.lower_key_,
+                          right.upper_key_);
+  }
+  if (right_record) {
+    return point_in_range(right.lower_key_, left.lower_key_,
+                          left.upper_key_);
+  }
+
+  // Both objects are ranges represented as [lower_key, upper_key). Two
+  // ranges overlap unless one ends at or before the other begins. Empty
+  // bounds represent unbounded endpoints.
+  const bool left_before_right = !left.upper_key_.empty() &&
+                                 !right.lower_key_.empty() &&
+                                 left.upper_key_ <= right.lower_key_;
+  const bool right_before_left = !right.upper_key_.empty() &&
+                                 !left.lower_key_.empty() &&
+                                 right.upper_key_ <= left.lower_key_;
+  return !left_before_right && !right_before_left;
+}
+
+bool LockManager::LockResource(Transaction *txn,
+                               const LockDataId &lock_data_id,
+                               LockMode lock_mode) {
+  if (!CheckTxnStateLock(txn)) {
+    return false;
+  }
+
+  std::unique_lock<std::mutex> lock(latch_);
+  LockRequestQueue &request_queue = lock_table_[lock_data_id];
+
+  auto can_grant = [&]() {
+    for (const auto &[resource, queue] : lock_table_) {
+      if (!ResourcesConflict(lock_data_id, resource)) {
+        continue;
+      }
+      for (const auto &request : queue.request_queue_) {
+        if (request.txn_id_ != txn->GetTransactionId() &&
+            !Compatible(lock_mode, request.lock_mode_)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+
+  for (auto &request : request_queue.request_queue_) {
+    if (request.txn_id_ != txn->GetTransactionId()) {
+      continue;
+    }
+    if (request.lock_mode_ == lock_mode ||
+        (request.lock_mode_ == LockMode::EXCLUSIVE &&
+         lock_mode == LockMode::SHARED)) {
+      return true;
+    }
+
+    // The only supported resource-level upgrade is S -> X. A transaction
+    // already holding an insert-intention lock must request the actual
+    // record X lock separately.
+    auto wake = [&]() { return can_grant(); };
+    while (!can_grant()) {
+      bool waited = false;
+      for (auto &[resource, queue] : lock_table_) {
+        if (!ResourcesConflict(lock_data_id, resource)) {
+          continue;
+        }
+        for (auto &holder : queue.request_queue_) {
+          if (holder.txn_id_ != txn->GetTransactionId() &&
+              !Compatible(lock_mode, holder.lock_mode_)) {
+            WaitDie(txn, holder, queue, lock, wake);
+            waited = true;
+            break;
+          }
+        }
+        if (waited) {
+          break;
+        }
+      }
+      if (!waited) {
+        break;
+      }
+    }
+    request.lock_mode_ = lock_mode;
+    request.granted_ = true;
+    return true;
+  }
+
+  auto wake = [&]() { return can_grant(); };
+  while (!can_grant()) {
+    bool waited = false;
+    for (auto &[resource, queue] : lock_table_) {
+      if (!ResourcesConflict(lock_data_id, resource)) {
+        continue;
+      }
+      for (auto &holder : queue.request_queue_) {
+        if (holder.txn_id_ != txn->GetTransactionId() &&
+            !Compatible(lock_mode, holder.lock_mode_)) {
+          WaitDie(txn, holder, queue, lock, wake);
+          waited = true;
+          break;
+        }
+      }
+      if (waited) {
+        break;
+      }
+    }
+    if (!waited) {
+      break;
+    }
+  }
+
+  request_queue.request_queue_.emplace_back(txn->GetTransactionId(),
+                                             lock_mode);
+  request_queue.request_queue_.back().granted_ = true;
+  txn->GetLockSet()->insert(lock_data_id);
+  return true;
+}
+
+bool LockManager::LockSharedOnRecord(Transaction *txn, int tab_fd,
+                                     const std::vector<char> &key) {
+  return LockResource(txn,
+                      LockDataId(tab_fd, LockDataType::RECORD,
+                                 std::vector<char>(key)),
+                      LockMode::SHARED);
+}
+
+bool LockManager::LockExclusiveOnRecord(Transaction *txn, int tab_fd,
+                                        const std::vector<char> &key) {
+  return LockResource(txn,
+                      LockDataId(tab_fd, LockDataType::RECORD,
+                                 std::vector<char>(key)),
+                      LockMode::EXCLUSIVE);
+}
+
+bool LockManager::LockSharedOnGap(Transaction *txn, int tab_fd,
+                                  const std::vector<char> &lower_key,
+                                  const std::vector<char> &upper_key) {
+  return LockResource(txn,
+                      LockDataId(tab_fd, LockDataType::GAP,
+                                 std::vector<char>(lower_key),
+                                 std::vector<char>(upper_key)),
+                      LockMode::SHARED);
+}
+
+bool LockManager::LockExclusiveOnGap(Transaction *txn, int tab_fd,
+                                     const std::vector<char> &lower_key,
+                                     const std::vector<char> &upper_key) {
+  return LockResource(txn,
+                      LockDataId(tab_fd, LockDataType::GAP,
+                                 std::vector<char>(lower_key),
+                                 std::vector<char>(upper_key)),
+                      LockMode::EXCLUSIVE);
+}
+
+bool LockManager::LockSharedOnNextKey(Transaction *txn, int tab_fd,
+                                      const std::vector<char> &lower_key,
+                                      const std::vector<char> &upper_key) {
+  return LockResource(txn,
+                      LockDataId(tab_fd, LockDataType::NEXT_KEY,
+                                 std::vector<char>(lower_key),
+                                 std::vector<char>(upper_key)),
+                      LockMode::SHARED);
+}
+
+bool LockManager::LockExclusiveOnNextKey(Transaction *txn, int tab_fd,
+                                         const std::vector<char> &lower_key,
+                                         const std::vector<char> &upper_key) {
+  return LockResource(txn,
+                      LockDataId(tab_fd, LockDataType::NEXT_KEY,
+                                 std::vector<char>(lower_key),
+                                 std::vector<char>(upper_key)),
+                      LockMode::EXCLUSIVE);
+}
+
+bool LockManager::LockInsertIntention(Transaction *txn, int tab_fd,
+                                      const std::vector<char> &lower_key,
+                                      const std::vector<char> &upper_key) {
+  return LockResource(txn,
+                      LockDataId(tab_fd, LockDataType::INSERT_INTENTION,
+                                 std::vector<char>(lower_key),
+                                 std::vector<char>(upper_key)),
+                      LockMode::INSERT_INTENTION);
+}
+
 /**
  * @description: 释放锁
  * @return {bool} 返回解锁是否成功
@@ -440,7 +682,9 @@ bool LockManager::Unlock(Transaction *txn, LockDataId lock_data_id) {
   }
 
   // Notify all waiting transactions
-  request_queue.cv_.notify_all();
+  for (auto &[resource, queue] : lock_table_) {
+    queue.cv_.notify_all();
+  }
 
   return true;
 }

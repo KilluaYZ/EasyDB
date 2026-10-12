@@ -10,6 +10,10 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <functional>
+#include <utility>
+#include <vector>
+
 #include "common/config.h"
 #include "storage/easystore/table/tuple.h"
 
@@ -42,22 +46,27 @@ enum class IsolationLevel {
  * @brief 加锁对象类型。
  *
  * 聚簇表的记录由主键定位。
- * 当前锁管理器只保留表级锁；记录级锁将在基于主键的锁键设计完成后再引入。
+ * 锁对象按聚簇索引组织。表锁使用 fd 标识；记录锁使用主键字节串标识；
+ * 间隙锁和 Next-Key 锁使用 [lower_key, upper_key) 表示索引区间。
  */
-enum class LockDataType { TABLE = 0 };
+enum class LockDataType {
+  TABLE = 0,
+  RECORD,
+  GAP,
+  NEXT_KEY,
+  INSERT_INTENTION,
+};
 
 /**
  * @brief 加锁对象的唯一标识类
  *
- * LockDataId 用于唯一标识一个表级加锁对象。
+ * LockDataId 用于唯一标识一个表、记录或索引区间加锁对象。
  * 用于在锁表中查找和管理锁请求。
  */
 class LockDataId {
  public:
   /**
    * @brief 表级锁的构造函数
-   * @param fd 文件描述符
-   * @param type 锁数据类型（必须是LockDataType::TABLE）
    */
   LockDataId(int fd, LockDataType type) {
     assert(type == LockDataType::TABLE);
@@ -65,12 +74,42 @@ class LockDataId {
     type_ = type;
   }
 
+  /** @brief 记录锁或插入意向锁的构造函数。 */
+  LockDataId(int fd, LockDataType type, std::vector<char> key)
+      : fd_(fd), type_(type), lower_key_(std::move(key)) {
+    assert(type == LockDataType::RECORD ||
+           type == LockDataType::INSERT_INTENTION);
+  }
+
+  /** @brief 间隙锁或 Next-Key 锁的构造函数。 */
+  LockDataId(int fd, LockDataType type, std::vector<char> lower_key,
+             std::vector<char> upper_key)
+      : fd_(fd),
+        type_(type),
+        lower_key_(std::move(lower_key)),
+        upper_key_(std::move(upper_key)) {
+    assert(type == LockDataType::GAP || type == LockDataType::NEXT_KEY ||
+           type == LockDataType::INSERT_INTENTION);
+  }
+
   /**
    * @brief 将LockDataId编码为64位整数
    * @return 64位整数表示
    */
   inline int64_t Get() const {
-    return static_cast<int64_t>(fd_);
+    size_t hash = std::hash<int>{}(fd_);
+    hash ^= std::hash<int>{}(static_cast<int>(type_)) + 0x9e3779b9 +
+            (hash << 6) + (hash >> 2);
+    for (char byte : lower_key_) {
+      hash ^= std::hash<unsigned char>{}(static_cast<unsigned char>(byte)) +
+              0x9e3779b9 + (hash << 6) + (hash >> 2);
+    }
+    hash ^= 0x9e3779b9 + (hash << 6) + (hash >> 2);
+    for (char byte : upper_key_) {
+      hash ^= std::hash<unsigned char>{}(static_cast<unsigned char>(byte)) +
+              0x9e3779b9 + (hash << 6) + (hash >> 2);
+    }
+    return static_cast<int64_t>(hash);
   }
 
   /**
@@ -80,14 +119,25 @@ class LockDataId {
    */
   bool operator==(const LockDataId &other) const {
     if (type_ != other.type_) return false;
-    return fd_ == other.fd_;
+    return fd_ == other.fd_ && lower_key_ == other.lower_key_ &&
+           upper_key_ == other.upper_key_;
   }
+
+  LockDataType GetType() const { return type_; }
+  const std::vector<char> &GetLowerKey() const { return lower_key_; }
+  const std::vector<char> &GetUpperKey() const { return upper_key_; }
 
   /** @brief 文件描述符 */
   int fd_;
 
   /** @brief 锁数据类型 */
   LockDataType type_;
+
+  /** @brief 记录主键，或区间下界 */
+  std::vector<char> lower_key_;
+
+  /** @brief 区间上界；记录锁和插入意向锁为空 */
+  std::vector<char> upper_key_;
 };
 
 /**
