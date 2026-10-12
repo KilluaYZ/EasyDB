@@ -30,7 +30,6 @@ class MergeSorter {
   size_t tuple_len_;
 
   std::vector<Tuple> record_tmp_buffer;
-  // std::vector<RmRecord> record_tmp_buffer;
   std::vector<std::ifstream> fd_list;
 
   std::vector<int> ls;

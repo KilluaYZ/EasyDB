@@ -49,7 +49,7 @@ class InsertExecutor : public AbstractExecutor {
 
   /**
    * @brief 插入的位置（记录ID）
-   * @note 由于系统默认插入时不指定位置，因此当前rid_在插入后才赋值
+   * @note 聚簇表插入后由主键定位记录。
    */
 
   /**

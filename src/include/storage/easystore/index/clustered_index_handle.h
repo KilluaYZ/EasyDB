@@ -14,7 +14,7 @@ namespace easydb {
  *
  * The leaf pages contain key+tuple bytes.  The first implementation supports
  * a leaf root and a one-level internal root; this gives the new storage layout
- * a usable insertion/lookup path while the old RID index remains untouched.
+ * a usable insertion/lookup path for clustered table storage.
  */
 class ClusteredIndexHandle {
  public:

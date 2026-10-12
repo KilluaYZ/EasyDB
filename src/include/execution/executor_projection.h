@@ -45,9 +45,6 @@ class ProjectionExecutor : public AbstractExecutor {
    */
   std::vector<uint32_t> sel_ids_;
 
-  // RmRecord projection_records_;             // temp projection record(added
-  // by flerovium)
-
   /**
    * @brief 临时投影记录
    * @note 存储当前投影后的元组数据
@@ -100,14 +97,6 @@ class ProjectionExecutor : public AbstractExecutor {
    * @note 从子节点获取元组，提取指定的列，形成新的元组
    */
   std::unique_ptr<Tuple> Next() override;
-  // std::unique_ptr<RmRecord> Next() override { return
-  // std::make_unique<RmRecord>(projection_records_); }
-
-  /**
-   * @brief 获取当前元组的RID
-   * @return 抽象RID的引用
-   */
-
   /**
    * @brief 获取模式
    * @return 模式的常量引用
@@ -142,7 +131,6 @@ class ProjectionExecutor : public AbstractExecutor {
    * @return 投影后的元组
    * @note 从输入元组中提取指定的列，形成新的元组
    */
-  // RmRecord projectRecord();
   Tuple projectRecord();
 
   /**

@@ -89,7 +89,7 @@ void DdlManager::CreateIndex(const std::string &table_name,
   (void)column_names;
   (void)context;
   throw Exception(
-      "secondary RID indexes have been removed; use the clustered primary key");
+      "secondary indexes have been removed; use the clustered primary key");
 }
 
 void DdlManager::DropIndex(const std::string &table_name,
@@ -99,7 +99,7 @@ void DdlManager::DropIndex(const std::string &table_name,
   (void)column_names;
   (void)context;
   throw Exception(
-      "secondary RID indexes have been removed; there is no independent index "
+      "secondary indexes have been removed; there is no independent index "
       "to drop");
 }
 

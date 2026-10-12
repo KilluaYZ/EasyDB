@@ -127,14 +127,6 @@ class SortExecutor : public AbstractExecutor {
     tp.DeserializeFrom(current_data_);
     return std::make_unique<Tuple>(tp);
   }
-  // std::unique_ptr<RmRecord> Next() override { return
-  // std::move(current_tuple); }
-
-  /**
-   * @brief 获取当前元组的RID
-   * @return 抽象RID的引用
-   */
-
   // const std::vector<ColMeta> &cols() const override { return prev_->cols();
   // };
 

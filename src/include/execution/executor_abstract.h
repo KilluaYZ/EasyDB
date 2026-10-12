@@ -114,8 +114,6 @@ class AbstractExecutor {
    */
   virtual std::unique_ptr<Tuple> Next() = 0;
 
-  // virtual std::unique_ptr<RmRecord> Next() = 0;
-
   /**
    * @brief 根据TabCol获取列元数据
    * @param target 目标列标识

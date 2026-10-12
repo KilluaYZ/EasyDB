@@ -81,12 +81,8 @@ class IndexScanExecutor : public AbstractExecutor {
   IndexMeta index_meta_;
 
   /**
-   * @brief 当前元组的记录ID
-   */
-
-  /**
    * @brief 索引扫描器
-   * @note 用于遍历索引，获取满足条件的RID列表
+   * @note 用于遍历聚簇索引，获取满足条件的元组
    */
   std::unique_ptr<IndexScan> scan_;
 
@@ -155,7 +151,7 @@ class IndexScanExecutor : public AbstractExecutor {
   /**
    * @brief 获取下一个元组
    * @return 下一个元组的智能指针，如果没有更多元组则返回nullptr
-   * @note 根据RID从表中读取完整的元组数据
+   * @note 直接从聚簇索引叶子节点读取完整元组
    */
   std::unique_ptr<Tuple> Next() override {
     // assert(!IsEnd());

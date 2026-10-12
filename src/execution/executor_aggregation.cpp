@@ -190,7 +190,6 @@ std::unique_ptr<Tuple> AggregationExecutor::Next() {
 //   return true;
 // }
 
-// bool AggregationExecutor::predicate(std::vector<RmRecord> records) {
 //   bool satisfy = true;
 //   // return true only all the conditions were true
 //   // i.e. all conditions are connected with 'and' operator

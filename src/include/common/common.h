@@ -111,19 +111,6 @@ struct SetClause {
   }
 };
 
-// struct cmpRecord {
-//   cmpRecord(bool asce, ColMeta col) : asce_(asce), col_(col) {}
-//   bool operator()(const RmRecord &pl, const RmRecord &pr) const {
-//     Value leftVal, rightVal;
-//     // leftVal.get_value_from_record(pl, col_);
-//     // rightVal.get_value_from_record(pr, col_);
-//     return !asce_ ? leftVal < rightVal : leftVal > rightVal;
-//   }
-//  private:
-//   bool asce_;
-//   ColMeta col_;
-// };
-
 /**
  * @brief 元组比较器结构体，用于排序操作
  *

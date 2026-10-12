@@ -77,7 +77,6 @@ class MergeJoinExecutor : public AbstractExecutor {
    * @brief 连接后的记录
    */
   Tuple joined_records_;
-  // RmRecord joined_records_;
 
   /**
    * @brief 是否使用索引标志
@@ -110,9 +109,6 @@ class MergeJoinExecutor : public AbstractExecutor {
    */
   std::unique_ptr<MergeSorter> rightSorter_;
 
-  // RmRecord current_left_rec_;
-  // RmRecord current_right_rec_;
-
   /**
    * @brief 当前左表元组
    */
@@ -142,9 +138,6 @@ class MergeJoinExecutor : public AbstractExecutor {
    * @brief 右表元组大小（字节数）
    */
   uint32_t right_size_;
-  // std::vector<RmRecord> left_buffer_;
-  // std::vector<RmRecord> right_buffer_;
-
   /**
    * @brief 左表元组缓冲区
    */

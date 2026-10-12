@@ -42,8 +42,7 @@ class EmptyExecutor : public AbstractExecutor {
   bool IsEnd() { return end_; }
 
   /**
-   * @brief 获取当前元组的RID
-   * @return RID的引用
+   * @brief 空执行器没有当前元组
    */
 
   /**

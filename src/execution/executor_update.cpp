@@ -19,7 +19,7 @@ namespace easydb {
  * @param tab_name 表名
  * @param set_clauses 更新子句列表
  * @param conds 更新条件
- * @param rids 要更新的记录ID列表
+ * @param tuples 要更新的聚簇表主键元组列表
  * @param context 上下文指针
  */
 UpdateExecutor::UpdateExecutor(StorageEngine *storage_engine,

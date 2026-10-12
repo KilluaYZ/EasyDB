@@ -157,8 +157,7 @@ class AggregationExecutor : public AbstractExecutor {
   std::unique_ptr<Tuple> Next() override;
 
   /**
-   * @brief 获取当前元组的RID
-   * @return 抽象RID的引用
+   * @brief 获取当前聚合结果元组
    */
 
   /**

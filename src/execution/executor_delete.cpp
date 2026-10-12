@@ -19,7 +19,7 @@ namespace easydb {
  * @param storage_engine 系统管理器指针
  * @param tab_name 表名
  * @param conds 删除条件
- * @param rids 要删除的记录ID列表
+ * @param tuples 要删除的聚簇表主键元组列表
  * @param context 上下文指针
  */
 DeleteExecutor::DeleteExecutor(StorageEngine *storage_engine,

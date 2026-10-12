@@ -74,17 +74,10 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
    */
   bool isend;
 
-  // RmRecord joined_records_;
-
   /**
    * @brief 连接后的记录
    */
   Tuple joined_records_;
-
-  // std::vector<RmRecord> left_buffer_;
-  // std::vector<RmRecord> right_buffer_;
-  // ColMeta left_sel_col_;
-  // ColMeta right_sel_col_;
 
   /**
    * @brief 左表元组缓冲区
@@ -166,13 +159,6 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
 
   void beginTuple() override;
 
-  // void printRecord(RmRecord record, std::vector<ColMeta> cols);
-
-  // void printRecord(char *data, std::vector<ColMeta> cols);
-
-  // void printRecord(std::unique_ptr<RmRecord> &Tuple, const
-  // std::vector<ColMeta> &cols);
-
   void nextTuple() override;
 
   std::unique_ptr<Tuple> Next() override {
@@ -215,7 +201,6 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
 
   void iterate_next();
 
-  // RmRecord concat_records();
   Tuple concat_records();
 };
 }  // namespace easydb

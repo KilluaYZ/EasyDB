@@ -44,8 +44,7 @@ class UpdateExecutor : public AbstractExecutor {
    * @note 用于执行实际的更新操作
    */
   /**
-   * @brief 需要更新的记录的位置列表
-   * @note 存储所有满足条件的元组的RID
+   * @brief 需要更新的聚簇表主键元组列表
    */
   std::vector<Tuple> tuples_;
 
@@ -72,7 +71,7 @@ class UpdateExecutor : public AbstractExecutor {
    * @param tab_name 表名
    * @param set_clauses SET子句列表
    * @param conds 更新条件列表
-   * @param rids 要更新的记录ID列表（如果为空，则根据条件查找）
+   * @param tuples 要更新的主键元组列表（如果为空，则根据条件查找）
    * @param context 事务上下文指针
    */
   UpdateExecutor(StorageEngine *storage_engine, const std::string &tab_name,
@@ -84,7 +83,7 @@ class UpdateExecutor : public AbstractExecutor {
    * @brief 获取下一个元组（执行更新操作）
    * @return 更新后的元组的智能指针，如果没有更多元组则返回nullptr
    * @note
-   *   - 遍历rids_列表，逐个更新元组
+   *   - 遍历主键元组列表，逐个更新元组
    *   - 更新操作包括：读取旧值、计算新值、更新表、更新索引、记录日志
    */
   std::unique_ptr<Tuple> Next() override;

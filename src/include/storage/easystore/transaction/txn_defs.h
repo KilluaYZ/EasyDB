@@ -136,7 +136,7 @@ class WriteRecord {
 /**
  * @brief 加锁对象类型。
  *
- * 聚簇表的记录由主键定位，不再使用 RID 作为运行时存储标识。
+ * 聚簇表的记录由主键定位。
  * 当前锁管理器只保留表级锁；记录级锁将在基于主键的锁键设计完成后再引入。
  */
 enum class LockDataType { TABLE = 0 };
