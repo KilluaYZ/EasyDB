@@ -183,10 +183,7 @@ impl LockManager {
         // 已持有同级锁直接成功。升级则继续走冲突检查，避免旧的
         // “队列长度为 1 即可升级”逻辑绕过层级锁冲突。
         if let Some(q) = inner.table.get(&id) {
-            if q.requests
-                .iter()
-                .any(|r| r.txn == txn.id && r.mode == mode)
-            {
+            if q.requests.iter().any(|r| r.txn == txn.id && r.mode == mode) {
                 return Ok(());
             }
         }
@@ -253,12 +250,7 @@ fn modes_conflict(requested: LockMode, held: LockMode) -> bool {
     requested == LockMode::Exclusive || held == LockMode::Exclusive
 }
 
-fn conflicting_txns(
-    inner: &Inner,
-    id: LockDataId,
-    mode: LockMode,
-    requester: TxnId,
-) -> Vec<TxnId> {
+fn conflicting_txns(inner: &Inner, id: LockDataId, mode: LockMode, requester: TxnId) -> Vec<TxnId> {
     inner
         .table
         .iter()
