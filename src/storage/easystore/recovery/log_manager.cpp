@@ -142,6 +142,15 @@ auto LogManager::ReadAllLogs() const
   return logs;
 }
 
+auto LogManager::FindLog(lsn_t lsn) const -> std::unique_ptr<LogRecord> {
+  if (lsn == INVALID_LSN) return nullptr;
+  auto logs = ReadAllLogs();
+  for (auto &log : logs) {
+    if (log->lsn_ == lsn) return std::move(log);
+  }
+  return nullptr;
+}
+
 void LogManager::recover_lsn_state() {
   std::scoped_lock lock{latch_};
   log_file_offset_ = disk_manager_->GetLogSize();

@@ -55,6 +55,7 @@ class Context {
   int *offset_;
   bool ellipsis_;
   std::shared_ptr<ReadView> read_view_;
+  lsn_t current_undo_lsn_{INVALID_LSN};
   json result_json;
 
   void InitJson() {

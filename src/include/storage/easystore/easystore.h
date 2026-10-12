@@ -54,6 +54,8 @@ class EasyStore final : public StorageEngine {
                                        Context *) override;
   std::unique_ptr<Tuple> ReadTuple(const std::string &, const Tuple &,
                                    Context *) override;
+  std::optional<TupleMeta> ReadTupleMeta(const std::string &, const Tuple &,
+                                         Context *) override;
   bool InsertTuple(const std::string &, const Tuple &, Context *) override;
   bool DeleteTuple(const std::string &, const Tuple &, Context *) override;
   bool UpdateTuple(const std::string &, const Tuple &, const Tuple &,

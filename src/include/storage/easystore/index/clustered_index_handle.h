@@ -38,6 +38,7 @@ class ClusteredIndexHandle {
   auto Update(const std::vector<char> &key, const std::vector<char> &tuple,
               const TupleMeta &meta) -> bool;
   auto Delete(const std::vector<char> &key) -> bool;
+  auto MarkDelete(const std::vector<char> &key, const TupleMeta &meta) -> bool;
   auto ScanAll() -> std::vector<ClusteredLeafEntry>;
 
   void Flush();

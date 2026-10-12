@@ -75,21 +75,25 @@ void RecoveryManager::ApplyRedo(const TupleLogRecord &record) {
     case INSERT: {
       const auto current = table->Get(key);
       if (!current.has_value()) {
-        table->Insert(record.GetNewTuple());
+        table->Insert(record.GetNewTuple(), record.GetNewMeta());
       } else if (!SameTuple(*current, record.GetNewTuple())) {
-        table->Update(key, record.GetNewTuple());
+        table->Update(key, record.GetNewTuple(), record.GetNewMeta());
       }
       break;
     }
-    case DELETE:
-      table->Delete(key);
+    case DELETE: {
+      auto current = table->GetRecord(key);
+      if (current.has_value()) {
+        table->MarkDelete(key, record.GetNewMeta());
+      }
       break;
+    }
     case UPDATE:
       if (const auto current = table->Get(key);
           !current.has_value()) {
-        table->Insert(record.GetNewTuple());
+        table->Insert(record.GetNewTuple(), record.GetNewMeta());
       } else if (!SameTuple(*current, record.GetNewTuple())) {
-        table->Update(key, record.GetNewTuple());
+        table->Update(key, record.GetNewTuple(), record.GetNewMeta());
       }
       break;
     default:
@@ -106,20 +110,21 @@ void RecoveryManager::ApplyUndo(const TupleLogRecord &record) {
       table->Delete(key);
       break;
     case DELETE: {
-      const auto current = table->Get(key);
+      const auto current = table->GetRecord(key);
       if (!current.has_value()) {
-        table->Insert(record.GetOldTuple());
-      } else if (!SameTuple(*current, record.GetOldTuple())) {
-        table->Update(key, record.GetOldTuple());
+        table->Insert(record.GetOldTuple(), record.GetOldMeta());
+      } else if (!SameTuple(current->tuple, record.GetOldTuple()) ||
+                 current->meta != record.GetOldMeta()) {
+        table->Update(key, record.GetOldTuple(), record.GetOldMeta());
       }
       break;
     }
     case UPDATE:
       if (const auto current = table->Get(key);
           !current.has_value()) {
-        table->Insert(record.GetOldTuple());
+        table->Insert(record.GetOldTuple(), record.GetOldMeta());
       } else if (!SameTuple(*current, record.GetOldTuple())) {
-        table->Update(key, record.GetOldTuple());
+        table->Update(key, record.GetOldTuple(), record.GetOldMeta());
       }
       break;
     default:

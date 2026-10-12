@@ -48,22 +48,27 @@ InsertExecutor::InsertExecutor(StorageEngine *storage_engine,
 std::unique_ptr<Tuple> InsertExecutor::Next() {
   // 构造元组
   Tuple tuple{values_, &tab_.schema};
+  TupleMeta new_meta;
+  if (context_ != nullptr && context_->txn_ != nullptr) {
+    new_meta.trx_id_ = context_->txn_->GetTransactionId();
+  }
 
   if (context_ != nullptr && context_->txn_ != nullptr &&
       context_->log_mgr_ != nullptr) {
     RedoLogRecord redo(LogKind::REDO, INSERT,
                        context_->txn_->GetTransactionId(),
                        context_->txn_->GetPrevLsn(), tab_name_, tuple, Tuple{},
-                       tuple);
+                       tuple, TupleMeta{}, new_meta);
     auto lsn = context_->log_mgr_->add_log_to_buffer(&redo);
     context_->txn_->SetPrevLsn(lsn);
 
     UndoLogRecord undo(LogKind::UNDO, INSERT,
                        context_->txn_->GetTransactionId(),
                        context_->txn_->GetPrevLsn(), tab_name_, tuple, Tuple{},
-                       tuple);
+                       tuple, TupleMeta{}, new_meta);
     lsn = context_->log_mgr_->add_log_to_buffer(&undo);
     context_->txn_->SetPrevLsn(lsn);
+    context_->current_undo_lsn_ = lsn;
     // The clustered page must not become durable before both records are durable.
     context_->log_mgr_->flush_log_to_disk();
   }

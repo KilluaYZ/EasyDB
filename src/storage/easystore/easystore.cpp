@@ -225,9 +225,35 @@ std::unique_ptr<Tuple> EasyStore::ReadTuple(const std::string &table,
       context->read_view_ =
           runtime_->transaction_manager->GetReadView(context->txn_);
     }
-    if (!context->read_view_->IsVisible(record->meta)) return nullptr;
+    if (!context->read_view_->IsVisible(record->meta)) {
+      if (record->meta.trx_id_ == context->txn_->GetTransactionId() &&
+          record->meta.is_deleted_) {
+        return nullptr;
+      }
+      auto historical_meta = record->meta;
+      Tuple historical_tuple(record->tuple);
+      while (historical_meta.undo_ptr_ != INVALID_LSN) {
+        auto log = runtime_->log_manager->FindLog(historical_meta.undo_ptr_);
+        auto *tuple_log = dynamic_cast<TupleLogRecord *>(log.get());
+        if (tuple_log == nullptr) break;
+        historical_meta = tuple_log->GetOldMeta();
+        historical_tuple = tuple_log->GetOldTuple();
+        if (context->read_view_->IsVisible(historical_meta)) {
+          return std::make_unique<Tuple>(historical_tuple);
+        }
+      }
+      return nullptr;
+    }
   }
   return std::make_unique<Tuple>(record->tuple);
+}
+
+std::optional<TupleMeta> EasyStore::ReadTupleMeta(const std::string &table,
+                                                  const Tuple &key,
+                                                  Context *) {
+  auto record = runtime_->clustered_table_manager->Get(table)->GetRecord(key);
+  if (!record.has_value()) return std::nullopt;
+  return record->meta;
 }
 
 bool EasyStore::InsertTuple(const std::string &table, const Tuple &tuple,
@@ -235,13 +261,20 @@ bool EasyStore::InsertTuple(const std::string &table, const Tuple &tuple,
   TupleMeta meta;
   if (context != nullptr && context->txn_ != nullptr) {
     meta.trx_id_ = context->txn_->GetTransactionId();
+    meta.undo_ptr_ = context->current_undo_lsn_;
   }
   return runtime_->clustered_table_manager->Get(table)->Insert(tuple, meta);
 }
 
 bool EasyStore::DeleteTuple(const std::string &table, const Tuple &key,
-                            Context *) {
-  return runtime_->clustered_table_manager->Get(table)->Delete(key);
+                            Context *context) {
+  TupleMeta meta;
+  meta.is_deleted_ = true;
+  if (context != nullptr && context->txn_ != nullptr) {
+    meta.trx_id_ = context->txn_->GetTransactionId();
+    meta.undo_ptr_ = context->current_undo_lsn_;
+  }
+  return runtime_->clustered_table_manager->Get(table)->MarkDelete(key, meta);
 }
 
 bool EasyStore::UpdateTuple(const std::string &table, const Tuple &key,
@@ -249,6 +282,7 @@ bool EasyStore::UpdateTuple(const std::string &table, const Tuple &key,
   TupleMeta meta;
   if (context != nullptr && context->txn_ != nullptr) {
     meta.trx_id_ = context->txn_->GetTransactionId();
+    meta.undo_ptr_ = context->current_undo_lsn_;
   }
   return runtime_->clustered_table_manager->Get(table)->Update(key, tuple,
                                                                 meta);

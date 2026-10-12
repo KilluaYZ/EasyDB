@@ -65,6 +65,14 @@ auto ClusteredTableHandle::Delete(const Tuple &key_tuple) -> bool {
   return index_->Delete(MakeKey(key_tuple));
 }
 
+auto ClusteredTableHandle::MarkDelete(const Tuple &key_tuple,
+                                      const TupleMeta &meta) -> bool {
+  if (index_ == nullptr || schema_ == nullptr || key_schema_ == nullptr) {
+    return false;
+  }
+  return index_->MarkDelete(MakeKey(key_tuple), meta);
+}
+
 auto ClusteredTableHandle::Scan() -> std::vector<Tuple> {
   std::vector<Tuple> result;
   if (index_ == nullptr) return result;

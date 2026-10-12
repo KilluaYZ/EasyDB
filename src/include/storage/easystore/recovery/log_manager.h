@@ -136,16 +136,18 @@ class TupleLogRecord : public LogRecord {
   TupleLogRecord(LogKind kind, LogType type, txn_id_t txn_id, lsn_t prev_lsn,
                  const std::string &table_name, const Tuple &key,
                  const Tuple &old_tuple = Tuple{},
-                 const Tuple &new_tuple = Tuple{})
+                 const Tuple &new_tuple = Tuple{},
+                 const TupleMeta &old_meta = TupleMeta{},
+                 const TupleMeta &new_meta = TupleMeta{})
       : table_name_(table_name), key_(key), old_tuple_(old_tuple),
-        new_tuple_(new_tuple) {
+        new_tuple_(new_tuple), old_meta_(old_meta), new_meta_(new_meta) {
     log_kind_ = kind;
     log_type_ = type;
     log_tid_ = txn_id;
     prev_lsn_ = prev_lsn;
     log_tot_len_ = LOG_HEADER_SIZE + sizeof(uint32_t) + table_name_.size() +
                    TupleLogSize(key_) + TupleLogSize(old_tuple_) +
-                   TupleLogSize(new_tuple_);
+                   TupleLogSize(new_tuple_) + sizeof(TupleMeta) * 2;
   }
 
   void serialize(char *dest) const override {
@@ -159,6 +161,9 @@ class TupleLogRecord : public LogRecord {
     SerializeTupleLog(dest, offset, key_);
     SerializeTupleLog(dest, offset, old_tuple_);
     SerializeTupleLog(dest, offset, new_tuple_);
+    memcpy(dest + offset, &old_meta_, sizeof(old_meta_));
+    offset += sizeof(old_meta_);
+    memcpy(dest + offset, &new_meta_, sizeof(new_meta_));
   }
 
   void deserialize(const char *src) override {
@@ -172,6 +177,9 @@ class TupleLogRecord : public LogRecord {
     key_ = DeserializeTupleLog(src, offset);
     old_tuple_ = DeserializeTupleLog(src, offset);
     new_tuple_ = DeserializeTupleLog(src, offset);
+    memcpy(&old_meta_, src + offset, sizeof(old_meta_));
+    offset += sizeof(old_meta_);
+    memcpy(&new_meta_, src + offset, sizeof(new_meta_));
   }
 
   LogKind GetKind() const { return log_kind_; }
@@ -180,11 +188,15 @@ class TupleLogRecord : public LogRecord {
   const Tuple &GetKey() const { return key_; }
   const Tuple &GetOldTuple() const { return old_tuple_; }
   const Tuple &GetNewTuple() const { return new_tuple_; }
+  const TupleMeta &GetOldMeta() const { return old_meta_; }
+  const TupleMeta &GetNewMeta() const { return new_meta_; }
 
   std::string table_name_;
   Tuple key_;
   Tuple old_tuple_;
   Tuple new_tuple_;
+  TupleMeta old_meta_;
+  TupleMeta new_meta_;
 };
 
 using RedoLogRecord = TupleLogRecord;
@@ -217,6 +229,7 @@ class LogManager {
   lsn_t GetPersistentLsn() const;
   lsn_t GetNextLsn() const;
   auto ReadAllLogs() const -> std::vector<std::unique_ptr<LogRecord>>;
+  auto FindLog(lsn_t lsn) const -> std::unique_ptr<LogRecord>;
   LogBuffer *get_log_buffer() { return &log_buffer_; }
 
  private:

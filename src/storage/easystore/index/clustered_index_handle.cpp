@@ -244,6 +244,27 @@ auto ClusteredIndexHandle::Delete(const std::vector<char> &key) -> bool {
   return deleted;
 }
 
+auto ClusteredIndexHandle::MarkDelete(const std::vector<char> &key,
+                                       const TupleMeta &meta) -> bool {
+  page_id_t leaf_page = INVALID_PAGE_ID;
+  uint16_t ignored = 0;
+  if (!FindLeaf(key, &leaf_page, &ignored)) return false;
+  PageId page_id{fd_, leaf_page};
+  auto *page = buffer_pool_manager_->FetchPage(page_id);
+  if (page == nullptr) return false;
+  ClusteredLeafPage leaf(page);
+  const auto slot = leaf.LowerBound(key, comparator_);
+  bool marked = false;
+  if (slot < leaf.GetSize()) {
+    const auto entry = leaf.GetEntry(slot);
+    if (comparator_(entry.key.data(), key.data()) == 0) {
+      marked = leaf.Update(slot, entry.tuple, meta);
+    }
+  }
+  buffer_pool_manager_->UnpinPage(page_id, marked);
+  return marked;
+}
+
 auto ClusteredIndexHandle::RefreshRootSeparators() -> bool {
   PageId root_id{fd_, root_page_};
   auto *root = buffer_pool_manager_->FetchPage(root_id);

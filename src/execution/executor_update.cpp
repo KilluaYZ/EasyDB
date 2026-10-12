@@ -75,21 +75,30 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
 
     Tuple new_tuple{new_values, &tab_.schema};
 
+    const auto old_meta = storage_engine_->ReadTupleMeta(tab_name_, key_tuple,
+                                                          context_)
+                              .value_or(TupleMeta{});
+    TupleMeta new_meta;
+    new_meta.trx_id_ = context_ != nullptr && context_->txn_ != nullptr
+                           ? context_->txn_->GetTransactionId()
+                           : INVALID_TXN_ID;
+
     if (context_ != nullptr && context_->txn_ != nullptr &&
         context_->log_mgr_ != nullptr) {
       RedoLogRecord redo(LogKind::REDO, UPDATE,
                          context_->txn_->GetTransactionId(),
                          context_->txn_->GetPrevLsn(), tab_name_, key_tuple,
-                         *tuple, new_tuple);
+                         *tuple, new_tuple, old_meta, new_meta);
       auto lsn = context_->log_mgr_->add_log_to_buffer(&redo);
       context_->txn_->SetPrevLsn(lsn);
 
       UndoLogRecord undo(LogKind::UNDO, UPDATE,
                          context_->txn_->GetTransactionId(),
                          context_->txn_->GetPrevLsn(), tab_name_, key_tuple,
-                         *tuple, new_tuple);
+                         *tuple, new_tuple, old_meta, new_meta);
       lsn = context_->log_mgr_->add_log_to_buffer(&undo);
       context_->txn_->SetPrevLsn(lsn);
+      context_->current_undo_lsn_ = lsn;
       context_->log_mgr_->flush_log_to_disk();
     }
 

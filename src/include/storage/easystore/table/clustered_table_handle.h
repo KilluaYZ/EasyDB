@@ -35,6 +35,7 @@ class ClusteredTableHandle {
   auto Update(const Tuple &key_tuple, const Tuple &tuple,
               const TupleMeta &meta) -> bool;
   auto Delete(const Tuple &key_tuple) -> bool;
+  auto MarkDelete(const Tuple &key_tuple, const TupleMeta &meta) -> bool;
   auto Scan() -> std::vector<Tuple>;
   auto ScanRecords() -> std::vector<ClusteredLeafEntry>;
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -32,6 +33,9 @@ class StorageEngine {
   virtual std::unique_ptr<Tuple> ReadTuple(const std::string &table_name,
                                            const Tuple &key,
                                            Context *context) = 0;
+  virtual std::optional<TupleMeta> ReadTupleMeta(
+      const std::string &table_name, const Tuple &key,
+      Context *context) = 0;
   virtual bool InsertTuple(const std::string &table_name, const Tuple &tuple,
                            Context *context) = 0;
   virtual bool DeleteTuple(const std::string &table_name, const Tuple &key,
