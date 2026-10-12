@@ -20,8 +20,8 @@ See the Mulan PSL v2 for more details. */
 #include "planner/plan.h"
 #include "planner/planner.h"
 #include "storage/easystore/record/record_printer.h"
-#include "storage/storage_engine.h"
 #include "storage/easystore/transaction/transaction_manager.h"
+#include "storage/storage_engine.h"
 
 namespace easydb {
 class Optimizer {

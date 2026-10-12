@@ -866,17 +866,22 @@ class LogManager {
   /**
    * @brief 将日志记录添加到缓冲区
    * @param log_record 日志记录指针
-   * @return 分配给日志记录的LSN
+
+   * * @return 分配给日志记录的LSN
    * @note
-   *   - 如果缓冲区已满，先刷新到磁盘
+   *   -
+   * 如果缓冲区已满，先刷新到磁盘
    *   - 分配新的LSN并设置到日志记录
-   *   - 将日志记录序列化到缓冲区
+   *   -
+   * 将日志记录序列化到缓冲区
    */
   lsn_t add_log_to_buffer(LogRecord *log_record);
 
   /**
    * @brief 将日志缓冲区刷新到磁盘
-   * @note 将缓冲区中的所有日志写入磁盘文件，并更新persist_lsn_
+   * @note
+   * 将缓冲区中的所有日志写入磁盘文件，并更新persist_lsn_
+
    */
   void flush_log_to_disk();
 
@@ -889,6 +894,7 @@ class LogManager {
   /**
    * @brief 获取日志缓冲区
    * @return 日志缓冲区的指针
+
    */
   LogBuffer *get_log_buffer() { return &log_buffer_; }
 
@@ -898,25 +904,29 @@ class LogManager {
 
   /**
    * @brief 全局LSN（日志序列号）
-   * @note 原子变量，递增，用于为每条日志记录分发唯一的LSN
+   * @note
+   * 原子变量，递增，用于为每条日志记录分发唯一的LSN
    */
   std::atomic<lsn_t> global_lsn_{0};
 
   /**
    * @brief 保护log_buffer_的互斥锁
-   * @note 用于确保多线程环境下日志缓冲区操作的线程安全性
+   * @note
+   * 用于确保多线程环境下日志缓冲区操作的线程安全性
    */
   mutable std::mutex latch_;
 
   /**
    * @brief 日志缓冲区
    * @note 用于暂存日志记录，减少磁盘I/O次数
+
    */
   LogBuffer log_buffer_;
 
   /**
    * @brief 已持久化到磁盘的最后一条日志的LSN
-   * @note 用于跟踪哪些日志已经安全地写入磁盘
+   * @note
+   * 用于跟踪哪些日志已经安全地写入磁盘
    */
   lsn_t persist_lsn_{INVALID_LSN};
 

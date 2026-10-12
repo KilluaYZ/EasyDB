@@ -15,10 +15,10 @@
  */
 
 #include <fcntl.h>
-#include <cerrno>
 #include <sys/stat.h>
 #include <unistd.h>  // for lseek
 #include <cassert>
+#include <cerrno>
 #include <cstddef>
 #include <cstring>
 #include <iostream>
@@ -342,21 +342,21 @@ int DiskManager::GetFileFd(const std::string &path) {
 }
 
 size_t DiskManager::GetLogSize() const {
-  struct stat stat_buf {};
+  struct stat stat_buf{};
   if (log_fd_ == -1 || fstat(log_fd_, &stat_buf) == -1) {
     throw Exception("failed to stat log file " + log_path_.string());
   }
   return static_cast<size_t>(stat_buf.st_size);
 }
 
-void DiskManager::ReadLog(size_t offset, char *log_data, size_t num_bytes) const {
+void DiskManager::ReadLog(size_t offset, char *log_data,
+                          size_t num_bytes) const {
   if (log_fd_ == -1) {
     throw Exception("log file is not open");
   }
   size_t completed = 0;
   while (completed < num_bytes) {
-    ssize_t count = pread(log_fd_, log_data + completed,
-                          num_bytes - completed,
+    ssize_t count = pread(log_fd_, log_data + completed, num_bytes - completed,
                           static_cast<off_t>(offset + completed));
     if (count == 0) {
       break;
@@ -373,14 +373,13 @@ void DiskManager::ReadLog(size_t offset, char *log_data, size_t num_bytes) const
 }
 
 void DiskManager::WriteLog(size_t offset, const char *log_data,
-                            size_t num_bytes) {
+                           size_t num_bytes) {
   if (log_fd_ == -1) {
     throw Exception("log file is not open");
   }
   size_t completed = 0;
   while (completed < num_bytes) {
-    ssize_t count = pwrite(log_fd_, log_data + completed,
-                           num_bytes - completed,
+    ssize_t count = pwrite(log_fd_, log_data + completed, num_bytes - completed,
                            static_cast<off_t>(offset + completed));
     if (count < 0) {
       if (errno == EINTR) continue;

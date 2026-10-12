@@ -49,8 +49,8 @@ class StatisticsManager {
     return Get(table_attr_sum_, table, column);
   }
 
-  void SetTableAttrDistinct(const std::string &table,
-                            const std::string &column, int value) {
+  void SetTableAttrDistinct(const std::string &table, const std::string &column,
+                            int value) {
     table_attr_distinct_[table][column] = value;
   }
   int GetTableAttrDistinct(const std::string &table,
@@ -61,8 +61,8 @@ class StatisticsManager {
  private:
   template <typename T>
   static T Get(
-      const std::unordered_map<std::string,
-                               std::unordered_map<std::string, T>> &values,
+      const std::unordered_map<std::string, std::unordered_map<std::string, T>>
+          &values,
       const std::string &table, const std::string &column) {
     auto table_it = values.find(table);
     if (table_it == values.end()) return static_cast<T>(-1);

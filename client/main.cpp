@@ -1,6 +1,5 @@
 #include <netdb.h>
 #include <netinet/in.h>
-#include <cstdio>
 #include <readline/history.h>
 #include <readline/readline.h>
 #include <stdio.h>

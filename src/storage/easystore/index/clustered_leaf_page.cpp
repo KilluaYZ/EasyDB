@@ -31,19 +31,18 @@ auto ClusteredLeafPage::IsValid(const Page *page) -> bool {
       page->GetData() + PAGE_HEADER_OFFSET);
   return header->magic == CLUSTERED_LEAF_PAGE_MAGIC &&
          header->version == CLUSTERED_LEAF_PAGE_VERSION &&
-         header->free_start >= DataBegin() &&
-         header->free_end <= PAGE_SIZE &&
+         header->free_start >= DataBegin() && header->free_end <= PAGE_SIZE &&
          header->free_start <= header->free_end;
 }
 
 auto ClusteredLeafPage::Header() -> ClusteredLeafPageHeader * {
-  return reinterpret_cast<ClusteredLeafPageHeader *>(
-      page_->GetData() + PAGE_HEADER_OFFSET);
+  return reinterpret_cast<ClusteredLeafPageHeader *>(page_->GetData() +
+                                                     PAGE_HEADER_OFFSET);
 }
 
 auto ClusteredLeafPage::Header() const -> const ClusteredLeafPageHeader * {
-  return reinterpret_cast<const ClusteredLeafPageHeader *>(
-      page_->GetData() + PAGE_HEADER_OFFSET);
+  return reinterpret_cast<const ClusteredLeafPageHeader *>(page_->GetData() +
+                                                           PAGE_HEADER_OFFSET);
 }
 
 auto ClusteredLeafPage::Slots() -> ClusteredLeafSlot * {
@@ -51,8 +50,8 @@ auto ClusteredLeafPage::Slots() -> ClusteredLeafSlot * {
 }
 
 auto ClusteredLeafPage::Slots() const -> const ClusteredLeafSlot * {
-  return reinterpret_cast<const ClusteredLeafSlot *>(
-      page_->GetData() + DataBegin());
+  return reinterpret_cast<const ClusteredLeafSlot *>(page_->GetData() +
+                                                     DataBegin());
 }
 
 auto ClusteredLeafPage::GetSize() const -> uint16_t {
@@ -117,9 +116,10 @@ auto ClusteredLeafPage::LowerBound(const std::vector<char> &key,
   return left;
 }
 
-auto ClusteredLeafPage::Rebuild(
-    const std::vector<ClusteredLeafEntry> &entries) -> bool {
-  size_t required_slots = DataBegin() + entries.size() * sizeof(ClusteredLeafSlot);
+auto ClusteredLeafPage::Rebuild(const std::vector<ClusteredLeafEntry> &entries)
+    -> bool {
+  size_t required_slots =
+      DataBegin() + entries.size() * sizeof(ClusteredLeafSlot);
   size_t payload_size = 0;
   for (const auto &entry : entries) {
     if (entry.key.size() > UINT16_MAX || entry.tuple.size() > UINT16_MAX ||
@@ -128,7 +128,8 @@ auto ClusteredLeafPage::Rebuild(
     }
     payload_size += entry.key.size() + entry.tuple.size();
   }
-  if (entries.size() > UINT16_MAX || required_slots + payload_size > PAGE_SIZE) {
+  if (entries.size() > UINT16_MAX ||
+      required_slots + payload_size > PAGE_SIZE) {
     return false;
   }
 
@@ -150,8 +151,8 @@ auto ClusteredLeafPage::Rebuild(
   for (size_t i = 0; i < entries.size(); ++i) {
     const auto payload_size_for_entry =
         entries[i].key.size() + entries[i].tuple.size();
-    header->free_end = static_cast<uint16_t>(header->free_end -
-                                             payload_size_for_entry);
+    header->free_end =
+        static_cast<uint16_t>(header->free_end - payload_size_for_entry);
     slots[i] = {
         header->free_end,
         static_cast<uint16_t>(entries[i].key.size()),
@@ -182,8 +183,8 @@ auto ClusteredLeafPage::Erase(uint16_t slot) -> bool {
   return Rebuild(entries);
 }
 
-auto ClusteredLeafPage::Update(uint16_t slot,
-                               const std::vector<char> &tuple) -> bool {
+auto ClusteredLeafPage::Update(uint16_t slot, const std::vector<char> &tuple)
+    -> bool {
   if (slot >= GetSize()) return false;
   auto entries = ReadEntries();
   entries[slot].tuple = tuple;

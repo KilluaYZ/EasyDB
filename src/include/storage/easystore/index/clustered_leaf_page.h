@@ -70,8 +70,10 @@ class ClusteredLeafPage {
   /** Rebuild the page after a variable-length tuple update. */
   auto Update(uint16_t slot, const std::vector<char> &tuple) -> bool;
 
-  // Used by the clustered-tree split path after entries have been repartitioned.
-  auto RebuildFromEntries(const std::vector<ClusteredLeafEntry> &entries) -> bool;
+  // Used by the clustered-tree split path after entries have been
+  // repartitioned.
+  auto RebuildFromEntries(const std::vector<ClusteredLeafEntry> &entries)
+      -> bool;
 
  private:
   auto Header() -> ClusteredLeafPageHeader *;
