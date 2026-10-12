@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <fstream>
 #include <string>
 
@@ -15,6 +16,10 @@ namespace easydb {
 class CatalogManager {
  public:
   DbMeta db_;
+
+  void SetDatabasePath(std::filesystem::path database_path) {
+    database_path_ = std::move(database_path);
+  }
 
   bool IsTable(const std::string &table_name) const {
     return db_.is_table(table_name);
@@ -44,14 +49,17 @@ class CatalogManager {
   }
 
   void Load() {
-    std::ifstream input(DB_META_NAME);
+    std::ifstream input(database_path_ / DB_META_NAME);
     input >> db_;
   }
 
   void Flush() const {
-    std::ofstream output(DB_META_NAME);
+    std::ofstream output(database_path_ / DB_META_NAME);
     output << db_;
   }
+
+ private:
+  std::filesystem::path database_path_ = ".";
 };
 
 }  // namespace easydb

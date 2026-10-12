@@ -18,12 +18,14 @@
 #include <setjmp.h>
 #include <signal.h>
 #include <unistd.h>
+#include <filesystem>
 #include "analyze/analyze.h"
 #include "common/errors.h"
 #include "common/portal.h"
 #include "optimizer/optimizer.h"
 #include "planner/plan.h"
 #include "planner/planner.h"
+#include "storage/easystore/database_manager.h"
 #include "storage/easystore/easystore.h"
 
 // #define SOCK_PORT 8765
@@ -37,7 +39,8 @@ bool for_web = false;
 
 DiskManager *disk_manager;
 BufferPoolManager *buffer_pool_manager;
-std::unique_ptr<EasyStore> storage_engine;
+EasyStore *storage_engine;
+std::unique_ptr<DatabaseManager> database_manager;
 LockManager *lock_manager;
 TransactionManager *txn_manager;
 std::unique_ptr<Planner> planner;
@@ -372,28 +375,31 @@ int main(int argc, char **argv) {
                  "\n";
     // Database name is passed by args
 
-    storage_engine = std::make_unique<EasyStore>(db_name);
+    const auto database_path = std::filesystem::absolute(db_name);
+    const auto database_root = database_path.parent_path();
+    const auto database_name = database_path.filename().string();
+    database_manager = std::make_unique<DatabaseManager>(database_root);
+    if (!database_manager->Exists(database_name)) {
+      database_manager->CreateDatabase(database_name);
+    } else {
+      database_manager->OpenDatabase(database_name);
+    }
+    storage_engine = database_manager->GetDatabase(database_name);
     disk_manager = storage_engine->GetDiskManager();
     buffer_pool_manager = storage_engine->GetBufferPoolManager();
     lock_manager = storage_engine->GetLockManager();
     txn_manager = storage_engine->GetTransactionManager();
-    planner = std::make_unique<Planner>(storage_engine.get());
+    planner = std::make_unique<Planner>(storage_engine);
     optimizer =
-        std::make_unique<Optimizer>(storage_engine.get(), planner.get());
-    ql_manager = std::make_unique<QlManager>(storage_engine.get(), txn_manager,
+        std::make_unique<Optimizer>(storage_engine, planner.get());
+    ql_manager = std::make_unique<QlManager>(storage_engine, txn_manager,
                                              planner.get());
     log_manager = storage_engine->GetLogManager();
 
-    portal = std::make_unique<Portal>(storage_engine.get());
-    analyze = std::make_unique<Analyze>(storage_engine.get());
+    portal = std::make_unique<Portal>(storage_engine);
+    analyze = std::make_unique<Analyze>(storage_engine);
 
     signal(SIGINT, sigint_handler);
-    if (!storage_engine->IsDir(db_name)) {
-      // Database not found, create a new one
-      storage_engine->CreateDB(db_name);
-    }
-    // Open database
-    storage_engine->OpenDB(db_name);
 
     // 开启服务端，开始接受客户端连接
     start_server();

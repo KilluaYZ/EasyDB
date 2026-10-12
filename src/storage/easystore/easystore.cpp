@@ -28,7 +28,8 @@ class EasyStore::Runtime {
         buffer_pool_manager(std::make_unique<BufferPoolManager>(
             BUFFER_POOL_SIZE, disk_manager.get())),
         clustered_table_manager(std::make_unique<ClusteredTableManager>(
-            disk_manager.get(), buffer_pool_manager.get())),
+            disk_manager.get(), buffer_pool_manager.get(),
+            std::filesystem::absolute(db_name))),
         catalog_manager(std::make_unique<CatalogManager>()),
         statistics_manager(std::make_unique<StatisticsManager>()),
         load_manager(std::make_unique<LoadManager>(
@@ -42,7 +43,9 @@ class EasyStore::Runtime {
             lock_manager.get(), disk_manager.get(), buffer_pool_manager.get(),
             catalog_manager.get(), ddl_manager.get(),
             clustered_table_manager.get())),
-        log_manager(std::make_unique<LogManager>(disk_manager.get())) {}
+        log_manager(std::make_unique<LogManager>(disk_manager.get())) {
+    catalog_manager->SetDatabasePath(std::filesystem::absolute(db_name));
+  }
 
   std::unique_ptr<DiskManager> disk_manager;
   std::unique_ptr<BufferPoolManager> buffer_pool_manager;
@@ -58,6 +61,7 @@ class EasyStore::Runtime {
 
 EasyStore::EasyStore(const std::string &db_name, bool enable_output)
     : runtime_(std::make_unique<Runtime>(db_name, enable_output)),
+      database_path_(std::filesystem::absolute(db_name)),
       enable_output_(enable_output) {}
 
 EasyStore::~EasyStore() = default;
@@ -67,16 +71,21 @@ bool EasyStore::IsDir(const std::string &db_name) const {
 }
 
 void EasyStore::CreateDB(const std::string &db_name) {
-  if (IsDir(db_name)) throw DatabaseExistsError(db_name);
-  runtime_->disk_manager->CreateDir(db_name);
-  if (chdir(db_name.c_str()) < 0) throw UnixError();
+  const auto path = std::filesystem::absolute(db_name);
+  if (std::filesystem::exists(path / DB_META_NAME)) {
+    throw DatabaseExistsError(db_name);
+  }
+  std::filesystem::create_directories(path);
   runtime_->catalog_manager->Initialize(db_name);
-  if (chdir("..") < 0) throw UnixError();
 }
 
 void EasyStore::OpenDB(const std::string &db_name) {
-  if (!IsDir(db_name)) CreateDB(db_name);
-  if (chdir(db_name.c_str()) < 0) throw UnixError();
+  const auto path = std::filesystem::absolute(db_name);
+  if (!std::filesystem::is_directory(path) ||
+      !std::filesystem::exists(path / DB_META_NAME)) {
+    std::filesystem::create_directories(path);
+    runtime_->catalog_manager->Initialize(db_name);
+  }
   runtime_->catalog_manager->Load();
   for (const auto &entry : runtime_->catalog_manager->Tables()) {
     runtime_->clustered_table_manager->Open(entry.first, entry.second.schema);
@@ -92,7 +101,6 @@ void EasyStore::CloseDB() {
   for (const auto &entry : runtime_->catalog_manager->Tables()) {
     runtime_->clustered_table_manager->Close(entry.first);
   }
-  if (chdir("..") < 0) throw UnixError();
 }
 
 DiskManager *EasyStore::GetDiskManager() const {
@@ -223,7 +231,7 @@ void EasyStore::DropIndex(const std::string &name,
 void EasyStore::ShowTables(Context *context) {
   std::fstream outfile;
   if (enable_output_) {
-    outfile.open("output.txt", std::ios::out | std::ios::app);
+    outfile.open(database_path_ / "output.txt", std::ios::out | std::ios::app);
     outfile << "| Tables |\n";
   }
   RecordPrinter printer(1);
@@ -241,7 +249,8 @@ void EasyStore::ShowTables(Context *context) {
 void EasyStore::ShowIndex(const std::string &name, Context *context) {
   const auto &table = runtime_->catalog_manager->GetTable(name);
   std::fstream outfile;
-  if (enable_output_) outfile.open("output.txt", std::ios::out | std::ios::app);
+  if (enable_output_)
+    outfile.open(database_path_ / "output.txt", std::ios::out | std::ios::app);
   RecordPrinter printer(3);
   for (const auto &index : table.indexes) {
     std::string index_name = "(" + index.cols[0].name;

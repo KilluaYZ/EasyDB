@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <filesystem>
 #include <string>
 #include <unordered_map>
 
@@ -15,9 +16,11 @@ namespace easydb {
 class ClusteredTableManager {
  public:
   ClusteredTableManager(DiskManager *disk_manager,
-                        BufferPoolManager *buffer_pool_manager)
+                        BufferPoolManager *buffer_pool_manager,
+                        std::filesystem::path database_path = ".")
       : disk_manager_(disk_manager),
-        buffer_pool_manager_(buffer_pool_manager) {}
+        buffer_pool_manager_(buffer_pool_manager),
+        database_path_(std::move(database_path)) {}
 
   void Create(const std::string &table_name, const Schema &schema);
   void Open(const std::string &table_name, const Schema &schema);
@@ -44,6 +47,7 @@ class ClusteredTableManager {
 
   DiskManager *disk_manager_;
   BufferPoolManager *buffer_pool_manager_;
+  std::filesystem::path database_path_;
   std::unordered_map<std::string, std::unique_ptr<Entry>> entries_;
 };
 

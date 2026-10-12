@@ -19,7 +19,7 @@ auto CompareNumber(const char *lhs, const char *rhs) -> int {
 
 auto ClusteredTableManager::FileName(const std::string &table_name) const
     -> std::string {
-  return table_name + ".clustered";
+  return (database_path_ / (table_name + ".clustered")).string();
 }
 
 auto ClusteredTableManager::MakeComparator(const Column &column)

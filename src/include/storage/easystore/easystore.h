@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <filesystem>
 #include <string>
 
 #include "storage/storage_engine.h"
@@ -26,6 +27,9 @@ class EasyStore final : public StorageEngine {
   EasyStore &operator=(const EasyStore &) = delete;
 
   bool IsDir(const std::string &db_name) const;
+  const std::filesystem::path &GetDatabasePath() const {
+    return database_path_;
+  }
   void CreateDB(const std::string &db_name);
   void OpenDB(const std::string &db_name);
   void CloseDB();
@@ -85,6 +89,7 @@ class EasyStore final : public StorageEngine {
  private:
   class Runtime;
   std::unique_ptr<Runtime> runtime_;
+  std::filesystem::path database_path_;
   bool enable_output_;
 };
 

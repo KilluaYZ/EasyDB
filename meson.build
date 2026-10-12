@@ -95,6 +95,7 @@ easydb_sources = files(
   'src/analyze/analyze.cpp',
   'src/parser/ast.cpp',
   'src/storage/easystore/easystore.cpp',
+  'src/storage/easystore/database_manager.cpp',
 )
 
 easydb = static_library(
@@ -137,6 +138,7 @@ test_sources = files(
   'test/parser/parser_ast_printer.cpp',
   'test/parser/parser_test.cpp',
   'test/storage/disk/disk_manager_test.cpp',
+  'test/storage/easystore/database_manager_test.cpp',
   'test/storage/index/clustered_leaf_page_test.cpp',
   'test/storage/index/clustered_index_handle_test.cpp',
   'test/type/type_test.cpp',
@@ -150,6 +152,7 @@ test_names = [
   'parser_ast_printer',
   'parser_test',
   'disk_manager_test',
+  'database_manager_test',
   'clustered_leaf_page_test',
   'clustered_index_handle_test',
   'type_test',
