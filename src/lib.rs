@@ -21,6 +21,7 @@ pub mod planner;
 pub mod record;
 pub mod recovery;
 pub mod storage;
+pub mod storage_engine;
 pub mod system;
 pub mod transaction;
 pub mod types;

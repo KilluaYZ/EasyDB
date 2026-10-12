@@ -22,6 +22,7 @@ use crate::execution::scan::{HashIndexScanExec, IndexScanExec, SeqScanExec};
 use crate::execution::{ExecCtx, Executor, ResolvedCond, ResolvedRhs, RowSchema};
 use crate::parser::ast::{CompOp, OrderDir};
 use crate::system::Database;
+use crate::storage_engine::{IndexKind, StorageEngine};
 use crate::types::{ColType, Value};
 
 /// 单表扫描的索引访问路径。
@@ -334,11 +335,15 @@ fn same_col(a: &TabCol, b: &TabCol) -> bool {
 }
 
 /// 索引选择：等值/范围条件命中索引。
-fn choose_index(db: &Database, table: &str, conds: &[BoundCond]) -> Option<IndexPlan> {
-    let meta = db.table(table).ok()?;
-    for ix in &meta.indexes {
-        if ix.cols.len() == 1 {
-            let col = &ix.cols[0];
+fn choose_index(db: &dyn StorageEngine, table: &str, conds: &[BoundCond]) -> Option<IndexPlan> {
+    let meta = db.table_descriptor(table).ok()?;
+    for ix in meta
+        .indexes
+        .iter()
+        .filter(|ix| matches!(ix.kind, IndexKind::BTree | IndexKind::Clustered))
+    {
+        if ix.columns.len() == 1 {
+            let col = &ix.columns[0];
             let mut eq: Option<Value> = None;
             let mut lower: Option<Value> = None;
             let mut upper: Option<Value> = None;
@@ -378,9 +383,9 @@ fn choose_index(db: &Database, table: &str, conds: &[BoundCond]) -> Option<Index
             }
         } else {
             // 多列索引：全部列等值 → 点查
-            let mut key = Vec::with_capacity(ix.cols.len());
+            let mut key = Vec::with_capacity(ix.columns.len());
             let mut ok = true;
-            for col in &ix.cols {
+            for col in &ix.columns {
                 let hit = conds.iter().find_map(|c| {
                     let tab_ok = c.lhs.tab == table || c.lhs.tab.is_empty();
                     match (&c.rhs, tab_ok && c.lhs.col == *col && c.op == CompOp::Eq) {
@@ -398,7 +403,7 @@ fn choose_index(db: &Database, table: &str, conds: &[BoundCond]) -> Option<Index
             }
             if ok {
                 return Some(IndexPlan {
-                    cols: ix.cols.clone(),
+                    cols: ix.columns.clone(),
                     lower: Some(key.clone()),
                     upper: Some(key),
                     hash: false,
@@ -406,10 +411,14 @@ fn choose_index(db: &Database, table: &str, conds: &[BoundCond]) -> Option<Index
             }
         }
     }
-    for ix in &meta.hash_indexes {
-        let mut key = Vec::with_capacity(ix.cols.len());
+    for ix in meta
+        .indexes
+        .iter()
+        .filter(|ix| ix.kind == IndexKind::ExtendibleHash)
+    {
+        let mut key = Vec::with_capacity(ix.columns.len());
         let mut ok = true;
-        for col in &ix.cols {
+        for col in &ix.columns {
             let hit = conds.iter().find_map(|c| {
                 let tab_ok = c.lhs.tab == table || c.lhs.tab.is_empty();
                 match (&c.rhs, tab_ok && c.lhs.col == *col && c.op == CompOp::Eq) {
@@ -427,7 +436,7 @@ fn choose_index(db: &Database, table: &str, conds: &[BoundCond]) -> Option<Index
         }
         if ok {
             return Some(IndexPlan {
-                cols: ix.cols.clone(),
+                cols: ix.columns.clone(),
                 lower: Some(key.clone()),
                 upper: Some(key),
                 hash: true,

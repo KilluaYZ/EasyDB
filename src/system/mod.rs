@@ -28,6 +28,7 @@ use crate::record::rm_file_handle::RmFileHandle;
 use crate::record::rm_manager::RmManager;
 use crate::recovery::{LogManager, LogRecord};
 use crate::storage::disk::DiskManager;
+use crate::storage_engine::{IndexDescriptor, IndexKind, StorageEngine, TableDescriptor};
 use crate::transaction::{IsolationLevel, Transaction, TransactionState, WType, WriteRecord};
 use crate::types::ColType;
 
@@ -248,6 +249,28 @@ impl Database {
         self.tables
             .get(name)
             .ok_or_else(|| EasyDbError::TableNotFound(name.to_string()))
+    }
+
+    /// 生成不暴露页/索引句柄的逻辑表描述，供 planner 使用。
+    pub fn table_descriptor(&self, name: &str) -> Result<TableDescriptor, EasyDbError> {
+        let table = self.table(name)?;
+        let indexes = table
+            .indexes
+            .iter()
+            .map(|index| IndexDescriptor {
+                columns: index.cols.clone(),
+                kind: IndexKind::BTree,
+            })
+            .chain(table.hash_indexes.iter().map(|index| IndexDescriptor {
+                columns: index.cols.clone(),
+                kind: IndexKind::ExtendibleHash,
+            }))
+            .collect();
+        Ok(TableDescriptor {
+            name: table.name.clone(),
+            columns: table.cols.clone(),
+            indexes,
+        })
     }
 
     fn table_mut(&mut self, name: &str) -> Result<&mut TableMeta, EasyDbError> {
@@ -971,6 +994,12 @@ impl Database {
     fn bpm_shared(&self) -> Arc<BufferPool> {
         // rm 与 ix 共用同一缓冲池实例
         self.rm.bpm().clone()
+    }
+}
+
+impl StorageEngine for Database {
+    fn table_descriptor(&self, table: &str) -> Result<TableDescriptor, EasyDbError> {
+        Database::table_descriptor(self, table)
     }
 }
 
