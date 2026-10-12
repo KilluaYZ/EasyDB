@@ -34,28 +34,47 @@ pub const RM_PAGE_HDR_SIZE: usize = 8;
 /// 通用页头 + Rm 页头
 pub const TABLE_PAGE_HEADER_SIZE: usize = OFFSET_PAGE_HDR + RM_PAGE_HDR_SIZE; // 16
 
-// ---- 槽目录（TupleInfo）布局，每槽 24 字节（含对齐，与 C++ std::tuple<u16,u16,TupleMeta> 一致）----
+// ---- 槽目录（TupleInfo）布局 ----
 
 /// 槽目录区起始偏移
 pub const TUPLE_INFO_AREA: usize = TABLE_PAGE_HEADER_SIZE;
-/// 每个槽目录条目的大小
-pub const TUPLE_INFO_SIZE: usize = 24;
+/// 每个槽目录条目的大小。
+///
+/// 版本链需要保存 xmin、xmax 和前一版本 RID，因此这里从旧的 24
+/// 字节扩展为 32 字节。新建的数据文件使用新布局；旧数据文件需要
+/// 通过迁移工具重建，不能直接按旧槽目录解释。
+pub const TUPLE_INFO_SIZE: usize = 32;
 /// 条目内偏移：元组数据在页内的起始偏移（u16）
 const INFO_OFF: usize = 0;
 /// 条目内偏移：元组数据长度（u16）
 const INFO_SIZE: usize = 2;
-/// 条目内偏移：元数据 ts（u64）
-const INFO_TS: usize = 4;
-/// 条目内偏移：元数据 is_deleted（u8）
-const INFO_DELETED: usize = 12;
+const INFO_XMIN: usize = 4;
+const INFO_XMAX: usize = 12;
+const INFO_PREV: usize = 20;
+const INFO_DELETED: usize = 28;
 
-/// 元组元数据：事务时间戳 + 删除标记。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+/// 元组版本元数据。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TupleMeta {
-    /// 元组的时间戳 / 事务ID（恢复与并发控制使用，P6 接入）
-    pub ts: u64,
+    /// 创建该版本的事务。
+    pub xmin: crate::common::config::TxnId,
+    /// 删除/替换该版本的事务；为空表示当前仍未被替换。
+    pub xmax: Option<crate::common::config::TxnId>,
+    /// 同一逻辑记录的前一个物理版本。
+    pub prev: Option<crate::common::rid::Rid>,
     /// 是否已被（逻辑）删除
     pub is_deleted: bool,
+}
+
+impl Default for TupleMeta {
+    fn default() -> Self {
+        Self {
+            xmin: crate::common::config::INVALID_TXN_ID,
+            xmax: None,
+            prev: None,
+            is_deleted: false,
+        }
+    }
 }
 
 /// 表数据文件的文件头（存储在第 0 页开头）。
@@ -161,9 +180,33 @@ pub fn read_tuple_info(data: &[u8], slot: usize) -> (u16, u16, TupleMeta) {
             .try_into()
             .unwrap(),
     );
-    let ts = u64::from_le_bytes(data[base + INFO_TS..base + INFO_TS + 8].try_into().unwrap());
+    let xmin = i64::from_le_bytes(
+        data[base + INFO_XMIN..base + INFO_XMIN + 8]
+            .try_into()
+            .unwrap(),
+    );
+    let xmax_raw = i64::from_le_bytes(
+        data[base + INFO_XMAX..base + INFO_XMAX + 8]
+            .try_into()
+            .unwrap(),
+    );
+    let prev_raw = i64::from_le_bytes(
+        data[base + INFO_PREV..base + INFO_PREV + 8]
+            .try_into()
+            .unwrap(),
+    );
     let is_deleted = data[base + INFO_DELETED] != 0;
-    (offset, size, TupleMeta { ts, is_deleted })
+    (
+        offset,
+        size,
+        TupleMeta {
+            xmin,
+            xmax: (xmax_raw != crate::common::config::INVALID_TXN_ID).then_some(xmax_raw),
+            prev: (prev_raw != crate::common::rid::Rid::INVALID.encoded())
+                .then_some(crate::common::rid::Rid::from_encoded(prev_raw)),
+            is_deleted,
+        },
+    )
 }
 
 /// 写入槽目录。
@@ -171,7 +214,20 @@ pub fn write_tuple_info(data: &mut [u8], slot: usize, offset: u16, size: u16, me
     let base = info_at(slot);
     data[base + INFO_OFF..base + INFO_OFF + 2].copy_from_slice(&offset.to_le_bytes());
     data[base + INFO_SIZE..base + INFO_SIZE + 2].copy_from_slice(&size.to_le_bytes());
-    data[base + INFO_TS..base + INFO_TS + 8].copy_from_slice(&meta.ts.to_le_bytes());
+    data[base + INFO_XMIN..base + INFO_XMIN + 8].copy_from_slice(&meta.xmin.to_le_bytes());
+    data[base + INFO_XMAX..base + INFO_XMAX + 8].copy_from_slice(
+        &meta
+            .xmax
+            .unwrap_or(crate::common::config::INVALID_TXN_ID)
+            .to_le_bytes(),
+    );
+    data[base + INFO_PREV..base + INFO_PREV + 8].copy_from_slice(
+        &meta
+            .prev
+            .unwrap_or(crate::common::rid::Rid::INVALID)
+            .encoded()
+            .to_le_bytes(),
+    );
     data[base + INFO_DELETED] = u8::from(meta.is_deleted);
 }
 
@@ -214,7 +270,9 @@ mod tests {
             4000,
             64,
             TupleMeta {
-                ts: 5,
+                xmin: 5,
+                xmax: None,
+                prev: None,
                 is_deleted: false,
             },
         );
@@ -224,7 +282,9 @@ mod tests {
             3900,
             100,
             TupleMeta {
-                ts: 6,
+                xmin: 6,
+                xmax: None,
+                prev: None,
                 is_deleted: true,
             },
         );
@@ -234,7 +294,9 @@ mod tests {
                 4000,
                 64,
                 TupleMeta {
-                    ts: 5,
+                    xmin: 5,
+                    xmax: None,
+                    prev: None,
                     is_deleted: false
                 }
             )
@@ -245,7 +307,9 @@ mod tests {
                 3900,
                 100,
                 TupleMeta {
-                    ts: 6,
+                    xmin: 6,
+                    xmax: None,
+                    prev: None,
                     is_deleted: true
                 }
             )
