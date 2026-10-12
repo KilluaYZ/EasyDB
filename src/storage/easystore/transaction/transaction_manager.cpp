@@ -20,6 +20,8 @@
 #include "common/context.h"
 #include "storage/easystore/catalog/catalog_manager.h"
 #include "storage/easystore/catalog/ddl_manager.h"
+#include "storage/easystore/recovery/recovery_manager.h"
+#include "storage/easystore/table/clustered_table_manager.h"
 #include "storage/easystore/transaction/rollback_manager.h"
 #include "storage/easystore/transaction/txn_defs.h"
 
@@ -134,17 +136,24 @@ void TransactionManager::Abort(Transaction *txn, LogManager *log_manager) {
   lsn_t lsn = log_manager->add_log_to_buffer(&abort_log_record);
   txn->SetPrevLsn(lsn);
 
-  // 1. Rollback all write operations
-  Context *context = new Context(lock_manager_, log_manager, txn, nullptr, 0);
-  // Backward scanning
+  // 1. Roll back from durable Undo Logs. Keep the WriteRecord fallback for
+  // callers that construct a transaction manager without clustered storage.
   auto write_set = txn->GetWriteSet();
-  while (!write_set->empty()) {
-    auto write_record = write_set->back();
-    rollback_manager_->Rollback(write_record, context);
-    write_set->pop_back();
-    delete write_record;
+  if (clustered_table_manager_ != nullptr) {
+    RecoveryManager recovery(clustered_table_manager_, log_manager);
+    recovery.UndoTransaction(txn->GetTransactionId());
+    for (auto *write_record : *write_set) delete write_record;
+    write_set->clear();
+  } else {
+    Context *context = new Context(lock_manager_, log_manager, txn, nullptr, 0);
+    while (!write_set->empty()) {
+      auto write_record = write_set->back();
+      rollback_manager_->Rollback(write_record, context);
+      write_set->pop_back();
+      delete write_record;
+    }
+    delete context;
   }
-  delete context;
 
   // 2. Release all locks
   auto lock_set = *txn->GetLockSet();

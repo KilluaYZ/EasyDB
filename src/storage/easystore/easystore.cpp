@@ -44,7 +44,7 @@ class EasyStore::Runtime {
         transaction_manager(std::make_unique<TransactionManager>(
             lock_manager.get(), rollback_manager.get(), disk_manager.get(),
             buffer_pool_manager.get(), catalog_manager.get(),
-            ddl_manager.get())),
+            ddl_manager.get(), clustered_table_manager.get())),
         log_manager(std::make_unique<LogManager>(disk_manager.get())) {}
 
   std::unique_ptr<DiskManager> disk_manager;

@@ -8,9 +8,13 @@
 #include "common/exception.h"
 #include "gtest/gtest.h"
 #include "storage/disk/disk_manager.h"
+#include "storage/easystore/catalog/catalog_manager.h"
+#include "storage/easystore/concurrency/lock_manager.h"
 #include "storage/easystore/recovery/recovery_manager.h"
 #include "storage/easystore/recovery/log_manager.h"
 #include "storage/easystore/table/clustered_table_manager.h"
+#include "storage/easystore/transaction/rollback_manager.h"
+#include "storage/easystore/transaction/transaction_manager.h"
 
 namespace easydb {
 
@@ -165,6 +169,59 @@ TEST_F(DiskManagerTest, RecoversCommittedAndUncommittedClusteredChanges) {
   EXPECT_FALSE(
       table_manager.Get("users")->Get(uncommitted_tuple).has_value());
 
+  table_manager.Close("users");
+  std::filesystem::current_path(original_dir);
+  std::filesystem::remove_all(db_dir);
+}
+
+// NOLINTNEXTLINE
+TEST_F(DiskManagerTest, TransactionAbortUsesDurableUndoLog) {
+  const std::filesystem::path db_dir = "abort_test.easydb";
+  std::filesystem::remove_all(db_dir);
+  std::filesystem::create_directories(db_dir);
+  const auto original_dir = std::filesystem::current_path();
+  std::filesystem::current_path(db_dir);
+
+  Schema schema({Column("id", TYPE_INT), Column("value", TYPE_INT)});
+  const Tuple tuple({Value(TYPE_INT, static_cast<int32_t>(7)),
+                     Value(TYPE_INT, static_cast<int32_t>(70))},
+                    &schema);
+
+  DiskManager disk_manager(".");
+  BufferPoolManager buffer_pool_manager(64, &disk_manager);
+  ClusteredTableManager table_manager(&disk_manager, &buffer_pool_manager);
+  table_manager.Create("users", schema);
+  table_manager.Open("users", schema);
+  LogManager log_manager(&disk_manager);
+
+  LockManager lock_manager;
+  CatalogManager catalog_manager;
+  RollbackManager rollback_manager(&catalog_manager, &table_manager);
+  TransactionManager transaction_manager(
+      &lock_manager, &rollback_manager, &disk_manager, &buffer_pool_manager,
+      &catalog_manager, nullptr, &table_manager);
+
+  auto *txn = transaction_manager.Begin(nullptr, &log_manager);
+  RedoLogRecord redo(LogKind::REDO, INSERT, txn->GetTransactionId(),
+                     txn->GetPrevLsn(), "users", tuple, Tuple{}, tuple);
+  auto lsn = log_manager.add_log_to_buffer(&redo);
+  txn->SetPrevLsn(lsn);
+  UndoLogRecord undo(LogKind::UNDO, INSERT, txn->GetTransactionId(),
+                     txn->GetPrevLsn(), "users", tuple, Tuple{}, tuple);
+  lsn = log_manager.add_log_to_buffer(&undo);
+  txn->SetPrevLsn(lsn);
+  log_manager.flush_log_to_disk();
+
+  ASSERT_TRUE(table_manager.Get("users")->Insert(tuple));
+  ASSERT_TRUE(table_manager.Get("users")->Get(tuple).has_value());
+
+  transaction_manager.Abort(txn, &log_manager);
+
+  EXPECT_FALSE(table_manager.Get("users")->Get(tuple).has_value());
+  EXPECT_EQ(txn->GetState(), TransactionState::ABORTED);
+
+  TransactionManager::txn_map.erase(txn->GetTransactionId());
+  delete txn;
   table_manager.Close("users");
   std::filesystem::current_path(original_dir);
   std::filesystem::remove_all(db_dir);

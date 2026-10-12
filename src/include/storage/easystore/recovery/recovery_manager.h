@@ -18,6 +18,7 @@ class RecoveryManager {
       : table_manager_(table_manager), log_manager_(log_manager) {}
 
   void Recover();
+  void UndoTransaction(txn_id_t txn_id);
 
  private:
   void ApplyRedo(const TupleLogRecord &record);

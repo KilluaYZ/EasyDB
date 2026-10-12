@@ -30,6 +30,7 @@ class CatalogManager;
 class DiskManager;
 class DdlManager;
 class RollbackManager;
+class ClusteredTableManager;
 
 /**
  * @brief 系统采用的并发控制算法枚举
@@ -54,6 +55,7 @@ class TransactionManager {
       LockManager *lock_manager, RollbackManager *rollback_manager,
       DiskManager *disk_manager, BufferPoolManager *buffer_pool_manager,
       CatalogManager *catalog_manager, DdlManager *ddl_manager,
+      ClusteredTableManager *clustered_table_manager = nullptr,
       ConcurrencyMode concurrency_mode = ConcurrencyMode::TWO_PHASE_LOCKING) {
     lock_manager_ = lock_manager;
     rollback_manager_ = rollback_manager;
@@ -61,6 +63,7 @@ class TransactionManager {
     buffer_pool_manager_ = buffer_pool_manager;
     catalog_manager_ = catalog_manager;
     ddl_manager_ = ddl_manager;
+    clustered_table_manager_ = clustered_table_manager;
     concurrency_mode_ = concurrency_mode;
   }
 
@@ -196,6 +199,7 @@ class TransactionManager {
   BufferPoolManager *buffer_pool_manager_ = nullptr;
   CatalogManager *catalog_manager_ = nullptr;
   DdlManager *ddl_manager_ = nullptr;
+  ClusteredTableManager *clustered_table_manager_ = nullptr;
 
   /** @brief 锁管理器指针 */
   LockManager *lock_manager_;

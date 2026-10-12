@@ -50,6 +50,23 @@ void RecoveryManager::Recover() {
   table_manager_->Flush();
 }
 
+void RecoveryManager::UndoTransaction(txn_id_t txn_id) {
+  if (table_manager_ == nullptr || log_manager_ == nullptr) {
+    throw InternalError("recovery manager is not initialized");
+  }
+
+  auto logs = log_manager_->ReadAllLogs();
+  for (auto it = logs.rbegin(); it != logs.rend(); ++it) {
+    const auto &log = *it;
+    if (log->log_tid_ != txn_id || log->log_kind_ != LogKind::UNDO) {
+      continue;
+    }
+    const auto *tuple_log = dynamic_cast<const TupleLogRecord *>(log.get());
+    if (tuple_log != nullptr) ApplyUndo(*tuple_log);
+  }
+  table_manager_->Flush();
+}
+
 void RecoveryManager::ApplyRedo(const TupleLogRecord &record) {
   if (!table_manager_->Has(record.GetTableName())) return;
   auto *table = table_manager_->Get(record.GetTableName());
