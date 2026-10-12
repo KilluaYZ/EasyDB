@@ -104,6 +104,44 @@ lsn_t LogManager::GetNextLsn() const {
   return global_lsn_.load();
 }
 
+auto LogManager::ReadAllLogs() const
+    -> std::vector<std::unique_ptr<LogRecord>> {
+  std::scoped_lock lock{latch_};
+  std::vector<std::unique_ptr<LogRecord>> logs;
+  size_t offset = 0;
+  const auto log_size = disk_manager_->GetLogSize();
+
+  while (offset + LOG_HEADER_SIZE <= log_size) {
+    std::array<char, LOG_HEADER_SIZE> header{};
+    disk_manager_->ReadLog(offset, header.data(), header.size());
+
+    LogRecord header_record;
+    header_record.deserialize(header.data());
+    const auto record_size = header_record.log_tot_len_;
+    if (record_size < LOG_HEADER_SIZE || offset + record_size > log_size) {
+      break;
+    }
+
+    std::vector<char> bytes(record_size);
+    disk_manager_->ReadLog(offset, bytes.data(), bytes.size());
+
+    std::unique_ptr<LogRecord> record;
+    const bool is_tuple_operation =
+        header_record.log_kind_ != LogKind::SYSTEM &&
+        header_record.log_type_ <= DELETE;
+    if (is_tuple_operation) {
+      record = std::make_unique<TupleLogRecord>();
+    } else {
+      record = std::make_unique<LogRecord>();
+    }
+    record->deserialize(bytes.data());
+    logs.emplace_back(std::move(record));
+    offset += record_size;
+  }
+
+  return logs;
+}
+
 void LogManager::recover_lsn_state() {
   std::scoped_lock lock{latch_};
   log_file_offset_ = disk_manager_->GetLogSize();

@@ -23,8 +23,10 @@ class ClusteredTableManager {
   void Open(const std::string &table_name, const Schema &schema);
   void Close(const std::string &table_name);
   void Destroy(const std::string &table_name);
+  void Flush();
 
   auto Get(const std::string &table_name) const -> ClusteredTableHandle *;
+  bool Has(const std::string &table_name) const;
   auto GetFd(const std::string &table_name) const -> int;
 
  private:

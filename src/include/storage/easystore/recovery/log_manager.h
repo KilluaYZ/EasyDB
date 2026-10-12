@@ -5,7 +5,9 @@
 #include <cstring>
 #include <iostream>
 #include <mutex>
+#include <memory>
 #include <string>
+#include <vector>
 
 #include "common/config.h"
 #include "log_defs.h"
@@ -214,6 +216,7 @@ class LogManager {
   void flush_log_to_disk();
   lsn_t GetPersistentLsn() const;
   lsn_t GetNextLsn() const;
+  auto ReadAllLogs() const -> std::vector<std::unique_ptr<LogRecord>>;
   LogBuffer *get_log_buffer() { return &log_buffer_; }
 
  private:

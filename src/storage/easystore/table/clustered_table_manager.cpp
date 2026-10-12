@@ -88,9 +88,19 @@ void ClusteredTableManager::Destroy(const std::string &table_name) {
   disk_manager_->DestroyFile(FileName(table_name));
 }
 
+void ClusteredTableManager::Flush() {
+  for (auto &entry : entries_) {
+    entry.second->index->Flush();
+  }
+}
+
 auto ClusteredTableManager::Get(const std::string &table_name) const
     -> ClusteredTableHandle * {
   return entries_.at(table_name)->table.get();
+}
+
+bool ClusteredTableManager::Has(const std::string &table_name) const {
+  return entries_.find(table_name) != entries_.end();
 }
 
 auto ClusteredTableManager::GetFd(const std::string &table_name) const -> int {

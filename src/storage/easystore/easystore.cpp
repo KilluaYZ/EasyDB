@@ -14,6 +14,7 @@
 #include "storage/easystore/concurrency/lock_manager.h"
 #include "storage/easystore/record/record_printer.h"
 #include "storage/easystore/recovery/log_manager.h"
+#include "storage/easystore/recovery/recovery_manager.h"
 #include "storage/easystore/statistics/statistics_manager.h"
 #include "storage/easystore/table/clustered_table_manager.h"
 #include "storage/easystore/transaction/rollback_manager.h"
@@ -84,6 +85,9 @@ void EasyStore::OpenDB(const std::string &db_name) {
   for (const auto &entry : runtime_->catalog_manager->Tables()) {
     runtime_->clustered_table_manager->Open(entry.first, entry.second.schema);
   }
+  RecoveryManager recovery(runtime_->clustered_table_manager.get(),
+                           runtime_->log_manager.get());
+  recovery.Recover();
 }
 
 void EasyStore::CloseDB() {
