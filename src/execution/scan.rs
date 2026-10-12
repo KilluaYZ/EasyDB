@@ -38,14 +38,9 @@ impl SeqScanExec {
         conds: Vec<ResolvedCond>,
         ctx: &ExecCtx,
         _table: &str,
-    ) -> Self {
-        // 锁失败（wait-die 中止）：标记事务状态，错误经 next() 传播
-        if let Err(e) = ctx.locks.lock_shared_on_table(&ctx.txn, fh.fd()) {
-            ctx.txn
-                .set_state(crate::transaction::TransactionState::Aborted);
-            let _ = e;
-        }
-        Self::new_unlocked(fh, table_cols, conds)
+    ) -> Result<Self, EasyDbError> {
+        ctx.locks.lock_shared_on_table(&ctx.txn, fh.fd())?;
+        Ok(Self::new_unlocked(fh, table_cols, conds))
     }
 
     /// 无锁构造：建索引回填 / 恢复重建等 DDL 语境使用。
@@ -225,11 +220,7 @@ impl IndexScanExec {
         ctx: &ExecCtx,
         _table: &str,
     ) -> Result<Self, EasyDbError> {
-        if let Err(e) = ctx.locks.lock_shared_on_table(&ctx.txn, fh.fd()) {
-            ctx.txn
-                .set_state(crate::transaction::TransactionState::Aborted);
-            let _ = e;
-        }
+        ctx.locks.lock_shared_on_table(&ctx.txn, fh.fd())?;
         let (cur, end) = match (lower, upper) {
             (Some(lo), Some(hi)) => (ih.lower_bound(&lo)?, ih.upper_bound(&hi)?),
             (Some(lo), None) => (ih.lower_bound(&lo)?, ih.leaf_end()?),
