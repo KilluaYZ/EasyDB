@@ -96,6 +96,10 @@ class Transaction {
    */
   inline timestamp_t GetStartTs() { return start_ts_; }
 
+  inline void SetCommitTs(timestamp_t commit_ts) { commit_ts_ = commit_ts; }
+
+  inline timestamp_t GetCommitTs() { return commit_ts_; }
+
   /**
    * @brief 获取隔离级别
    * @return 事务的隔离级别
@@ -208,6 +212,9 @@ class Transaction {
    * @note 用于MVCC（多版本并发控制）和死锁预防
    */
   timestamp_t start_ts_;
+
+  /** Commit timestamp assigned when the transaction becomes durable. */
+  timestamp_t commit_ts_{INVALID_TS};
 
   /**
    * @brief 事务申请的所有锁

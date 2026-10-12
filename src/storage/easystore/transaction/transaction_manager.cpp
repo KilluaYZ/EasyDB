@@ -81,6 +81,7 @@ void TransactionManager::Commit(Transaction *txn, LogManager *log_manager) {
   // std::scoped_lock lock(latch_);
 
   // Log the commit
+  txn->SetCommitTs(next_timestamp_.fetch_add(1));
   CommitLogRecord commit_log_record(txn->GetTransactionId(), txn->GetPrevLsn());
   lsn_t lsn = log_manager->add_log_to_buffer(&commit_log_record);
   txn->SetPrevLsn(lsn);

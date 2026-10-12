@@ -86,7 +86,9 @@ auto ClusteredLeafPage::GetEntry(uint16_t slot) const -> ClusteredLeafEntry {
   result.tuple.resize(entry.tuple_size);
   const char *payload = page_->GetData() + entry.offset;
   std::memcpy(result.key.data(), payload, entry.key_size);
-  std::memcpy(result.tuple.data(), payload + entry.key_size, entry.tuple_size);
+  std::memcpy(&result.meta, payload + entry.key_size, sizeof(TupleMeta));
+  std::memcpy(result.tuple.data(),
+              payload + entry.key_size + sizeof(TupleMeta), entry.tuple_size);
   return result;
 }
 
@@ -126,7 +128,7 @@ auto ClusteredLeafPage::Rebuild(const std::vector<ClusteredLeafEntry> &entries)
         entry.key.size() + entry.tuple.size() > UINT16_MAX) {
       return false;
     }
-    payload_size += entry.key.size() + entry.tuple.size();
+    payload_size += entry.key.size() + sizeof(TupleMeta) + entry.tuple.size();
   }
   if (entries.size() > UINT16_MAX ||
       required_slots + payload_size > PAGE_SIZE) {
@@ -149,19 +151,23 @@ auto ClusteredLeafPage::Rebuild(const std::vector<ClusteredLeafEntry> &entries)
 
   auto *slots = Slots();
   for (size_t i = 0; i < entries.size(); ++i) {
-    const auto payload_size_for_entry =
-        entries[i].key.size() + entries[i].tuple.size();
+    const auto payload_size_for_entry = entries[i].key.size() +
+                                        sizeof(TupleMeta) +
+                                        entries[i].tuple.size();
     header->free_end =
         static_cast<uint16_t>(header->free_end - payload_size_for_entry);
     slots[i] = {
         header->free_end,
         static_cast<uint16_t>(entries[i].key.size()),
         static_cast<uint16_t>(entries[i].tuple.size()),
-        0,
+        static_cast<uint16_t>(sizeof(TupleMeta)),
     };
     char *payload = page_->GetData() + header->free_end;
     std::memcpy(payload, entries[i].key.data(), entries[i].key.size());
-    std::memcpy(payload + entries[i].key.size(), entries[i].tuple.data(),
+    std::memcpy(payload + entries[i].key.size(), &entries[i].meta,
+                sizeof(TupleMeta));
+    std::memcpy(payload + entries[i].key.size() + sizeof(TupleMeta),
+                entries[i].tuple.data(),
                 entries[i].tuple.size());
   }
   page_->SetLSN(old_lsn);
@@ -169,10 +175,11 @@ auto ClusteredLeafPage::Rebuild(const std::vector<ClusteredLeafEntry> &entries)
 }
 
 auto ClusteredLeafPage::Insert(uint16_t slot, const std::vector<char> &key,
-                               const std::vector<char> &tuple) -> bool {
+                               const std::vector<char> &tuple,
+                               const TupleMeta &meta) -> bool {
   if (slot > GetSize()) return false;
   auto entries = ReadEntries();
-  entries.insert(entries.begin() + slot, ClusteredLeafEntry{key, tuple});
+  entries.insert(entries.begin() + slot, ClusteredLeafEntry{key, meta, tuple});
   return Rebuild(entries);
 }
 
@@ -188,6 +195,15 @@ auto ClusteredLeafPage::Update(uint16_t slot, const std::vector<char> &tuple)
   if (slot >= GetSize()) return false;
   auto entries = ReadEntries();
   entries[slot].tuple = tuple;
+  return Rebuild(entries);
+}
+
+auto ClusteredLeafPage::Update(uint16_t slot, const std::vector<char> &tuple,
+                               const TupleMeta &meta) -> bool {
+  if (slot >= GetSize()) return false;
+  auto entries = ReadEntries();
+  entries[slot].tuple = tuple;
+  entries[slot].meta = meta;
   return Rebuild(entries);
 }
 

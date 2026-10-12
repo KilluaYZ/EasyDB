@@ -28,16 +28,18 @@ namespace easydb {
 using timestamp_t = int64_t;
 const timestamp_t INVALID_TS = -1;
 
-static constexpr size_t TUPLE_META_SIZE = 16;
-
 struct TupleMeta {
-  /** the ts / txn_id of this tuple. In project 3, simply set it to 0. */
-  timestamp_t ts_;
-  /** marks whether this tuple is marked removed from table heap. */
-  bool is_deleted_;
+  /** Transaction which created the current physical version. */
+  txn_id_t trx_id_{INVALID_TXN_ID};
+  /** LSN of the previous version in the MVCC undo chain. */
+  lsn_t undo_ptr_{INVALID_LSN};
+  /** Logical deletion marker. Physical purge is a later MVCC phase. */
+  bool is_deleted_{false};
+  uint8_t reserved_[3]{};
 
   friend auto operator==(const TupleMeta &a, const TupleMeta &b) {
-    return a.ts_ == b.ts_ && a.is_deleted_ == b.is_deleted_;
+    return a.trx_id_ == b.trx_id_ && a.undo_ptr_ == b.undo_ptr_ &&
+           a.is_deleted_ == b.is_deleted_;
   }
 
   friend auto operator!=(const TupleMeta &a, const TupleMeta &b) {
@@ -45,7 +47,7 @@ struct TupleMeta {
   }
 };
 
-static_assert(sizeof(TupleMeta) == TUPLE_META_SIZE);
+static_assert(sizeof(TupleMeta) == 16);
 
 /**
  * Tuple format:

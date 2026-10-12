@@ -7,7 +7,7 @@ namespace easydb {
 
 namespace {
 constexpr uint32_t FILE_MAGIC = 0x434C4944;  // CLID
-constexpr uint16_t FILE_VERSION = 1;
+constexpr uint16_t FILE_VERSION = 2;
 constexpr uint32_t INTERNAL_MAGIC = 0x434C494E;  // CLIN
 constexpr size_t PAGE_HEADER_OFFSET = Page::OFFSET_PAGE_HDR;
 
@@ -170,6 +170,13 @@ auto ClusteredIndexHandle::FindLeaf(const std::vector<char> &key,
 
 auto ClusteredIndexHandle::Get(const std::vector<char> &key)
     -> std::optional<std::vector<char>> {
+  const auto record = GetRecord(key);
+  if (!record.has_value()) return std::nullopt;
+  return record->tuple;
+}
+
+auto ClusteredIndexHandle::GetRecord(const std::vector<char> &key)
+    -> std::optional<ClusteredLeafEntry> {
   page_id_t leaf_page = INVALID_PAGE_ID;
   uint16_t ignored = 0;
   if (!FindLeaf(key, &leaf_page, &ignored)) return std::nullopt;
@@ -178,10 +185,10 @@ auto ClusteredIndexHandle::Get(const std::vector<char> &key)
   if (page == nullptr) return std::nullopt;
   ClusteredLeafPage leaf(page);
   const auto slot = leaf.LowerBound(key, comparator_);
-  std::optional<std::vector<char>> result;
+  std::optional<ClusteredLeafEntry> result;
   if (slot < leaf.GetSize()) {
     auto entry = leaf.GetEntry(slot);
-    if (comparator_(entry.key.data(), key.data()) == 0) result = entry.tuple;
+    if (comparator_(entry.key.data(), key.data()) == 0) result = entry;
   }
   buffer_pool_manager_->UnpinPage(page_id, false);
   return result;
@@ -189,6 +196,14 @@ auto ClusteredIndexHandle::Get(const std::vector<char> &key)
 
 auto ClusteredIndexHandle::Update(const std::vector<char> &key,
                                   const std::vector<char> &tuple) -> bool {
+  const auto record = GetRecord(key);
+  if (!record.has_value()) return false;
+  return Update(key, tuple, record->meta);
+}
+
+auto ClusteredIndexHandle::Update(const std::vector<char> &key,
+                                  const std::vector<char> &tuple,
+                                  const TupleMeta &meta) -> bool {
   page_id_t leaf_page = INVALID_PAGE_ID;
   uint16_t ignored = 0;
   if (!FindLeaf(key, &leaf_page, &ignored)) return false;
@@ -201,7 +216,7 @@ auto ClusteredIndexHandle::Update(const std::vector<char> &key,
   if (slot < leaf.GetSize()) {
     const auto entry = leaf.GetEntry(slot);
     if (comparator_(entry.key.data(), key.data()) == 0) {
-      updated = leaf.Update(slot, tuple);
+      updated = leaf.Update(slot, tuple, meta);
     }
   }
   buffer_pool_manager_->UnpinPage(page_id, updated);
@@ -283,6 +298,12 @@ auto ClusteredIndexHandle::ScanAll() -> std::vector<ClusteredLeafEntry> {
 
 auto ClusteredIndexHandle::Insert(const std::vector<char> &key,
                                   const std::vector<char> &tuple) -> bool {
+  return Insert(key, tuple, TupleMeta{});
+}
+
+auto ClusteredIndexHandle::Insert(const std::vector<char> &key,
+                                  const std::vector<char> &tuple,
+                                  const TupleMeta &meta) -> bool {
   if (key.size() != key_size_ || root_page_ == INVALID_PAGE_ID) return false;
   page_id_t leaf_page = INVALID_PAGE_ID;
   uint16_t child_index = 0;
@@ -297,7 +318,7 @@ auto ClusteredIndexHandle::Insert(const std::vector<char> &key,
     buffer_pool_manager_->UnpinPage(page_id, false);
     return false;
   }
-  if (leaf.Insert(slot, key, tuple)) {
+  if (leaf.Insert(slot, key, tuple, meta)) {
     buffer_pool_manager_->UnpinPage(page_id, true);
     return true;
   }
@@ -306,7 +327,7 @@ auto ClusteredIndexHandle::Insert(const std::vector<char> &key,
   entries.reserve(leaf.GetSize() + 1);
   for (uint16_t i = 0; i < leaf.GetSize(); ++i)
     entries.push_back(leaf.GetEntry(i));
-  entries.insert(entries.begin() + slot, {key, tuple});
+  entries.insert(entries.begin() + slot, {key, meta, tuple});
   const auto middle = entries.size() / 2;
   std::vector<ClusteredLeafEntry> left(entries.begin(),
                                        entries.begin() + middle);

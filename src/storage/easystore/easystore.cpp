@@ -192,8 +192,12 @@ std::unique_ptr<Tuple> EasyStore::ReadTuple(const std::string &table,
 }
 
 bool EasyStore::InsertTuple(const std::string &table, const Tuple &tuple,
-                            Context *) {
-  return runtime_->clustered_table_manager->Get(table)->Insert(tuple);
+                            Context *context) {
+  TupleMeta meta;
+  if (context != nullptr && context->txn_ != nullptr) {
+    meta.trx_id_ = context->txn_->GetTransactionId();
+  }
+  return runtime_->clustered_table_manager->Get(table)->Insert(tuple, meta);
 }
 
 bool EasyStore::DeleteTuple(const std::string &table, const Tuple &key,
@@ -203,7 +207,12 @@ bool EasyStore::DeleteTuple(const std::string &table, const Tuple &key,
 
 bool EasyStore::UpdateTuple(const std::string &table, const Tuple &key,
                             const Tuple &tuple, Context *context) {
-  return runtime_->clustered_table_manager->Get(table)->Update(key, tuple);
+  TupleMeta meta;
+  if (context != nullptr && context->txn_ != nullptr) {
+    meta.trx_id_ = context->txn_->GetTransactionId();
+  }
+  return runtime_->clustered_table_manager->Get(table)->Update(key, tuple,
+                                                                meta);
 }
 
 void EasyStore::CreateTable(const std::string &name,

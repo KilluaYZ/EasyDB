@@ -7,11 +7,13 @@
 
 #include "common/config.h"
 #include "storage/page/page.h"
+#include "storage/easystore/table/tuple.h"
 
 namespace easydb {
 
 struct ClusteredLeafEntry {
   std::vector<char> key;
+  TupleMeta meta;
   std::vector<char> tuple;
 };
 
@@ -27,7 +29,7 @@ struct ClusteredLeafPageHeader {
 };
 
 static constexpr uint32_t CLUSTERED_LEAF_PAGE_MAGIC = 0x434C5052;  // CLPR
-static constexpr uint16_t CLUSTERED_LEAF_PAGE_VERSION = 1;
+static constexpr uint16_t CLUSTERED_LEAF_PAGE_VERSION = 2;
 
 /** One slot points at a key+tuple payload in the page. */
 struct ClusteredLeafSlot {
@@ -64,11 +66,14 @@ class ClusteredLeafPage {
 
   /** Insert before slot. Passing slot == GetSize() appends the entry. */
   auto Insert(uint16_t slot, const std::vector<char> &key,
-              const std::vector<char> &tuple) -> bool;
+              const std::vector<char> &tuple,
+              const TupleMeta &meta = TupleMeta{}) -> bool;
   auto Erase(uint16_t slot) -> bool;
 
   /** Rebuild the page after a variable-length tuple update. */
   auto Update(uint16_t slot, const std::vector<char> &tuple) -> bool;
+  auto Update(uint16_t slot, const std::vector<char> &tuple,
+              const TupleMeta &meta) -> bool;
 
   // Used by the clustered-tree split path after entries have been
   // repartitioned.

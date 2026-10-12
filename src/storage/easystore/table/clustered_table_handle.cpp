@@ -11,24 +11,42 @@ auto ClusteredTableHandle::MakeKey(const Tuple &tuple) const
 }
 
 auto ClusteredTableHandle::Insert(const Tuple &tuple) -> bool {
+  return Insert(tuple, TupleMeta{});
+}
+
+auto ClusteredTableHandle::Insert(const Tuple &tuple, const TupleMeta &meta)
+    -> bool {
   if (index_ == nullptr || schema_ == nullptr || key_schema_ == nullptr) {
     return false;
   }
   return index_->Insert(MakeKey(tuple),
-                        {tuple.GetData(), tuple.GetData() + tuple.GetLength()});
+                        {tuple.GetData(), tuple.GetData() + tuple.GetLength()},
+                        meta);
 }
 
 auto ClusteredTableHandle::Get(const Tuple &key_tuple) -> std::optional<Tuple> {
+  const auto record = GetRecord(key_tuple);
+  if (!record.has_value()) return std::nullopt;
+  return Tuple(record->tuple);
+}
+
+auto ClusteredTableHandle::GetRecord(const Tuple &key_tuple)
+    -> std::optional<ClusteredLeafEntry> {
   if (index_ == nullptr || schema_ == nullptr || key_schema_ == nullptr) {
     return std::nullopt;
   }
-  const auto data = index_->Get(MakeKey(key_tuple));
-  if (!data.has_value()) return std::nullopt;
-  return Tuple(*data);
+  return index_->GetRecord(MakeKey(key_tuple));
 }
 
 auto ClusteredTableHandle::Update(const Tuple &key_tuple, const Tuple &tuple)
     -> bool {
+  const auto record = GetRecord(key_tuple);
+  if (!record.has_value()) return false;
+  return Update(key_tuple, tuple, record->meta);
+}
+
+auto ClusteredTableHandle::Update(const Tuple &key_tuple, const Tuple &tuple,
+                                  const TupleMeta &meta) -> bool {
   if (index_ == nullptr || schema_ == nullptr || key_schema_ == nullptr) {
     return false;
   }
@@ -36,7 +54,8 @@ auto ClusteredTableHandle::Update(const Tuple &key_tuple, const Tuple &tuple)
   const auto new_key = MakeKey(tuple);
   if (old_key != new_key) return false;
   return index_->Update(old_key,
-                        {tuple.GetData(), tuple.GetData() + tuple.GetLength()});
+                        {tuple.GetData(), tuple.GetData() + tuple.GetLength()},
+                        meta);
 }
 
 auto ClusteredTableHandle::Delete(const Tuple &key_tuple) -> bool {

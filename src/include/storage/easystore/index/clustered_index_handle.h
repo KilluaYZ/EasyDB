@@ -28,9 +28,15 @@ class ClusteredIndexHandle {
 
   auto Insert(const std::vector<char> &key, const std::vector<char> &tuple)
       -> bool;
+  auto Insert(const std::vector<char> &key, const std::vector<char> &tuple,
+              const TupleMeta &meta) -> bool;
   auto Get(const std::vector<char> &key) -> std::optional<std::vector<char>>;
+  auto GetRecord(const std::vector<char> &key)
+      -> std::optional<ClusteredLeafEntry>;
   auto Update(const std::vector<char> &key, const std::vector<char> &tuple)
       -> bool;
+  auto Update(const std::vector<char> &key, const std::vector<char> &tuple,
+              const TupleMeta &meta) -> bool;
   auto Delete(const std::vector<char> &key) -> bool;
   auto ScanAll() -> std::vector<ClusteredLeafEntry>;
 

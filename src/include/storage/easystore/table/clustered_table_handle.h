@@ -28,8 +28,12 @@ class ClusteredTableHandle {
         key_attrs_(std::move(key_attrs)) {}
 
   auto Insert(const Tuple &tuple) -> bool;
+  auto Insert(const Tuple &tuple, const TupleMeta &meta) -> bool;
   auto Get(const Tuple &key_tuple) -> std::optional<Tuple>;
+  auto GetRecord(const Tuple &key_tuple) -> std::optional<ClusteredLeafEntry>;
   auto Update(const Tuple &key_tuple, const Tuple &tuple) -> bool;
+  auto Update(const Tuple &key_tuple, const Tuple &tuple,
+              const TupleMeta &meta) -> bool;
   auto Delete(const Tuple &key_tuple) -> bool;
   auto Scan() -> std::vector<Tuple>;
 
