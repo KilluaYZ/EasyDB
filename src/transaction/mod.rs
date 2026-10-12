@@ -9,6 +9,7 @@ use std::sync::{Mutex, OnceLock};
 
 use crate::common::config::{INVALID_LSN, TxnId};
 use crate::common::rid::Rid;
+use crate::record::rm_defs::TupleMeta;
 
 /// 事务状态（对应 C++ `TransactionState`）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,6 +50,10 @@ pub struct WriteRecord {
     pub wtype: WType,
     pub table: String,
     pub rid: Rid,
+    /// UPDATE 产生的新版本 RID；INSERT/DELETE 为 None。
+    pub new_rid: Option<Rid>,
+    /// 被修改版本的原始元数据，用于回滚版本链。
+    pub old_meta: TupleMeta,
     /// 元组编码字节：INSERT 存新数据（撤销删行+索引）、
     /// DELETE/UPDATE 存旧数据（撤销回写）
     pub data: Vec<u8>,
