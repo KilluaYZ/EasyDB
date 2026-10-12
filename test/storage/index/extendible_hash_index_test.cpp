@@ -6,9 +6,9 @@
 // #include "buffer/buffer_pool_manager.h"
 // #include "defs.h"
 // #include "storage/disk/disk_manager.h"
-// #include "storage/index/ix_defs.h"
-// #include "storage/index/ix_extendible_hash_index_handle.h"
-// #include "storage/index/ix_manager.h"
+// #include "storage/easystore/index/ix_defs.h"
+// #include "storage/easystore/index/ix_extendible_hash_index_handle.h"
+// #include "storage/easystore/index/ix_manager.h"
 // #include "system/sm_meta.h"
 // namespace easydb {
 

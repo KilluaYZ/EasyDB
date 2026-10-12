@@ -4,7 +4,7 @@
  *
  * ix_scan.h
  *
- * Identification: src/include/storage/index/ix_scan.h
+ * Identification: src/include/storage/easystore/index/ix_scan.h
  *
  *-------------------------------------------------------------------------
  */
@@ -12,8 +12,8 @@
 #pragma once
 #include "common/rid.h"
 #include "record/rm_scan.h"
-#include "storage/index/ix_defs.h"
-#include "storage/index/ix_index_handle.h"
+#include "storage/easystore/index/ix_defs.h"
+#include "storage/easystore/index/ix_index_handle.h"
 
 namespace easydb {
 

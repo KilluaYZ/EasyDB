@@ -4,7 +4,7 @@
  *
  * ix_defs.h
  *
- * Identification: src/include/storage/index/ix_defs.h
+ * Identification: src/include/storage/easystore/index/ix_defs.h
  *
  *-------------------------------------------------------------------------
  */

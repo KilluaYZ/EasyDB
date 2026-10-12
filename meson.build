@@ -66,11 +66,11 @@ easydb_sources = files(
   'src/type/value.cpp',
   'src/type/varlen_type.cpp',
   'src/storage/disk/disk_manager.cpp',
-  'src/storage/index/ix_index_handle.cpp',
-  'src/storage/index/ix_extendible_hash_index_handle.cpp',
-  'src/storage/index/ix_scan.cpp',
-  'src/storage/page/table_page.cpp',
-  'src/storage/table/tuple.cpp',
+  'src/storage/easystore/index/ix_index_handle.cpp',
+  'src/storage/easystore/index/ix_extendible_hash_index_handle.cpp',
+  'src/storage/easystore/index/ix_scan.cpp',
+  'src/storage/easystore/page/table_page.cpp',
+  'src/storage/easystore/table/tuple.cpp',
   'src/buffer/buffer_pool_manager.cpp',
   'src/buffer/lru_replacer.cpp',
   'src/record/rm_file_handle.cpp',
@@ -95,7 +95,7 @@ easydb_sources = files(
   'src/system/sm_manager.cpp',
   'src/analyze/analyze.cpp',
   'src/parser/ast.cpp',
-  'src/storage/easydb_storage_engine.cpp',
+  'src/storage/easystore/easystore.cpp',
 )
 
 easydb = static_library(

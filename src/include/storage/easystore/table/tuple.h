@@ -4,7 +4,7 @@
  *
  * tuple.h
  *
- * Identification: src/include/storage/table/tuple.h
+ * Identification: src/include/storage/easystore/table/tuple.h
  *
  *-------------------------------------------------------------------------
  */

@@ -10,7 +10,7 @@
  */
 
 #include "execution/executor_delete.h"
-#include "storage/table/tuple.h"
+#include "storage/easystore/table/tuple.h"
 
 namespace easydb {
 

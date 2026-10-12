@@ -19,7 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/rid.h"
 #include "log_defs.h"
 #include "record/rm_defs.h"
-#include "storage/page/page.h"
+#include "storage/easystore/page/page.h"
 
 namespace easydb {
 

@@ -14,9 +14,9 @@
 #include "defs.h"
 #include "execution_manager.h"
 #include "executor_abstract.h"
-#include "storage/index/ix_manager.h"
-#include "storage/index/ix_scan.h"
-#include "storage/table/tuple.h"
+#include "storage/easystore/index/ix_manager.h"
+#include "storage/easystore/index/ix_scan.h"
+#include "storage/easystore/table/tuple.h"
 #include "system/sm_defs.h"
 #include "system/sm_meta.h"
 

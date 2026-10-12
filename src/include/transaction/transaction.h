@@ -22,7 +22,7 @@
 #include <unordered_set>
 
 #include "common/config.h"
-#include "storage/page/page.h"
+#include "storage/easystore/page/page.h"
 #include "transaction/txn_defs.h"
 
 namespace easydb {

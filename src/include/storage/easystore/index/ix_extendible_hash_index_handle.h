@@ -4,7 +4,7 @@
  *
  * ix_defs.h
  *
- * Identification: src/include/storage/index/ix_defs.h
+ * Identification: src/include/storage/easystore/index/ix_defs.h
  *
  *-------------------------------------------------------------------------
  */
@@ -14,8 +14,8 @@
 #include "buffer/buffer_pool_manager.h"
 #include "common/rid.h"
 #include "storage/disk/disk_manager.h"
-#include "storage/index/ix_defs.h"
-#include "storage/page/page.h"
+#include "storage/easystore/index/ix_defs.h"
+#include "storage/easystore/page/page.h"
 
 namespace easydb {
 

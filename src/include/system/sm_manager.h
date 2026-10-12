@@ -15,9 +15,9 @@ See the Mulan PSL v2 for more details. */
 #include "record/rm_manager.h"
 #include "sm_defs.h"
 #include "sm_meta.h"
-#include "storage/index/ix_defs.h"
-#include "storage/index/ix_manager.h"
-#include "storage/table/tuple.h"
+#include "storage/easystore/index/ix_defs.h"
+#include "storage/easystore/index/ix_manager.h"
+#include "storage/easystore/table/tuple.h"
 #include "system/catalog_defs.h"
 #include "transaction/txn_defs.h"
 

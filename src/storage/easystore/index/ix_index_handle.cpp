@@ -4,15 +4,15 @@
  *
  * ix_index_handle.cpp
  *
- * Identification: src/storage/index/ix_index_handle.cpp
+ * Identification: src/storage/easystore/index/ix_index_handle.cpp
  *
  *-------------------------------------------------------------------------
  */
 
-#include "storage/index/ix_index_handle.h"
+#include "storage/easystore/index/ix_index_handle.h"
 #include <memory>
 #include "common/config.h"
-#include "storage/index/ix_defs.h"
+#include "storage/easystore/index/ix_defs.h"
 
 namespace easydb {
 

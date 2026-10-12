@@ -10,7 +10,7 @@
 #include "defs.h"
 #include "executor_abstract.h"
 #include "planner/plan.h"
-#include "storage/table/tuple.h"
+#include "storage/easystore/table/tuple.h"
 #include "type/value.h"
 
 namespace easydb {

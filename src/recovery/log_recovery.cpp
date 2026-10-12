@@ -16,7 +16,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/config.h"
 #include "common/errors.h"
 #include "recovery/log_manager.h"
-#include "storage/page/page.h"
+#include "storage/easystore/page/page.h"
 
 namespace easydb {
 

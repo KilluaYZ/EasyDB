@@ -22,8 +22,8 @@
 #include "execution/executor_seq_scan.h"
 #include "execution/executor_sort.h"
 #include "parser/ast.h"
-#include "storage/index/ix_manager.h"
-#include "storage/index/ix_scan.h"
+#include "storage/easystore/index/ix_manager.h"
+#include "storage/easystore/index/ix_scan.h"
 #include "type/value.h"
 
 namespace easydb {

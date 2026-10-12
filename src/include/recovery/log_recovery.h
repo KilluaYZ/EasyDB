@@ -18,7 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/config.h"
 #include "log_manager.h"
 #include "storage/disk/disk_manager.h"
-#include "storage/page/page.h"
+#include "storage/easystore/page/page.h"
 #include "system/sm_manager.h"
 #include "transaction/transaction_manager.h"
 

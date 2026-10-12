@@ -4,7 +4,7 @@
  *
  * ix_index_handle.h
  *
- * Identification: src/include/storage/index/ix_index_handle.h
+ * Identification: src/include/storage/easystore/index/ix_index_handle.h
  *
  *-------------------------------------------------------------------------
  */
@@ -27,8 +27,8 @@
 
 #include <string>
 #include "storage/disk/disk_manager.h"
-#include "storage/index/ix_defs.h"
-#include "storage/page/page.h"
+#include "storage/easystore/index/ix_defs.h"
+#include "storage/easystore/page/page.h"
 
 #include "buffer/buffer_pool_manager.h"
 #include "common/errors.h"

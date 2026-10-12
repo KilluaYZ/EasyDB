@@ -4,7 +4,7 @@
  *
  * tuple.cpp
  *
- * Identification: src/storage/table/tuple.cpp
+ * Identification: src/storage/easystore/table/tuple.cpp
  *
  *-------------------------------------------------------------------------
  */
@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-#include "storage/table/tuple.h"
+#include "storage/easystore/table/tuple.h"
 
 namespace easydb {
 

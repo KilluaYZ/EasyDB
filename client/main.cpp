@@ -10,6 +10,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <cassert>
+#include <cstdio>
 #include <iostream>
 #include <memory>
 #include <string>

@@ -5,28 +5,14 @@
 #include <vector>
 
 #include "common/context.h"
-#include "storage/table/tuple.h"
+#include "storage/easystore/table/tuple.h"
+#include "storage/scan.h"
+#include "storage/storage_defs.h"
 #include "system/catalog_defs.h"
 #include "system/sm_defs.h"
 #include "system/sm_meta.h"
 
 namespace easydb {
-
-class TableScan {
- public:
-  virtual ~TableScan() = default;
-  virtual void Next() = 0;
-  virtual bool IsEnd() const = 0;
-  virtual RID GetRid() const = 0;
-};
-
-class IndexScan {
- public:
-  virtual ~IndexScan() = default;
-  virtual void Next() = 0;
-  virtual bool IsEnd() const = 0;
-  virtual RID GetRid() const = 0;
-};
 
 /** Logical storage contract used by the query and execution layers. */
 class StorageEngine {

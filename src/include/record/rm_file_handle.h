@@ -21,7 +21,7 @@
 #include "common/rid.h"
 #include "rm_defs.h"
 #include "storage/disk/disk_manager.h"
-#include "storage/page/page.h"
+#include "storage/easystore/page/page.h"
 
 namespace easydb {
 

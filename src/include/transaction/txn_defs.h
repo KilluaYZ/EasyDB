@@ -11,8 +11,8 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include "common/config.h"
-#include "storage/index/ix_defs.h"
-#include "storage/table/tuple.h"
+#include "storage/easystore/index/ix_defs.h"
+#include "storage/easystore/table/tuple.h"
 
 namespace easydb {
 

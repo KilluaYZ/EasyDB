@@ -4,12 +4,12 @@
  *
  * ix_scan.cpp
  *
- * Identification: src/storage/index/ix_scan.cpp
+ * Identification: src/storage/easystore/index/ix_scan.cpp
  *
  *-------------------------------------------------------------------------
  */
 
-#include "storage/index/ix_scan.h"
+#include "storage/easystore/index/ix_scan.h"
 
 namespace easydb {
 

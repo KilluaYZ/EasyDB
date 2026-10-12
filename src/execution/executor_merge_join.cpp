@@ -8,7 +8,7 @@
 
 #pragma once
 #include "execution/executor_merge_join.h"
-#include "storage/table/tuple.h"
+#include "storage/easystore/table/tuple.h"
 
 namespace easydb {
 

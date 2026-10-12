@@ -23,8 +23,8 @@ See the Mulan PSL v2 for more details. */
 #include "common/exception.h"
 #include "record/record_printer.h"
 #include "record/rm_scan.h"
-#include "storage/index/ix_defs.h"
-#include "storage/table/tuple.h"
+#include "storage/easystore/index/ix_defs.h"
+#include "storage/easystore/table/tuple.h"
 #include "system/sm_meta.h"
 #include "type/type_id.h"
 

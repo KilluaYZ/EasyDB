@@ -25,7 +25,7 @@
 #include "planner/plan.h"
 #include "planner/planner.h"
 #include "recovery/log_recovery.h"
-#include "storage/easydb_storage_engine.h"
+#include "storage/easystore/easystore.h"
 
 // #define SOCK_PORT 8765
 #define MAX_CONN_LIMIT 256
@@ -41,7 +41,7 @@ std::unique_ptr<BufferPoolManager> buffer_pool_manager;
 std::unique_ptr<RmManager> rm_manager;
 std::unique_ptr<IxManager> ix_manager;
 std::unique_ptr<SmManager> sm_manager;
-std::unique_ptr<EasyDBStorageEngine> storage_engine;
+std::unique_ptr<EasyStore> storage_engine;
 std::unique_ptr<LockManager> lock_manager;
 std::unique_ptr<TransactionManager> txn_manager;
 std::unique_ptr<Planner> planner;
@@ -387,7 +387,7 @@ int main(int argc, char **argv) {
     sm_manager = std::make_unique<SmManager>(
         disk_manager.get(), buffer_pool_manager.get(), rm_manager.get(),
         ix_manager.get());
-    storage_engine = std::make_unique<EasyDBStorageEngine>(sm_manager.get());
+    storage_engine = std::make_unique<EasyStore>(sm_manager.get());
     lock_manager = std::make_unique<LockManager>();
     txn_manager = std::make_unique<TransactionManager>(lock_manager.get(),
                                                        sm_manager.get());

@@ -4,7 +4,7 @@
  *
  * table_page.h
  *
- * Identification: src/include/storage/page/table_page.h
+ * Identification: src/include/storage/easystore/page/table_page.h
  *
  *-------------------------------------------------------------------------
  */
@@ -25,9 +25,9 @@
 #include "common/rid.h"
 // #include "concurrency/lock_manager.h"
 // #include "recovery/log_manager.h"
-#include "storage/page/page.h"
-// #include "storage/table/table_heap.h"
-#include "storage/table/tuple.h"
+#include "storage/easystore/page/page.h"
+// #include "storage/easystore/table/table_heap.h"
+#include "storage/easystore/table/tuple.h"
 
 namespace easydb {
 

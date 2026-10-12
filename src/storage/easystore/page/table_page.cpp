@@ -4,7 +4,7 @@
  *
  * table_page.cpp
  *
- * Identification: src/storage/page/table_page.cpp
+ * Identification: src/storage/easystore/page/table_page.cpp
  *
  *-------------------------------------------------------------------------
  */
@@ -14,7 +14,7 @@
  * Copyright (c) 2015-2019, Carnegie Mellon University Database Group
  */
 
-#include "storage/page/table_page.h"
+#include "storage/easystore/page/table_page.h"
 
 #include <cassert>
 #include <cstring>
@@ -22,7 +22,7 @@
 #include <tuple>
 #include "common/config.h"
 #include "common/exception.h"
-#include "storage/table/tuple.h"
+#include "storage/easystore/table/tuple.h"
 
 namespace easydb {
 

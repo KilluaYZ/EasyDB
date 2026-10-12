@@ -9,7 +9,7 @@
 #include "common/hashutil.h"
 #include "defs.h"
 #include "executor_abstract.h"
-#include "storage/table/tuple.h"
+#include "storage/easystore/table/tuple.h"
 #include "type/value.h"
 
 namespace easydb {

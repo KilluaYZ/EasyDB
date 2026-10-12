@@ -4,16 +4,16 @@
  *
  * ix_manager.h
  *
- * Identification: src/include/storage/index/ix_manager.h
+ * Identification: src/include/storage/easystore/index/ix_manager.h
  *
  *-------------------------------------------------------------------------
  */
 
 #pragma once
 
-#include "storage/index/ix_defs.h"
-#include "storage/index/ix_extendible_hash_index_handle.h"
-#include "storage/index/ix_index_handle.h"
+#include "storage/easystore/index/ix_defs.h"
+#include "storage/easystore/index/ix_extendible_hash_index_handle.h"
+#include "storage/easystore/index/ix_index_handle.h"
 #include "system/sm_meta.h"
 
 namespace easydb {

@@ -7,9 +7,9 @@ namespace easydb {
 class SmManager;
 
 /** Adapter exposing the current EasyDB storage implementation. */
-class EasyDBStorageEngine final : public StorageEngine {
+class EasyStore final : public StorageEngine {
  public:
-  explicit EasyDBStorageEngine(SmManager *manager) : manager_(manager) {}
+  explicit EasyStore(SmManager *manager) : manager_(manager) {}
 
   bool HasTable(const std::string &table_name) const override;
   TabMeta &GetTableMeta(const std::string &table_name) override;
