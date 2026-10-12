@@ -76,13 +76,14 @@ std::unique_ptr<IndexScan> EasyDBStorageEngine::ScanIndex(
   auto *index = manager_->ihs_.at(index_name).get();
   auto lower = index->LowerBound(lower_key.data());
   auto upper = index->UpperBound(upper_key.data());
-  return std::make_unique<EasyDBIndexScan>(
-      index, lower, upper, manager_->GetBpm(), context,
-      manager_->fhs_.at(table)->GetFd());
+  return std::make_unique<EasyDBIndexScan>(index, lower, upper,
+                                           manager_->GetBpm(), context,
+                                           manager_->fhs_.at(table)->GetFd());
 }
 
-std::unique_ptr<Tuple> EasyDBStorageEngine::ReadTuple(
-    const std::string &table, const RID &rid, Context *context) {
+std::unique_ptr<Tuple> EasyDBStorageEngine::ReadTuple(const std::string &table,
+                                                      const RID &rid,
+                                                      Context *context) {
   return manager_->fhs_.at(table)->GetTupleValue(rid, context);
 }
 
@@ -101,25 +102,25 @@ bool EasyDBStorageEngine::DeleteTuple(const std::string &table, const RID &rid,
 
 bool EasyDBStorageEngine::UpdateTuple(const std::string &table, const RID &rid,
                                       const Tuple &tuple, Context *context) {
-  return manager_->fhs_.at(table)->UpdateTupleInPlace(
-      TupleMeta{0, false}, tuple, rid, context);
+  return manager_->fhs_.at(table)->UpdateTupleInPlace(TupleMeta{0, false},
+                                                      tuple, rid, context);
 }
 
 bool EasyDBStorageEngine::InsertIndexEntry(
     const std::string &table, const std::vector<std::string> &columns,
     const std::vector<char> &key, const RID &rid, Context *context) {
   auto index_name = manager_->GetIxManager()->GetIndexName(table, columns);
-  return manager_->ihs_.at(index_name)->InsertEntry(
-             key.data(), rid, context == nullptr ? nullptr : context->txn_) !=
-         -1;
+  return manager_->ihs_.at(index_name)
+             ->InsertEntry(key.data(), rid,
+                           context == nullptr ? nullptr : context->txn_) != -1;
 }
 
 void EasyDBStorageEngine::DeleteIndexEntry(
     const std::string &table, const std::vector<std::string> &columns,
     const std::vector<char> &key, Context *context) {
   auto index_name = manager_->GetIxManager()->GetIndexName(table, columns);
-  manager_->ihs_.at(index_name)->DeleteEntry(
-      key.data(), context == nullptr ? nullptr : context->txn_);
+  manager_->ihs_.at(index_name)
+      ->DeleteEntry(key.data(), context == nullptr ? nullptr : context->txn_);
 }
 
 void EasyDBStorageEngine::WaitForIndexGap(
@@ -128,8 +129,8 @@ void EasyDBStorageEngine::WaitForIndexGap(
   if (context == nullptr) return;
   auto index_name = manager_->GetIxManager()->GetIndexName(table, columns);
   auto iid = manager_->ihs_.at(index_name)->LowerBound(key.data());
-  context->lock_mgr_->HandleIndexGapWaitDie(
-      context->txn_, iid, manager_->fhs_.at(table)->GetFd());
+  context->lock_mgr_->HandleIndexGapWaitDie(context->txn_, iid,
+                                            manager_->fhs_.at(table)->GetFd());
 }
 
 void EasyDBStorageEngine::CreateTable(const std::string &name,
@@ -172,7 +173,9 @@ void EasyDBStorageEngine::AsyncLoadData(const std::string &file_name,
   manager_->AsyncLoadData(file_name, table_name, context);
 }
 
-int EasyDBStorageEngine::GetLoadStatus() const { return manager_->GetLoadStatus(); }
+int EasyDBStorageEngine::GetLoadStatus() const {
+  return manager_->GetLoadStatus();
+}
 
 void EasyDBStorageEngine::AsyncLoadDataFinish() {
   manager_->AsyncLoadDataFinish();

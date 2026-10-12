@@ -183,7 +183,7 @@ void IndexScanExecutor::beginTuple() {
   std::vector<char> lower(key_lower, key_lower + index_meta_.col_tot_len);
   std::vector<char> upper(key_upper, key_upper + index_meta_.col_tot_len);
   scan_ = storage_engine_->ScanIndex(tab_name_, index_col_names_, lower, upper,
-                                      context_);
+                                     context_);
 
   // 3. Find the first tuple that satisfies the conditions
   while (!IsEnd()) {

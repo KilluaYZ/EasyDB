@@ -56,7 +56,8 @@ std::unique_ptr<Tuple> DeleteExecutor::Next() {
     // delete corresponding index
     for (auto index : tab_.indexes) {
       auto key_schema = Schema::CopySchema(&tab_.schema, index.col_ids);
-      auto key_tuple = rec->KeyFromTuple(tab_.schema, key_schema, index.col_ids);
+      auto key_tuple =
+          rec->KeyFromTuple(tab_.schema, key_schema, index.col_ids);
       std::vector<char> key(index.col_tot_len);
       int offset = 0;
       for (int i = 0; i < index.col_num; ++i) {
@@ -69,12 +70,14 @@ std::unique_ptr<Tuple> DeleteExecutor::Next() {
         std::vector<std::string> index_columns;
         for (const auto &column : index.cols)
           index_columns.push_back(column.name);
-        storage_engine_->WaitForIndexGap(tab_name_, index_columns, key, context_);
+        storage_engine_->WaitForIndexGap(tab_name_, index_columns, key,
+                                         context_);
       }
       std::vector<std::string> index_columns;
       for (const auto &column : index.cols)
         index_columns.push_back(column.name);
-      storage_engine_->DeleteIndexEntry(tab_name_, index_columns, key, context_);
+      storage_engine_->DeleteIndexEntry(tab_name_, index_columns, key,
+                                        context_);
     }
 
     // delete records

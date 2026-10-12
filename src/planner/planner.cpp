@@ -11,24 +11,24 @@ See the Mulan PSL v2 for more details. */
 /**
  * @file planner.cpp
  * @brief 查询计划器实现
- * 
+ *
  * 本文件实现了EasyDB的查询计划器（Planner），负责将SQL查询转换为执行计划。
- * 
+ *
  * 主要功能包括：
  * 1. 逻辑优化：
  *    - 条件简化：合并同一列上的多个条件，检测矛盾条件
  *    - 连接重排序：根据表大小优化连接顺序
  *    - 条件推导：通过等值连接推导新条件
- * 
+ *
  * 2. 物理优化：
  *    - 索引选择：根据条件选择使用顺序扫描或索引扫描
  *    - 连接算法选择：嵌套循环连接、排序合并连接、哈希连接、索引合并连接
  *    - 计划生成：生成扫描、连接、聚合、排序、投影计划
- * 
+ *
  * 3. 计划生成：
  *    - DDL计划：CREATE/DROP TABLE/INDEX
  *    - DML计划：INSERT、DELETE、UPDATE、SELECT
- * 
+ *
  * 关键数据结构：
  * - ColCondRange: 列条件范围，用于条件简化
  * - ColumnUnionFind: 列等价类并查集，用于条件推导
@@ -58,26 +58,26 @@ namespace {
 
 /**
  * @brief 列条件范围结构体
- * 
+ *
  * 用于合并和简化同一列上的多个条件谓词，将多个条件（如 a > 5, a < 10, a = 7）
  * 合并为一个范围表示，以便进行条件优化和矛盾检测。
  */
 struct ColCondRange {
-  bool has_equal = false;           // 是否存在等值条件（如 a = 5）
-  Value equal_val;                  // 等值条件的值
-  bool has_lower = false;           // 是否存在下界条件（如 a > 5 或 a >= 5）
-  Value lower_val;                  // 下界值
-  bool lower_inclusive = false;     // 下界是否包含边界值（true表示>=，false表示>）
-  bool has_upper = false;           // 是否存在上界条件（如 a < 10 或 a <= 10）
-  Value upper_val;                  // 上界值
-  bool upper_inclusive = false;     // 上界是否包含边界值（true表示<=，false表示<）
-  std::vector<Value> ne_values;     // 不等条件的值列表（如 a != 3, a != 4）
+  bool has_equal = false;        // 是否存在等值条件（如 a = 5）
+  Value equal_val;               // 等值条件的值
+  bool has_lower = false;        // 是否存在下界条件（如 a > 5 或 a >= 5）
+  Value lower_val;               // 下界值
+  bool lower_inclusive = false;  // 下界是否包含边界值（true表示>=，false表示>）
+  bool has_upper = false;        // 是否存在上界条件（如 a < 10 或 a <= 10）
+  Value upper_val;               // 上界值
+  bool upper_inclusive = false;  // 上界是否包含边界值（true表示<=，false表示<）
+  std::vector<Value> ne_values;  // 不等条件的值列表（如 a != 3, a != 4）
 
   /**
    * @brief 检查条件范围是否存在矛盾
-   * 
+   *
    * 例如：a = 5 且 a > 10 是矛盾的；a > 5 且 a < 3 也是矛盾的
-   * 
+   *
    * @return true 如果条件矛盾，查询结果为空
    * @return false 如果条件不矛盾
    */
@@ -128,9 +128,9 @@ struct ColCondRange {
 
   /**
    * @brief 将范围表示转换回条件列表
-   * 
+   *
    * 将合并后的范围条件重新展开为具体的Condition对象列表
-   * 
+   *
    * @param col 列标识（表名和列名）
    * @return std::vector<Condition> 转换后的条件列表
    */
@@ -187,7 +187,7 @@ struct ColCondRange {
 
   /**
    * @brief 辅助函数：处理一个新的范围条件后检查矛盾
-   * 
+   *
    * @return true 如果条件矛盾
    * @return false 如果条件不矛盾
    */
@@ -196,14 +196,14 @@ struct ColCondRange {
 
 /**
  * @brief 简化查询条件
- * 
+ *
  * 将同一列上的多个条件合并为范围表示，例如：
  * - a > 5, a < 10, a != 7 可以合并为范围 [5, 10] 且排除 7
  * - a = 5, a > 3, a < 10 可以简化为 a = 5
- * 
+ *
  * 同时检测矛盾条件，如果发现矛盾（如 a = 5 且 a = 6），
  * 则设置 query->no_result = true，表示查询结果为空。
- * 
+ *
  * @param query 查询对象，其conds字段会被简化
  */
 void simplify_conditions(std::shared_ptr<Query> query) {
@@ -349,7 +349,7 @@ void simplify_conditions(std::shared_ptr<Query> query) {
 }
 /**
  * @brief 列标识符结构体
- * 
+ *
  * 用于唯一标识一个列，由表名和列名组成
  */
 struct ColId {
@@ -358,7 +358,7 @@ struct ColId {
 
   /**
    * @brief 相等运算符重载
-   * 
+   *
    * @param o 另一个ColId对象
    * @return true 如果表名和列名都相同
    */
@@ -369,13 +369,13 @@ struct ColId {
 
 /**
  * @brief ColId的哈希函数
- * 
+ *
  * 用于在unordered_map/unordered_set中使用ColId作为key
  */
 struct ColIdHash {
   /**
    * @brief 计算ColId的哈希值
-   * 
+   *
    * @param c 列标识符
    * @return size_t 哈希值
    */
@@ -393,9 +393,9 @@ class ColumnUnionFind {
  public:
   /**
    * @brief 查找列所在等价类的代表元素
-   * 
+   *
    * 使用路径压缩优化，将查找路径上的所有节点直接连接到根节点
-   * 
+   *
    * @param x 要查找的列
    * @return ColId 等价类的代表元素
    */
@@ -412,7 +412,7 @@ class ColumnUnionFind {
 
   /**
    * @brief 合并两个列到同一个等价类
-   * 
+   *
    * @param a 第一个列
    * @param b 第二个列
    */
@@ -432,17 +432,17 @@ class ColumnUnionFind {
 
 /**
  * @brief 通过等值连接推导条件
- * 
+ *
  * 利用等值连接（如 tableA.a = tableB.a）推导新的条件。
  * 例如：如果 tableA.a = tableB.a 且 tableA.a > 5，
  * 则可以推导出 tableB.a > 5。
- * 
+ *
  * 算法步骤：
  * 1. 构建并查集，将等值连接的列合并到同一个等价类
  * 2. 收集单表谓词（列与常量的比较条件）
  * 3. 将单表谓词复制到等价类中的其他列
  * 4. 将推导出的新条件加入查询条件列表
- * 
+ *
  * @param query 查询对象，其conds字段会被扩展
  */
 void Planner::deduce_conditions_via_equijoin(std::shared_ptr<Query> query) {
@@ -538,14 +538,14 @@ void Planner::deduce_conditions_via_equijoin(std::shared_ptr<Query> query) {
 
 /**
  * @brief 获取可用于索引扫描的列名列表
- * 
+ *
  * 检查给定表的条件中，哪些列可以用于索引扫描。
  * 索引匹配规则：
  * - 完全匹配索引字段（列的顺序必须与索引定义一致）
  * - 支持范围查询（>, >=, <, <=, =）
  * - 不支持不等查询（!=）
  * - 不会自动调整where条件的顺序（目前是左边字段，右边值）
- * 
+ *
  * @param tab_name 表名
  * @param curr_conds 当前条件列表
  * @param index_col_names 输出参数，匹配的索引列名列表（按索引顺序）
@@ -578,10 +578,10 @@ bool Planner::get_index_cols(std::string tab_name,
 
 /**
  * @brief 获取可用于索引扫描的列名列表（从条件右边字段匹配）
- * 
+ *
  * 与get_index_cols类似，但检查的是条件右边的列（rhs_col）。
  * 用于处理形如 "常量 op 列" 的条件（需要交换后匹配索引）。
- * 
+ *
  * @param tab_name 表名
  * @param curr_conds 当前条件列表
  * @param index_col_names 输出参数，匹配的索引列名列表（按索引顺序）
@@ -614,13 +614,13 @@ bool Planner::get_index_cols_swap(std::string tab_name,
 
 /**
  * @brief 从条件列表中提取与指定表相关的条件
- * 
+ *
  * 提取满足以下条件之一的条件：
  * 1. 左列属于指定表且右端是子查询或常量
  * 2. 左列和右列都属于指定表（单表条件）
- * 
+ *
  * 提取的条件会从原条件列表中移除。
- * 
+ *
  * @param conds 条件列表（会被修改，提取的条件会被移除）
  * @param tab_names 表名
  * @return std::vector<Condition> 提取出的条件列表
@@ -648,16 +648,16 @@ std::vector<Condition> pop_conds(std::vector<Condition> &conds,
 
 /**
  * @brief 将条件下推到计划树中
- * 
+ *
  * 递归地将条件下推到计划树中，尽可能靠近数据源。
  * 这样可以尽早过滤数据，减少后续处理的数据量。
- * 
+ *
  * 返回值说明：
  * - 0: 条件中的列不在该计划节点中
  * - 1: 条件左列匹配该计划节点
  * - 2: 条件右列匹配该计划节点
  * - 3: 条件已成功下推
- * 
+ *
  * @param cond 要下推的条件（可能会被修改，如交换左右列）
  * @param plan 计划树节点
  * @return int 下推结果（见上述说明）
@@ -704,9 +704,9 @@ int push_conds(Condition *cond, std::shared_ptr<Plan> plan) {
 
 /**
  * @brief 从计划列表中提取指定表的扫描计划
- * 
+ *
  * 查找并返回指定表的扫描计划，同时标记该表已被使用。
- * 
+ *
  * @param scantbl 表使用标记数组（会被修改）
  * @param table 要查找的表名
  * @param joined_tables 已连接的表列表（会被修改，添加找到的表）
@@ -729,19 +729,19 @@ std::shared_ptr<Plan> pop_scan(int *scantbl, std::string table,
 
 /**
  * @brief 根据表大小重排序条件
- * 
+ *
  * 将条件分为单表条件和连接条件，然后：
  * 1. 根据表大小和distinct值对连接条件进行排序（小表优先）
  * 2. 对于每个连接条件，如果左表大于右表，则交换左右列
  * 3. 将单表条件放在前面，连接条件放在后面
- * 
+ *
  * 这样可以在连接时优先处理小表，减少中间结果的大小。
- * 
+ *
  * @param query 查询对象，其conds字段会被重排序
  */
 void Planner::reorder_conds_based_on_table_size(std::shared_ptr<Query> query) {
   std::vector<Condition> join_conds;    // 连接条件（涉及多个表）
-  std::vector<Condition> single_conds;   // 单表条件（只涉及一个表）
+  std::vector<Condition> single_conds;  // 单表条件（只涉及一个表）
 
   // 将query->conds拆分为join条件和单表条件
   for (auto &cond : query->conds) {
@@ -815,13 +815,13 @@ void Planner::reorder_conds_based_on_table_size(std::shared_ptr<Query> query) {
 
 /**
  * @brief 逻辑优化
- * 
+ *
  * 对查询进行逻辑层面的优化，包括：
  * 1. 重排序连接顺序（多表查询时）
  * 2. 根据表大小重排序条件
  * 3. 通过等值连接推导新条件
  * 4. 简化条件（合并同一列上的多个条件，检测矛盾）
- * 
+ *
  * @param query 查询对象
  * @param context 执行上下文
  * @return std::shared_ptr<Query> 优化后的查询对象
@@ -843,10 +843,10 @@ std::shared_ptr<Query> Planner::logical_optimization(
 
 /**
  * @brief 重排序连接顺序
- * 
+ *
  * 根据表的大小（行数）对表进行排序，小表优先。
  * 这是一个简单的启发式优化，目的是减少连接时的中间结果大小。
- * 
+ *
  * @param query 查询对象，其optimized_table_order字段会被设置
  */
 void Planner::reorder_joins(std::shared_ptr<Query> query) {
@@ -870,9 +870,9 @@ void Planner::reorder_joins(std::shared_ptr<Query> query) {
 
 /**
  * @brief 估计表扫描的代价
- * 
+ *
  * 使用表的行数作为扫描代价的估计值。
- * 
+ *
  * @param tab_name 表名
  * @return double 估计的扫描代价（行数）
  */
@@ -888,10 +888,10 @@ double Planner::estimate_table_scan_cost(const std::string &tab_name) {
 
 /**
  * @brief 估计连接的代价
- * 
+ *
  * 使用两表大小的乘积作为连接代价的估计值（笛卡尔积大小）。
  * 这是一个简化的启发式，实际连接代价取决于连接类型和选择性。
- * 
+ *
  * @param left_table 左表名
  * @param right_table 右表名
  * @return double 估计的连接代价
@@ -906,12 +906,12 @@ double Planner::estimate_join_cost(const std::string &left_table,
 
 /**
  * @brief 物理优化
- * 
+ *
  * 将逻辑查询计划转换为物理执行计划，包括：
  * 1. 生成关系计划（扫描和连接）
  * 2. 生成聚合计划（如果有GROUP BY或聚合函数）
  * 3. 生成排序计划（如果有ORDER BY）
- * 
+ *
  * @param query 查询对象
  * @param context 执行上下文
  * @return std::shared_ptr<Plan> 物理执行计划
@@ -938,14 +938,14 @@ std::shared_ptr<Plan> Planner::physical_optimization(
 
 /**
  * @brief 生成关系计划（扫描和连接）
- * 
+ *
  * 为查询中的所有表生成扫描计划，然后根据连接条件生成连接计划。
- * 
+ *
  * 算法步骤：
  * 1. 为每个表生成扫描计划（顺序扫描或索引扫描）
  * 2. 根据连接条件逐步构建连接计划
  * 3. 处理剩余未连接的表（笛卡尔积）
- * 
+ *
  * @param query 查询对象
  * @param context 执行上下文
  * @return std::shared_ptr<Plan> 关系计划（扫描+连接）
@@ -997,7 +997,7 @@ std::shared_ptr<Plan> Planner::make_one_rel(std::shared_ptr<Query> query,
   for (size_t i = 0; i < tables.size(); i++) {
     scantbl[i] = -1;
   }
-  
+
   if (conds.size() >= 1) {
     // 有连接条件，开始构建连接计划
 
@@ -1034,8 +1034,8 @@ std::shared_ptr<Plan> Planner::make_one_rel(std::shared_ptr<Query> query,
           // Note that we need the original condition!
           // 重新创建索引扫描计划
           left = std::make_shared<ScanPlan>(
-              T_IndexScan, storage_engine_, it->lhs_col.tab_name, left->get_conds(),
-              index_col_name_left);
+              T_IndexScan, storage_engine_, it->lhs_col.tab_name,
+              left->get_conds(), index_col_name_left);
           right = std::make_shared<ScanPlan>(
               T_IndexScan, storage_engine_, it->rhs_col.tab_name,
               right->get_conds(), index_col_name_right);
@@ -1133,9 +1133,9 @@ std::shared_ptr<Plan> Planner::make_one_rel(std::shared_ptr<Query> query,
 
 /**
  * @brief 生成排序计划
- * 
+ *
  * 如果查询包含ORDER BY子句，则在计划树顶部添加排序节点。
- * 
+ *
  * @param query 查询对象
  * @param plan 输入计划
  * @return std::shared_ptr<Plan> 如果有序则返回排序计划，否则返回原计划
@@ -1167,10 +1167,10 @@ std::shared_ptr<Plan> Planner::generate_sort_plan(std::shared_ptr<Query> query,
 
 /**
  * @brief 生成聚合计划
- * 
+ *
  * 如果查询包含GROUP BY、HAVING或聚合函数（如COUNT、SUM等），
  * 则在计划树顶部添加聚合节点。
- * 
+ *
  * @param query 查询对象
  * @param plan 输入计划
  * @return std::shared_ptr<Plan> 如果有聚合则返回聚合计划，否则返回原计划
@@ -1201,12 +1201,12 @@ std::shared_ptr<Plan> Planner::generate_aggregation_plan(
 
 /**
  * @brief 生成SELECT查询的执行计划
- * 
+ *
  * 完整的SELECT查询计划生成流程：
  * 1. 逻辑优化（重排序、条件推导、条件简化等）
  * 2. 物理优化（生成扫描、连接、聚合、排序计划）
  * 3. 投影（选择需要的列）
- * 
+ *
  * @param query 查询对象
  * @param context 执行上下文
  * @return std::shared_ptr<Plan> SELECT查询的执行计划
@@ -1229,11 +1229,11 @@ std::shared_ptr<Plan> Planner::generate_select_plan(
 
 /**
  * @brief 主计划器入口函数
- * 
+ *
  * 根据查询类型（DDL或DML）生成相应的执行计划：
  * - DDL: CREATE TABLE, DROP TABLE, CREATE INDEX, DROP INDEX
  * - DML: INSERT, DELETE, UPDATE, SELECT
- * 
+ *
  * @param query 查询对象（包含解析后的AST）
  * @param context 执行上下文
  * @return std::shared_ptr<Plan> 执行计划
@@ -1288,11 +1288,13 @@ std::shared_ptr<Plan> Planner::do_planner(std::shared_ptr<Query> query,
 
     if (index_exist == false) {  // 该表没有匹配的索引，使用顺序扫描
       index_col_names.clear();
-      table_scan_executors = std::make_shared<ScanPlan>(
-          T_SeqScan, storage_engine_, x->tab_name, query->conds, index_col_names);
+      table_scan_executors =
+          std::make_shared<ScanPlan>(T_SeqScan, storage_engine_, x->tab_name,
+                                     query->conds, index_col_names);
     } else {  // 存在匹配的索引，使用索引扫描
-      table_scan_executors = std::make_shared<ScanPlan>(
-          T_IndexScan, storage_engine_, x->tab_name, query->conds, index_col_names);
+      table_scan_executors =
+          std::make_shared<ScanPlan>(T_IndexScan, storage_engine_, x->tab_name,
+                                     query->conds, index_col_names);
     }
 
     plannerRoot = std::make_shared<DMLPlan>(
@@ -1310,11 +1312,13 @@ std::shared_ptr<Plan> Planner::do_planner(std::shared_ptr<Query> query,
 
     if (index_exist == false) {  // 该表没有匹配的索引，使用顺序扫描
       index_col_names.clear();
-      table_scan_executors = std::make_shared<ScanPlan>(
-          T_SeqScan, storage_engine_, x->tab_name, query->conds, index_col_names);
+      table_scan_executors =
+          std::make_shared<ScanPlan>(T_SeqScan, storage_engine_, x->tab_name,
+                                     query->conds, index_col_names);
     } else {  // 存在匹配的索引，使用索引扫描
-      table_scan_executors = std::make_shared<ScanPlan>(
-          T_IndexScan, storage_engine_, x->tab_name, query->conds, index_col_names);
+      table_scan_executors =
+          std::make_shared<ScanPlan>(T_IndexScan, storage_engine_, x->tab_name,
+                                     query->conds, index_col_names);
     }
     plannerRoot = std::make_shared<DMLPlan>(T_Update, table_scan_executors,
                                             x->tab_name, std::vector<Value>(),

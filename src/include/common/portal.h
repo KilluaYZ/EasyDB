@@ -208,11 +208,12 @@ class Portal {
       if (x->tag == T_SeqScan) {
         return std::make_unique<SeqScanExecutor>(storage_engine_, x->tab_name_,
                                                  x->conds_, context);
-        // return std::make_unique<SeqScanExecutor>(storage_engine_, x->tab_name_,
-        // x->conds_);
+        // return std::make_unique<SeqScanExecutor>(storage_engine_,
+        // x->tab_name_, x->conds_);
       } else {
         return std::make_unique<IndexScanExecutor>(
-            storage_engine_, x->tab_name_, x->conds_, x->index_col_names_, context);
+            storage_engine_, x->tab_name_, x->conds_, x->index_col_names_,
+            context);
       }
     } else if (auto x = std::dynamic_pointer_cast<JoinPlan>(plan)) {
       std::unique_ptr<AbstractExecutor> left =

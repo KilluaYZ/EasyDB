@@ -104,14 +104,15 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
         std::vector<std::string> index_columns;
         for (const auto &column : index.cols)
           index_columns.push_back(column.name);
-        storage_engine_->WaitForIndexGap(tab_name_, index_columns,
-                                          std::vector<char>(key_i, key_i + index.col_tot_len),
-                                          context_);
+        storage_engine_->WaitForIndexGap(
+            tab_name_, index_columns,
+            std::vector<char>(key_i, key_i + index.col_tot_len), context_);
       }
 
       // check if the new key duplicated
       std::vector<std::string> index_columns;
-      for (const auto &column : index.cols) index_columns.push_back(column.name);
+      for (const auto &column : index.cols)
+        index_columns.push_back(column.name);
       std::vector<char> new_key(key_i, key_i + index.col_tot_len);
       auto is_insert = storage_engine_->InsertIndexEntry(
           tab_name_, index_columns, new_key, rid, context_);

@@ -15,8 +15,8 @@
 #include "defs.h"
 #include "execution_manager.h"
 #include "executor_abstract.h"
-#include "system/sm_defs.h"
 #include "storage/storage_engine.h"
+#include "system/sm_defs.h"
 #include "system/sm_meta.h"
 namespace easydb {
 

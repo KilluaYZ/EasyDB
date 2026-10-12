@@ -13,12 +13,12 @@ See the Mulan PSL v2 for more details. */
 #include "common/context.h"
 #include "record/rm_file_handle.h"
 #include "record/rm_manager.h"
-#include "system/catalog_defs.h"
 #include "sm_defs.h"
 #include "sm_meta.h"
 #include "storage/index/ix_defs.h"
 #include "storage/index/ix_manager.h"
 #include "storage/table/tuple.h"
+#include "system/catalog_defs.h"
 #include "transaction/txn_defs.h"
 
 namespace easydb {

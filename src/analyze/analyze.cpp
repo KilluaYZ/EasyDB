@@ -15,7 +15,7 @@ namespace easydb {
 /**
  * @brief 语义分析器主入口函数
  * @description: 对解析器生成的AST进行语义分析和查询重写
- * 
+ *
  * 主要功能：
  * 1. 检查表、列是否存在
  * 2. 推断未指定的表名
@@ -23,8 +23,9 @@ namespace easydb {
  * 4. 验证WHERE、GROUP BY、HAVING子句的合法性
  * 5. 检查聚合函数的使用是否符合SQL规范
  * 6. 将AST节点转换为Query对象，供后续查询计划生成使用
- * 
- * @param parse parser生成的AST根节点，可能是SelectStmt、UpdateStmt、DeleteStmt、InsertStmt等
+ *
+ * @param parse
+ * parser生成的AST根节点，可能是SelectStmt、UpdateStmt、DeleteStmt、InsertStmt等
  * @return Query 包含语义分析结果的Query对象，包含表名、列信息、条件等
  * @throws TableNotFoundError 如果表不存在
  * @throws ColumnNotFoundError 如果列不存在
@@ -34,7 +35,7 @@ namespace easydb {
 std::shared_ptr<Query> Analyze::do_analyze(
     std::shared_ptr<ast::TreeNode> parse) {
   std::shared_ptr<Query> query = std::make_shared<Query>();
-  
+
   // 处理LoadData语句：检查数据加载状态
   // 如果不是LoadData语句且当前没有正在加载的数据，则完成异步加载
   if (auto x = std::dynamic_pointer_cast<ast::LoadData>(parse)) {
@@ -45,13 +46,13 @@ std::shared_ptr<Query> Analyze::do_analyze(
       storage_engine_->AsyncLoadDataFinish();
     }
   }
-  
+
   // ========== 处理SELECT语句 ==========
   if (auto x = std::dynamic_pointer_cast<ast::SelectStmt>(parse)) {
     // ========== 步骤1: 处理表名 ==========
     // 从AST中提取表名列表
     query->tables = std::move(x->tabs);
-    
+
     // 检查每个表是否存在，如果不存在则抛出异常
     for (auto tab_name : query->tables) {
       if (!storage_engine_->HasTable(tab_name)) {
@@ -72,7 +73,7 @@ std::shared_ptr<Query> Analyze::do_analyze(
     // 获取所有表的列元数据信息，用于后续的列名推断和验证
     std::vector<ColMeta> all_cols;
     get_all_cols(query->tables, all_cols);
-    
+
     // ========== 步骤3: 处理SELECT * ==========
     // 如果SELECT列表为空（即SELECT *），则展开为所有表的所有列
     if (query->cols.empty()) {
@@ -98,7 +99,7 @@ std::shared_ptr<Query> Analyze::do_analyze(
         }
       }
     }
-    
+
     // ========== 步骤5: 处理WHERE条件 ==========
     // 将AST中的条件表达式转换为Condition结构
     get_clause(x->conds, query->conds);
@@ -138,10 +139,8 @@ std::shared_ptr<Query> Analyze::do_analyze(
       throw AggregationIllegalError();
     }
 
-  // ========== 处理UPDATE语句 ==========
-  } else if (auto x = std::dynamic_pointer_cast<ast::UpdateStmt>(
-                 parse)) {
-
+    // ========== 处理UPDATE语句 ==========
+  } else if (auto x = std::dynamic_pointer_cast<ast::UpdateStmt>(parse)) {
     // 检查表是否存在
     if (!storage_engine_->HasTable(x->tab_name)) {
       throw TableNotFoundError(x->tab_name);
@@ -157,7 +156,7 @@ std::shared_ptr<Query> Analyze::do_analyze(
       SetClause set_clause;
       // 左侧：要更新的列
       set_clause.lhs = {.tab_name = x->tab_name, .col_name = it->col_name};
-      
+
       // 检查右侧是否为表达式（如 col2 + 1）
       auto exp = it->rhs_expr;
       bool rhs_exp = false;
@@ -180,15 +179,15 @@ std::shared_ptr<Query> Analyze::do_analyze(
     get_clause(x->conds, query->conds);
     check_clause(query->tables, query->conds);
 
-  // ========== 处理DELETE语句 ==========
+    // ========== 处理DELETE语句 ==========
   } else if (auto x = std::dynamic_pointer_cast<ast::DeleteStmt>(parse)) {
     // 提取表名
     query->tables = {x->tab_name};
     // 处理WHERE条件
     get_clause(x->conds, query->conds);
     check_clause({x->tab_name}, query->conds);
-    
-  // ========== 处理INSERT语句 ==========
+
+    // ========== 处理INSERT语句 ==========
   } else if (auto x = std::dynamic_pointer_cast<ast::InsertStmt>(parse)) {
     // 提取表名
     query->tables = {x->tab_name};
@@ -200,7 +199,7 @@ std::shared_ptr<Query> Analyze::do_analyze(
   } else {
     // 其他类型的语句暂不处理
   }
-  
+
   // 保存原始AST节点，供后续使用
   query->parse = std::move(parse);
   return query;
@@ -208,10 +207,10 @@ std::shared_ptr<Query> Analyze::do_analyze(
 
 /**
  * @brief 检查列是否存在并推断表名
- * @description: 
+ * @description:
  * 1. 如果表名未指定，从列名推断表名（要求列名在所有表中唯一）
  * 2. 如果表名已指定，验证列是否存在于该表中
- * 
+ *
  * @param all_cols 所有表的列元数据列表
  * @param target 要检查的列信息（可能缺少表名）
  * @return TabCol 填充了表名的列信息
@@ -262,7 +261,7 @@ TabCol Analyze::check_column(const std::vector<ColMeta> &all_cols,
 /**
  * @brief 获取所有表的列元数据
  * @description: 遍历指定的表列表，收集所有表的列信息到all_cols中
- * 
+ *
  * @param tab_names 表名列表
  * @param all_cols 输出参数，用于存储所有表的列元数据
  * @note 注意：这里使用db_而不是get_db()，因为需要传递指针引用
@@ -280,13 +279,13 @@ void Analyze::get_all_cols(const std::vector<std::string> &tab_names,
 
 /**
  * @brief 将AST中的条件表达式转换为Condition结构
- * @description: 
+ * @description:
  * 处理WHERE、HAVING等子句中的条件表达式，支持以下形式：
  * 1. 列与值的比较：column = value, column > 20 等
  * 2. 列与列的比较：column1 = column2
  * 3. 列与子查询的比较：column IN (SELECT ...), column > (SELECT ...)
  * 4. IN操作符：column IN (value1, value2, ...)
- * 
+ *
  * @param sv_conds AST中的条件表达式列表（BinaryExpr节点）
  * @param conds 输出参数，转换后的Condition列表
  */
@@ -294,21 +293,21 @@ void Analyze::get_clause(
     const std::vector<std::shared_ptr<ast::BinaryExpr>> &sv_conds,
     std::vector<Condition> &conds) {
   conds.clear();
-  
+
   // 遍历每个条件表达式
   for (auto &expr : sv_conds) {
     Condition cond;
-    
+
     // ========== 处理左侧操作数（列）==========
     cond.lhs_col = {.tab_name = expr->lhs->tab_name,
                     .col_name = expr->lhs->col_name,
                     .aggregation_type = expr->lhs->aggregation_type,
                     .new_col_name = expr->lhs->new_col_name};
-    
+
     // ========== 转换比较操作符 ==========
     cond.op = convert_sv_comp_op(expr->op);
     cond.is_rhs_exe_processed = false;
-    
+
     // ========== 处理右侧操作数 ==========
     // 情况1: 右侧为空，且操作符为IN，表示IN (value1, value2, ...)
     if (!expr->rhs) {
@@ -325,14 +324,13 @@ void Analyze::get_clause(
       for (auto v : expr->rhs_value_list) {
         cond.rhs_in_col.push_back(convert_sv_value(v));
       }
-    } 
+    }
     // 情况2: 右侧是常量值，如 column = 20
-    else if (auto rhs_val =
-                   std::dynamic_pointer_cast<ast::Value>(expr->rhs)) {
+    else if (auto rhs_val = std::dynamic_pointer_cast<ast::Value>(expr->rhs)) {
       cond.is_rhs_val = true;
       cond.is_rhs_stmt = false;
       cond.rhs_val = convert_sv_value(rhs_val);
-    } 
+    }
     // 情况3: 右侧是列，如 column1 = column2
     else if (auto rhs_col = std::dynamic_pointer_cast<ast::Col>(expr->rhs)) {
       cond.is_rhs_val = false;
@@ -341,10 +339,10 @@ void Analyze::get_clause(
                       .col_name = rhs_col->col_name,
                       .aggregation_type = rhs_col->aggregation_type,
                       .new_col_name = rhs_col->new_col_name};
-    } 
+    }
     // 情况4: 右侧是子查询，如 column > (SELECT AVG(salary) FROM employees)
     else if (auto rhs_stmt =
-                   std::dynamic_pointer_cast<ast::SelectStmt>(expr->rhs)) {
+                 std::dynamic_pointer_cast<ast::SelectStmt>(expr->rhs)) {
       // 子查询必须只返回一列
       if (rhs_stmt->cols.size() != 1) {
         throw SubqueryIllegalError(
@@ -356,7 +354,7 @@ void Analyze::get_clause(
       }
 
       // ========== 子查询的两种使用场景 ==========
-      
+
       // 场景A: 比较操作符（>, <, =等），子查询返回单个值
       // 例如: AVG(salary) > (SELECT AVG(salary) FROM employees)
       if (expr->op != ast::SV_OP_IN) {
@@ -371,7 +369,7 @@ void Analyze::get_clause(
                         .col_name = rhs_stmt->cols[0]->col_name,
                         .aggregation_type = rhs_stmt->cols[0]->aggregation_type,
                         .new_col_name = rhs_stmt->cols[0]->new_col_name};
-      } 
+      }
       // 场景B: IN操作符，子查询返回一列
       // 例如: department_id IN (SELECT id FROM departments WHERE name = 'HR')
       else {
@@ -384,7 +382,7 @@ void Analyze::get_clause(
                         .aggregation_type = rhs_stmt->cols[0]->aggregation_type,
                         .new_col_name = rhs_stmt->cols[0]->new_col_name};
       }
-      
+
       // 保存子查询AST节点，供后续处理
       // tab_name和col_name信息会在下一步check_clause中填充
       if (rhs_stmt) {
@@ -393,7 +391,7 @@ void Analyze::get_clause(
         throw NullptrError();
       }
     }  // end else if subquery
-    
+
     // 将转换后的条件添加到列表
     conds.push_back(cond);
   }
@@ -425,9 +423,10 @@ void Analyze::get_clause(
 //                 cond.rhs_col = check_column(all_cols, cond.rhs_col);
 //             }
 //             TabMeta &lhs_tab =
-//             storage_engine_->GetTableMeta(cond.lhs_col.tab_name); auto lhs_col =
-//             lhs_tab.get_col(cond.lhs_col.col_name); ColType lhs_type =
-//             lhs_col->type; ColType rhs_type; if (cond.is_rhs_val) {
+//             storage_engine_->GetTableMeta(cond.lhs_col.tab_name); auto
+//             lhs_col = lhs_tab.get_col(cond.lhs_col.col_name); ColType
+//             lhs_type = lhs_col->type; ColType rhs_type; if (cond.is_rhs_val)
+//             {
 //                 cond.rhs_val.init_raw(lhs_col->len);
 //                 rhs_type = cond.rhs_val.type;
 //             } else {
@@ -447,13 +446,13 @@ void Analyze::get_clause(
 
 /**
  * @brief 检查条件子句的合法性
- * @description: 
+ * @description:
  * 对WHERE、HAVING等条件进行语义检查：
  * 1. 处理子查询：递归分析子查询AST，转换为Query对象
  * 2. 检查列是否存在：验证左侧和右侧列是否合法
  * 3. 推断表名：如果列名未指定表名，从上下文推断
  * 4. 类型兼容性检查：确保比较操作的两侧类型兼容
- * 
+ *
  * @param tab_names 当前查询涉及的表名列表
  * @param conds 条件列表（会被修改，填充表名等信息）
  */
@@ -462,7 +461,7 @@ void Analyze::check_clause(const std::vector<std::string> &tab_names,
   // 获取所有表的列元数据，用于列名验证和推断
   std::vector<ColMeta> all_cols;
   get_all_cols(tab_names, all_cols);
-  
+
   // 遍历每个条件进行检查
   for (auto &cond : conds) {
     // ========== 步骤1: 处理子查询 ==========
@@ -479,7 +478,7 @@ void Analyze::check_clause(const std::vector<std::string> &tab_names,
       // 将Query对象保存到条件中
       cond.rhs_stmt = std::static_pointer_cast<void>(subquery);
     }
-    
+
     // ========== 步骤2: 处理COUNT(*)特殊情况 ==========
     // 检查左侧是否为COUNT(*)
     if (cond.lhs_col.col_name.empty() &&
@@ -497,7 +496,7 @@ void Analyze::check_clause(const std::vector<std::string> &tab_names,
       // ========== 步骤3: 检查左侧列 ==========
       // 推断表名（如果未指定）并验证列是否存在
       cond.lhs_col = check_column(all_cols, cond.lhs_col);
-      
+
       // ========== 步骤4: 检查右侧列（如果不是值）==========
       if (!cond.is_rhs_val) {
         if (!cond.is_rhs_stmt) {
@@ -531,7 +530,7 @@ void Analyze::check_clause(const std::vector<std::string> &tab_names,
       TabMeta &lhs_tab = storage_engine_->GetTableMeta(cond.lhs_col.tab_name);
       auto lhs_col = lhs_tab.get_col(cond.lhs_col.col_name);
       ColType lhs_type = lhs_col->type;
-      
+
       // 获取右侧的类型
       ColType rhs_type;
       if (cond.is_rhs_val) {
@@ -543,7 +542,7 @@ void Analyze::check_clause(const std::vector<std::string> &tab_names,
         auto rhs_col = rhs_tab.get_col(cond.rhs_col.col_name);
         rhs_type = rhs_col->type;
       }
-      
+
       // 类型兼容性检查：字符串类型必须完全匹配
       // 例如：CHAR和VARCHAR不能与INT比较，但INT和FLOAT可以比较
       if (lhs_type != rhs_type &&
@@ -559,7 +558,7 @@ void Analyze::check_clause(const std::vector<std::string> &tab_names,
 /**
  * @brief 在列列表中查找指定列名
  * @description: 线性搜索列列表，查找是否存在指定名称的列
- * 
+ *
  * @param cols 列列表
  * @param col_name 要查找的列名
  * @return true 如果找到，false 否则
@@ -576,19 +575,20 @@ bool Analyze::find_col(std::vector<std::shared_ptr<ast::Col>> &cols,
 
 /**
  * @brief 检查聚合函数使用的合法性
- * @description: 
+ * @description:
  * 根据SQL规范检查聚合函数的使用是否符合规则：
- * 
+ *
  * 规则1: SELECT列表中不能出现没有在GROUP BY子句中的非聚集列
  *   - 如果使用了GROUP BY，SELECT中的非聚合列必须在GROUP BY中出现
  *   - 例如：SELECT name, COUNT(*) FROM students GROUP BY name; ✓
- *   - 例如：SELECT name, COUNT(*) FROM students GROUP BY age; ✗ (name不在GROUP BY中)
- * 
+ *   - 例如：SELECT name, COUNT(*) FROM students GROUP BY age; ✗ (name不在GROUP
+ * BY中)
+ *
  * 规则2: WHERE子句中不能用聚集函数作为条件表达式
  *   - 聚合函数只能在SELECT、HAVING、ORDER BY中使用
  *   - 例如：WHERE age > 20; ✓
  *   - 例如：WHERE COUNT(*) > 10; ✗ (WHERE中不能使用聚合函数)
- * 
+ *
  * @param x SELECT语句的AST节点
  * @return true 如果合法，false 否则
  */
@@ -605,7 +605,7 @@ bool Analyze::check_aggregation_legality(
       }
     }
   }
-  
+
   // ========== 规则2: 检查WHERE子句中的聚合函数 ==========
   for (auto &cond : x->conds) {
     // WHERE子句中不能使用聚合函数
@@ -613,29 +613,29 @@ bool Analyze::check_aggregation_legality(
       return false;
     }
   }
-  
+
   return true;
 }
 /**
  * @brief 将AST中的值节点转换为Value对象
- * @description: 根据AST值节点的类型（整数、浮点数、字符串），创建对应的Value对象
- * 
+ * @description:
+ * 根据AST值节点的类型（整数、浮点数、字符串），创建对应的Value对象
+ *
  * @param sv_val AST中的值节点，可能是IntLit、FloatLit或StringLit
  * @return Value 转换后的Value对象
  * @throws InternalError 如果遇到不支持的值类型
  */
 Value Analyze::convert_sv_value(const std::shared_ptr<ast::Value> &sv_val) {
   Value val;
-  
+
   // 整数字面量：如 20, 100
   if (auto int_lit = std::dynamic_pointer_cast<ast::IntLit>(sv_val)) {
     val = Value(TYPE_INT, int_lit->val);
-  } 
+  }
   // 浮点数字面量：如 3.14, 2.5
-  else if (auto float_lit =
-                 std::dynamic_pointer_cast<ast::FloatLit>(sv_val)) {
+  else if (auto float_lit = std::dynamic_pointer_cast<ast::FloatLit>(sv_val)) {
     val = Value(TYPE_FLOAT, float_lit->val);
-  } 
+  }
   // 字符串字面量：如 'hello', "world"
   else if (auto str_lit = std::dynamic_pointer_cast<ast::StringLit>(sv_val)) {
     val = Value(TYPE_VARCHAR, str_lit->val);
@@ -647,11 +647,11 @@ Value Analyze::convert_sv_value(const std::shared_ptr<ast::Value> &sv_val) {
 
 /**
  * @brief 初始化子查询的值（占位符）
- * @description: 
+ * @description:
  * 对于子查询比较（如 column > (SELECT ...)），在语义分析阶段无法确定子查询的值
  * 因此先创建一个空的Value对象作为占位符
  * 实际的子查询值会在执行器处理子查询后填充
- * 
+ *
  * @param sv_val AST值节点（实际不使用）
  * @return Value 空的Value对象
  * @note 子查询的值会在执行阶段由执行器填充
@@ -665,37 +665,35 @@ Value Analyze::init_sv_value(const std::shared_ptr<ast::Value> &sv_val) {
 /**
  * @brief 将AST中的比较操作符转换为Condition中的CompOp枚举
  * @description: 映射AST层的比较操作符到执行层的操作符枚举
- * 
+ *
  * @param op AST中的比较操作符（SvCompOp）
  * @return CompOp 执行层的比较操作符
  */
 CompOp Analyze::convert_sv_comp_op(ast::SvCompOp op) {
   // 操作符映射表
-  std::map<ast::SvCompOp, CompOp> m = {
-      {ast::SV_OP_EQ, OP_EQ},   // ==
-      {ast::SV_OP_NE, OP_NE},   // !=
-      {ast::SV_OP_LT, OP_LT},   // <
-      {ast::SV_OP_GT, OP_GT},   // >
-      {ast::SV_OP_LE, OP_LE},   // <=
-      {ast::SV_OP_GE, OP_GE},   // >=
-      {ast::SV_OP_IN, OP_IN}};  // IN
+  std::map<ast::SvCompOp, CompOp> m = {{ast::SV_OP_EQ, OP_EQ},   // ==
+                                       {ast::SV_OP_NE, OP_NE},   // !=
+                                       {ast::SV_OP_LT, OP_LT},   // <
+                                       {ast::SV_OP_GT, OP_GT},   // >
+                                       {ast::SV_OP_LE, OP_LE},   // <=
+                                       {ast::SV_OP_GE, OP_GE},   // >=
+                                       {ast::SV_OP_IN, OP_IN}};  // IN
   return m.at(op);
 }
 
 /**
  * @brief 将AST中的算术操作符转换为执行层的ArithOp枚举
  * @description: 映射AST层的算术操作符到执行层的操作符枚举
- * 
+ *
  * @param op AST中的算术操作符（SvArithOp）
  * @return ArithOp 执行层的算术操作符
  */
 ArithOp Analyze::convert_sv_arith_op(ast::SvArithOp op) {
   // 算术操作符映射表
-  std::map<ast::SvArithOp, ArithOp> m = {
-      {ast::SV_OP_PLUS, OP_PLUS},    // +
-      {ast::SV_OP_MINUS, OP_MINUS},  // -
-      {ast::SV_OP_MUL, OP_MULTI},    // *
-      {ast::SV_OP_DIV, OP_DIV}};     // /
+  std::map<ast::SvArithOp, ArithOp> m = {{ast::SV_OP_PLUS, OP_PLUS},    // +
+                                         {ast::SV_OP_MINUS, OP_MINUS},  // -
+                                         {ast::SV_OP_MUL, OP_MULTI},    // *
+                                         {ast::SV_OP_DIV, OP_DIV}};     // /
   return m.at(op);
 }
 }  // namespace easydb

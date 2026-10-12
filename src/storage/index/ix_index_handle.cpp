@@ -281,7 +281,7 @@ int IxNodeHandle::Remove(const char *key) {
  * @param disk_manager 磁盘管理器指针
  * @param buffer_pool_manager 缓冲池管理器指针
  * @param fd 文件描述符
- * 
+ *
  * 初始化索引句柄的流程：
  * 1. 从磁盘读取文件头页（第0页）
  * 2. 反序列化文件头数据到file_hdr_
@@ -1150,16 +1150,17 @@ IxNodeHandle *IxIndexHandle::FetchNode(int page_no) const {
  * @brief 创建一个新节点
  * @return IxNodeHandle* 新节点句柄指针
  * @note 会pin页面，记得在外部unpin和delete返回的节点句柄
- * 
+ *
  * 功能说明：
  * 分配一个新的页面并创建节点句柄，同时更新文件头中的总页数。
- * 
+ *
  * 页面分配说明：
  * - 对于Index的处理：删除某个页面后，认为该被删除的页面是free_page
  * - first_free_page实际上就是最新被删除的页面，初始为IX_NO_PAGE
- * - 在最开始插入时，一直是create node，那么first_page_no一直没变，一直是IX_NO_PAGE
+ * - 在最开始插入时，一直是create
+ * node，那么first_page_no一直没变，一直是IX_NO_PAGE
  * - 与Record的处理不同，Record将未插入满的记录页认为是free_page
- * 
+ *
  * 页号分配：
  * - 从3开始分配page_no（0=文件头，1=叶子头，2=根节点）
  * - 第一次分配之后，new_page_id.page_no=3，file_hdr_.num_pages=4
@@ -1178,17 +1179,17 @@ IxNodeHandle *IxIndexHandle::CreateNode() {
 /**
  * @brief 从node开始向上更新其父节点的第一个key，一直向上更新直到根节点
  * @param node 起始节点（其第一个key可能已发生变化）
- * 
+ *
  * 功能说明：
  * 当节点的第一个key发生变化时（例如分裂、合并、重分配后），需要向上更新
  * 父节点中指向该节点的key，以保持B+树的正确性。
- * 
+ *
  * 算法流程：
  * 1. 从当前节点开始，向上遍历到根节点
  * 2. 对于每个父节点，找到当前节点在父节点中的位置
  * 3. 如果父节点中的key与子节点的第一个key不同，则更新
  * 4. 如果相同，说明已经是最新状态，可以提前退出
- * 
+ *
  * 注意：不能删除输入的node参数，但可以删除中间遍历的节点
  */
 void IxIndexHandle::MaintainParent(IxNodeHandle *node) {
@@ -1226,11 +1227,11 @@ void IxIndexHandle::MaintainParent(IxNodeHandle *node) {
 /**
  * @brief 删除叶子节点前调用此函数，更新前驱和后继节点的指针
  * @param leaf 要删除的叶子节点
- * 
+ *
  * 功能说明：
  * 在删除叶子节点之前，需要维护叶子节点双向链表的完整性。
  * 将前驱节点的next指针指向后继节点，将后继节点的prev指针指向前驱节点。
- * 
+ *
  * 注意：
  * - 仅对叶子节点有效（通过assert检查）
  * - 需要更新前驱和后继节点，因此需要fetch这两个节点
@@ -1256,7 +1257,7 @@ void IxIndexHandle::EraseLeaf(IxNodeHandle *leaf) {
 /**
  * @brief 释放节点句柄，更新文件头中的页数
  * @param node 要释放的节点句柄（引用）
- * 
+ *
  * 功能说明：
  * 当节点被删除时调用此函数，将文件头中的总页数减1。
  * 注意：此函数仅更新页数计数，不实际删除页面或释放内存。
@@ -1269,11 +1270,11 @@ void IxIndexHandle::ReleaseNodeHandle(IxNodeHandle &node) {
  * @brief 将node的第child_idx个子节点的父节点设置为node
  * @param node 父节点句柄
  * @param child_idx 子节点索引
- * 
+ *
  * 功能说明：
  * 当节点的子节点发生变化时（例如分裂、合并），需要更新子节点的父节点指针。
  * 此函数用于维护B+树中父子关系的正确性。
- * 
+ *
  * 注意：
  * - 仅对内部节点有效（叶子节点没有子节点）
  * - 需要fetch子节点，更新后unpin和delete

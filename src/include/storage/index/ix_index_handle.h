@@ -12,11 +12,11 @@
 /**
  * @file ix_index_handle.h
  * @brief B+树索引句柄头文件
- * 
+ *
  * 该文件定义了B+树索引的核心类：
  * 1. IxNodeHandle：B+树节点句柄，用于操作单个节点
  * 2. IxIndexHandle：B+树索引句柄，用于操作整个B+树索引
- * 
+ *
  * 主要功能包括：
  * - 键值对的查找、插入、删除
  * - B+树节点的分裂、合并、重分配
@@ -40,14 +40,14 @@ namespace easydb {
 /**
  * @enum Operation
  * @brief 索引操作类型枚举
- * 
+ *
  * 用于标识在查找叶子节点时将要执行的操作类型，
  * 不同的操作可能需要不同的并发控制策略
  */
 enum class Operation {
-  FIND = 0,    ///< 查找操作
-  INSERT,      ///< 插入操作
-  DELETE       ///< 删除操作
+  FIND = 0,  ///< 查找操作
+  INSERT,    ///< 插入操作
+  DELETE     ///< 删除操作
 };
 
 /** @brief 是否使用二分查找的标志（当前未使用） */
@@ -60,7 +60,7 @@ static const bool binary_search = false;
  * @param type 列的数据类型
  * @param col_len 列的长度（字节）
  * @return 比较结果：-1表示a<b，0表示a==b，1表示a>b
- * 
+ *
  * 与ix_defs.h中的ix_compare功能相同，但使用不同的命名空间
  */
 inline int IxCompare(const char *a, const char *b, ColType type, int col_len) {
@@ -90,7 +90,7 @@ inline int IxCompare(const char *a, const char *b, ColType type, int col_len) {
  * @param col_types 各列的数据类型列表
  * @param col_lens 各列的长度列表（字节）
  * @return 比较结果：-1表示a<b，0表示a==b，1表示a>b
- * 
+ *
  * 与ix_defs.h中的ix_compare功能相同，但使用不同的命名空间
  */
 inline int IxCompare(const char *a, const char *b,
@@ -114,11 +114,9 @@ class IxNodeHandle {
   const IxFileHdr *file_hdr;  // 节点所在文件的头部信息
   Page *page;                 // 存储节点的页面
   // page->data的第一部分，指针指向首地址，长度为sizeof(IxPageHdr)
-  IxPageHdr *
-      page_hdr;  
-      
-  char *
-      keys;  
+  IxPageHdr *page_hdr;
+
+  char *keys;
   RID *rids;  // page->data的第三部分，指针指向首地址
 
  public:
@@ -132,10 +130,10 @@ class IxNodeHandle {
   }
 
   // ==================== 访问器方法 ====================
-  
+
   /** @brief 获取页面头指针 */
   const IxPageHdr *GetPageHdr() { return page_hdr; }
-  
+
   /** @brief 获取文件头指针 */
   const IxFileHdr *GetFileHdr() { return file_hdr; }
 
@@ -157,7 +155,7 @@ class IxNodeHandle {
   /** @brief 获取第i个键值（作为整数返回，仅适用于整数类型的键） */
   int KeyAt(int i) { return *(int *)GetKey(i); }
 
-  /** 
+  /**
    * @brief 获取第i个子节点的页号（用于内部节点）
    * @param i 子节点索引
    * @return 子节点的页号
@@ -186,7 +184,7 @@ class IxNodeHandle {
   bool IsRootPage() { return GetParentPageNo() == INVALID_PAGE_ID; }
 
   // ==================== 修改器方法 ====================
-  
+
   /** @brief 设置下一个叶子节点的页号 */
   void SetNextLeaf(page_id_t page_no) { page_hdr->next_leaf = page_no; }
 
@@ -197,7 +195,7 @@ class IxNodeHandle {
   void SetParentPageNo(page_id_t parent) { page_hdr->parent = parent; }
 
   // ==================== 键值对访问方法 ====================
-  
+
   /**
    * @brief 获取第key_idx个键值的指针
    * @param key_idx 键值索引
@@ -232,11 +230,12 @@ class IxNodeHandle {
   void SetRid(int rid_idx, const RID &Rid) { rids[rid_idx] = Rid; }
 
   // ==================== 查找方法 ====================
-  
+
   /**
    * @brief 在当前节点中查找第一个大于等于target的键值索引
    * @param target 目标键值
-   * @return 键值索引，范围为[0, num_key)，如果返回num_key则表示target大于所有键值
+   * @return 键值索引，范围为[0,
+   * num_key)，如果返回num_key则表示target大于所有键值
    * @note 返回的索引同时也是RID索引，可作为slot_no使用
    */
   int LowerBound(const char *target) const;
@@ -244,7 +243,8 @@ class IxNodeHandle {
   /**
    * @brief 在当前节点中查找第一个大于target的键值索引
    * @param target 目标键值
-   * @return 键值索引，范围为[0, num_key)，如果返回num_key则表示target大于等于所有键值
+   * @return 键值索引，范围为[0,
+   * num_key)，如果返回num_key则表示target大于等于所有键值
    */
   int UpperBound(const char *target) const;
 
@@ -264,7 +264,7 @@ class IxNodeHandle {
   bool LeafLookup(const char *key, RID **value);
 
   // ==================== 插入方法 ====================
-  
+
   /**
    * @brief 在指定位置插入n个连续的键值对
    * @param pos 插入位置
@@ -295,7 +295,7 @@ class IxNodeHandle {
   }
 
   // ==================== 删除方法 ====================
-  
+
   /**
    * @brief 删除指定位置的键值对
    * @param pos 要删除的键值对位置
@@ -377,15 +377,15 @@ class IxNodeHandle {
 /**
  * @class IxIndexHandle
  * @brief B+树索引句柄类
- * 
+ *
  * 用于管理整个B+树索引，提供对索引的增删改查操作。
- * 
+ *
  * 主要功能：
  * - 键值对的查找、插入、删除
  * - B+树结构的维护（分裂、合并、重分配）
  * - 叶子节点的遍历和范围查询
  * - 节点页面的分配和释放
- * 
+ *
  * 文件结构：
  * - 第0页：文件头（IxFileHdr）
  * - 第1页：叶子链表头（虚拟节点）
@@ -399,20 +399,20 @@ class IxIndexHandle {
  private:
   /** @brief 磁盘管理器指针，用于文件I/O操作 */
   DiskManager *disk_manager_;
-  
+
   /** @brief 缓冲池管理器指针，用于页面缓存管理 */
   BufferPoolManager *buffer_pool_manager_;
-  
+
   /** @brief 存储B+树的文件描述符 */
   int fd_;
-  
-  /** 
+
+  /**
    * @brief 文件头指针（使用unique_ptr管理内存）
    * @note 文件头存储了root_page等信息
    * @note root_page初始化为2（第0页存FILE_HDR_PAGE，第1页存LEAF_HEADER_PAGE）
    */
   std::unique_ptr<IxFileHdr> file_hdr_;
-  
+
   /** @brief 根节点互斥锁，用于并发控制 */
   std::mutex root_latch_;
 
@@ -422,7 +422,7 @@ class IxIndexHandle {
    * @param disk_manager 磁盘管理器指针
    * @param buffer_pool_manager 缓冲池管理器指针
    * @param fd 文件描述符
-   * 
+   *
    * 从磁盘读取文件头并初始化索引句柄
    */
   IxIndexHandle(DiskManager *disk_manager,
@@ -432,7 +432,7 @@ class IxIndexHandle {
   int GetFd() const { return fd_; }
 
   // ==================== 查找操作 ====================
-  
+
   /**
    * @brief 查找指定键值对应的所有RID
    * @param key 要查找的键值
@@ -458,7 +458,7 @@ class IxIndexHandle {
                                                bool find_first = false);
 
   // ==================== 插入操作 ====================
-  
+
   /**
    * @brief 将键值对插入到B+树中
    * @param key 要插入的键值
@@ -490,7 +490,7 @@ class IxIndexHandle {
                         IxNodeHandle *new_node, Transaction *transaction);
 
   // ==================== 删除操作 ====================
-  
+
   /**
    * @brief 删除B+树中含有指定key的键值对
    * @param key 要删除的key值
@@ -527,7 +527,8 @@ class IxIndexHandle {
    * @param node 当前节点（刚被删除过key的节点）
    * @param parent 父节点
    * @param index node在parent中的rid_idx
-   * @note 如果index=0，neighbor是node的后继节点；如果index>0，neighbor是node的前驱节点
+   * @note
+   * 如果index=0，neighbor是node的后继节点；如果index>0，neighbor是node的前驱节点
    */
   void Redistribute(IxNodeHandle *neighbor_node, IxNodeHandle *node,
                     IxNodeHandle *parent, int index);
@@ -542,14 +543,15 @@ class IxIndexHandle {
    * @param root_is_latched 根节点是否上锁
    * @return 父节点是否需要被删除
    * @note 假设neighbor_node是node的左兄弟节点（neighbor -> node）
-   * @note 无论返回值如何，都会删除neighbor_node；如果返回false，也会删除parent_node
+   * @note
+   * 无论返回值如何，都会删除neighbor_node；如果返回false，也会删除parent_node
    */
   bool Coalesce(IxNodeHandle **neighbor_node, IxNodeHandle **node,
                 IxNodeHandle **parent, int index, Transaction *transaction,
                 bool *root_is_latched);
 
   // ==================== 范围查询和遍历 ====================
-  
+
   /**
    * @brief 查找第一个大于等于key的Iid
    * @param key 目标键值
@@ -577,7 +579,7 @@ class IxIndexHandle {
   Iid LeafBegin() const;
 
   // ==================== 节点管理 ====================
-  
+
   /**
    * @brief 获取根节点句柄
    * @return 根节点句柄指针
@@ -595,7 +597,7 @@ class IxIndexHandle {
 
  private:
   // ==================== 辅助函数 ====================
-  
+
   /**
    * @brief 更新根节点页号
    * @param root 新的根节点页号
@@ -618,7 +620,7 @@ class IxIndexHandle {
   IxNodeHandle *CreateNode();
 
   // ==================== 数据结构维护 ====================
-  
+
   /**
    * @brief 从node开始向上更新其父节点的第一个key，直到根节点
    * @param node 起始节点
@@ -652,7 +654,7 @@ class IxIndexHandle {
   void MaintainChild(IxNodeHandle *node, int child_idx);
 
   // ==================== 测试辅助函数 ====================
-  
+
   /**
    * @brief 将Iid转换为RID
    * @param iid 索引内部标识符

@@ -19,7 +19,8 @@ namespace easydb {
  * @param conds 查询条件
  * @param context 上下文指针
  */
-SeqScanExecutor::SeqScanExecutor(StorageEngine *storage_engine, std::string tab_name,
+SeqScanExecutor::SeqScanExecutor(StorageEngine *storage_engine,
+                                 std::string tab_name,
                                  std::vector<Condition> conds,
                                  Context *context) {
   storage_engine_ = storage_engine;

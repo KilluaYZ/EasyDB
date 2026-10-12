@@ -72,16 +72,16 @@ auto RmPageHandle::GetNextTupleOffset(const TupleMeta &meta,
     // 如果页面为空，从页面末尾开始分配
     slot_end_offset = PAGE_SIZE;
   }
-  
+
   // 计算新元组的起始偏移量（从后向前分配）
   auto tuple_offset = slot_end_offset - tuple.GetLength();
-  
+
   // 计算槽目录所需的总空间
   // TABLE_PAGE_HEADER_SIZE：页面头大小
   // TUPLE_INFO_SIZE * (page_hdr_->num_records + 1)：当前槽目录 + 新槽
   auto offset_size =
       TABLE_PAGE_HEADER_SIZE + TUPLE_INFO_SIZE * (page_hdr_->num_records + 1);
-  
+
   // 检查是否有足够空间
   // 注意：不能使用 (tuple_offset < offset_size) 来判断，因为
   // slot_end_offset 可能小于 tuple.GetLength()（导致 tuple_offset 为负数）
@@ -89,7 +89,7 @@ auto RmPageHandle::GetNextTupleOffset(const TupleMeta &meta,
   if (slot_end_offset < offset_size + tuple.GetLength()) {
     return std::nullopt;  // 空间不足
   }
-  
+
   return tuple_offset;
 }
 
@@ -115,20 +115,20 @@ auto RmPageHandle::InsertTuple(const TupleMeta &meta, const Tuple &tuple)
   if (tuple_offset == std::nullopt) {
     return std::nullopt;  // 空间不足，插入失败
   }
-  
+
   // 2. 分配槽号（使用当前记录数作为新槽号）
   auto tuple_id = page_hdr_->num_records;
-  
+
   // 3. 更新槽目录：记录元组的偏移量、大小和元数据
   tuple_info_[tuple_id] =
       std::make_tuple(*tuple_offset, tuple.GetLength(), meta);
-  
+
   // 4. 增加页面记录计数
   page_hdr_->num_records++;
-  
+
   // 5. 将元组数据复制到页面的指定位置
   memcpy(page_start_ + *tuple_offset, tuple.data_.data(), tuple.GetLength());
-  
+
   return tuple_id;
 }
 
@@ -151,15 +151,15 @@ void RmPageHandle::UpdateTupleMeta(const TupleMeta &meta, const RID &rid) {
   if (tuple_id >= page_hdr_->num_records) {
     throw easydb::Exception("Tuple ID out of range");
   }
-  
+
   // 2. 获取旧的元数据
   auto &[offset, size, old_meta] = tuple_info_[tuple_id];
-  
+
   // 3. 如果元组从非删除状态变为删除状态，更新删除计数
   if (!old_meta.is_deleted_ && meta.is_deleted_) {
     page_hdr_->num_deleted_records++;
   }
-  
+
   // 4. 更新槽目录中的元数据（保持偏移量和大小不变）
   tuple_info_[tuple_id] = std::make_tuple(offset, size, meta);
 }
@@ -185,20 +185,20 @@ auto RmPageHandle::GetTuple(const RID &rid) const
   if (tuple_id >= page_hdr_->num_records) {
     throw easydb::Exception("Tuple ID out of range");
   }
-  
+
   // 2. 从槽目录获取元组信息（偏移量、大小、元数据）
   auto &[offset, size, meta] = tuple_info_[tuple_id];
-  
+
   // 3. 创建 Tuple 对象并分配空间
   Tuple tuple;
   tuple.data_.resize(size);
-  
+
   // 4. 从页面中复制元组数据（使用 memmove 处理可能的重叠）
   memmove(tuple.data_.data(), page_start_ + offset, size);
-  
+
   // 5. 设置元组的 RID
   tuple.rid_ = rid;
-  
+
   return std::make_pair(meta, std::move(tuple));
 }
 
@@ -217,10 +217,10 @@ auto RmPageHandle::GetTupleMeta(const RID &rid) const -> TupleMeta {
   if (tuple_id >= page_hdr_->num_records) {
     throw easydb::Exception("Tuple ID out of range");
   }
-  
+
   // 2. 从槽目录中提取元数据（忽略偏移量和大小）
   auto &[_1, _2, meta] = tuple_info_[tuple_id];
-  
+
   return meta;
 }
 
@@ -252,24 +252,24 @@ void RmPageHandle::UpdateTupleInPlaceUnsafe(const TupleMeta &meta,
   if (tuple_id >= page_hdr_->num_records) {
     throw easydb::Exception("Tuple ID out of range");
   }
-  
+
   // 2. 获取旧的元组信息
   auto &[offset, size, old_meta] = tuple_info_[tuple_id];
-  
+
   // 3. 检查新元组大小是否超过旧元组大小
   // 注意：允许新元组更小（缩小），但不允许更大（扩大）
   if (size < tuple.GetLength()) {
     throw easydb::Exception("Tuple size mismatch");
   }
-  
+
   // 4. 如果元组从非删除状态变为删除状态，更新删除计数
   if (!old_meta.is_deleted_ && meta.is_deleted_) {
     page_hdr_->num_deleted_records++;
   }
-  
+
   // 5. 更新槽目录中的元数据（保持偏移量和大小不变）
   tuple_info_[tuple_id] = std::make_tuple(offset, size, meta);
-  
+
   // 6. 将新元组数据复制到页面中的原位置
   memcpy(page_start_ + offset, tuple.data_.data(), tuple.GetLength());
 }
@@ -333,10 +333,10 @@ auto RmFileHandle::InsertTuple(const TupleMeta &meta, const Tuple &tuple,
 
     // 当前页面已满，创建新页面
     auto new_page_handle = CreateNewPageHandle();
-    
+
     // 将旧页面的 next_page_id 设置为新页面号（链接页面）
     page_handle.SetNextPageId(new_page_handle.page->GetPageId().page_no);
-    
+
     // 取消固定旧页面（未修改，所以 is_dirty = false）
     buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), false);
 
@@ -349,7 +349,7 @@ auto RmFileHandle::InsertTuple(const TupleMeta &meta, const Tuple &tuple,
   // 分配槽号（使用当前记录数作为新槽号）
   auto slot_no = page_handle.page_hdr_->num_records;
   auto rid = RID(page_no, slot_no);
-  
+
   // 4. 获取排他锁（如果提供了事务上下文）
   if (context != nullptr) {
     context->lock_mgr_->LockExclusiveOnRecord(context->txn_, rid, fd_);
@@ -358,10 +358,10 @@ auto RmFileHandle::InsertTuple(const TupleMeta &meta, const Tuple &tuple,
   // 5. 更新槽目录：记录元组的偏移量、大小和元数据
   page_handle.tuple_info_[slot_no] =
       std::make_tuple(*tuple_offset, tuple.GetLength(), meta);
-  
+
   // 6. 增加页面记录计数
   page_handle.page_hdr_->num_records++;
-  
+
   // 7. 将元组数据复制到页面的指定位置
   memcpy(page_handle.page_start_ + *tuple_offset, tuple.data_.data(),
          tuple.GetLength());
@@ -400,13 +400,13 @@ auto RmFileHandle::InsertTuple(RID rid, const TupleMeta &meta,
   if (context != nullptr) {
     context->lock_mgr_->LockExclusiveOnRecord(context->txn_, rid, fd_);
   }
-  
+
   // 2. 获取指定页面句柄
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
-  
+
   // 3. 读取旧元组信息
   auto [old_meta, old_tup] = page_handle.GetTuple(rid);
-  
+
   // 4. 如果元组已被删除，恢复它
   if (old_meta.is_deleted_) {
     old_meta.is_deleted_ = false;
@@ -416,10 +416,10 @@ auto RmFileHandle::InsertTuple(RID rid, const TupleMeta &meta,
     throw Exception(
         "RmFileHandle::InsertTuple(Rollback) Error: Tuple already exists");
   }
-  
+
   // 6. 取消固定页面（标记为脏页）
   buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), true);
-  
+
   return true;
 }
 
@@ -452,23 +452,23 @@ auto RmFileHandle::DeleteTuple(RID rid, Context *context) -> bool {
 
   // 2. 获取指定页面句柄
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
-  
+
   // 3. 读取元组信息
   auto [meta, tuple] = page_handle.GetTuple(rid);
-  
+
   // 4. 检查元组是否已被删除
   if (meta.is_deleted_) {
     throw InternalError(
         "RmFileHandle::DeleteTuple Error: Tuple already deleted");
   }
-  
+
   // 5. 将元组的删除标记设为 true（逻辑删除）
   meta.is_deleted_ = true;
   page_handle.UpdateTupleMeta(meta, rid);
-  
+
   // 6. 取消固定页面（标记为脏页）
   buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), true);
-  
+
   return true;
 }
 
@@ -507,23 +507,23 @@ auto RmFileHandle::UpdateTupleInPlace(
   if (context != nullptr) {
     context->lock_mgr_->LockExclusiveOnRecord(context->txn_, rid, fd_);
   }
-  
+
   // 2. 获取指定页面句柄
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
-  
+
   // 3. 读取旧元组信息
   auto [old_meta, old_tup] = page_handle.GetTuple(rid);
-  
+
   // 4. 执行可选的检查函数
   if (check == nullptr || check(old_meta, old_tup, rid)) {
     // 5. 检查通过，执行更新
     page_handle.UpdateTupleInPlaceUnsafe(meta, tuple, rid);
-    
+
     // 6. 取消固定页面（标记为脏页）
     buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), true);
     return true;
   }
-  
+
   // 检查失败，取消固定页面（不标记为脏）
   buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), false);
   return false;
@@ -554,13 +554,13 @@ void RmFileHandle::UpdateTupleMeta(const TupleMeta &meta, RID rid,
   if (context != nullptr) {
     context->lock_mgr_->LockExclusiveOnRecord(context->txn_, rid, fd_);
   }
-  
+
   // 2. 获取指定页面句柄
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
-  
+
   // 3. 更新元数据
   page_handle.UpdateTupleMeta(meta, rid);
-  
+
   // 4. 取消固定页面（标记为脏页）
   buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), true);
 }
@@ -587,19 +587,19 @@ auto RmFileHandle::GetTuple(RID rid, Context *context)
   if (context != nullptr) {
     context->lock_mgr_->LockSharedOnRecord(context->txn_, rid, fd_);
   }
-  
+
   // 2. 获取指定页面句柄
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
-  
+
   // 3. 从页面中读取元组
   auto [meta, tuple] = page_handle.GetTuple(rid);
-  
+
   // 4. 取消固定页面（未修改，所以 is_dirty = false）
   buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), false);
-  
+
   // 5. 设置元组的 RID（确保 RID 正确）
   tuple.rid_ = rid;
-  
+
   return std::make_pair(meta, std::move(tuple));
 }
 
@@ -628,16 +628,16 @@ auto RmFileHandle::GetTupleMeta(RID rid, Context *context) -> TupleMeta {
   if (context != nullptr) {
     context->lock_mgr_->LockSharedOnRecord(context->txn_, rid, fd_);
   }
-  
+
   // 2. 获取指定页面句柄
   RmPageHandle page_handle = FetchPageHandle(rid.GetPageId());
-  
+
   // 3. 从页面中读取元数据（不读取实际数据）
   TupleMeta meta = page_handle.GetTupleMeta(rid);
-  
+
   // 4. 取消固定页面（未修改，所以 is_dirty = false）
   buffer_pool_manager_->UnpinPage(page_handle.page->GetPageId(), false);
-  
+
   return meta;
 }
 
@@ -747,13 +747,13 @@ auto RmFileHandle::GetKeyTuple(const Schema &schema, const Schema &key_schema,
 
   // 3. 从页面中读取完整元组
   auto [meta, tuple] = page_handle.GetTuple(rid);
-  
+
   // 4. 从完整元组中提取键值（根据 key_attrs 指定的属性）
   auto key_tuple = tuple.KeyFromTuple(schema, key_schema, key_attrs);
 
   // 5. 取消固定页面（未修改，所以 is_dirty = false）
   buffer_pool_manager_->UnpinPage({fd_, rid.GetPageId()}, false);
-  
+
   return key_tuple;
 }
 
@@ -851,7 +851,7 @@ RmPageHandle RmFileHandle::FetchPageHandle(page_id_t page_no) const {
 
   // 2. 构造页面ID（文件描述符 + 页面号）
   PageId page_id{fd_, page_no};
-  
+
   // 3. 从缓冲池中获取页面（会 pin 页面，增加引用计数）
   Page *page = buffer_pool_manager_->FetchPage(page_id);
 
@@ -903,7 +903,7 @@ RmPageHandle RmFileHandle::CreateNewPageHandle() {
 
   // 2. 创建页面句柄并初始化页面头
   RmPageHandle new_page_handle(&file_hdr_, new_page);
-  
+
   // 初始化新页面头（设置默认值）
   // - next_page_id = RM_NO_PAGE (-1)
   // - num_records = 0
@@ -912,7 +912,8 @@ RmPageHandle RmFileHandle::CreateNewPageHandle() {
 
   // 3. 更新文件头
   file_hdr_.num_pages++;  // 增加页面计数
-  file_hdr_.first_free_page_no = new_page_id.page_no;  // 新页面成为第一个空闲页面
+  file_hdr_.first_free_page_no =
+      new_page_id.page_no;  // 新页面成为第一个空闲页面
 
   // 4. 将更新的文件头写回磁盘（确保一致性）
   disk_manager_->WritePage(fd_, RM_FILE_HDR_PAGE, (char *)&file_hdr_,
@@ -947,10 +948,10 @@ void RmFileHandle::SetPageLSN(page_id_t page_id_, lsn_t lsn) {
   if (page == nullptr) {
     throw InternalError("RmFileHandle::set_page_lsn: Failed to fetch page");
   }
-  
+
   // 2. 设置页面的 LSN
   page->SetLSN(lsn);
-  
+
   // 3. 取消固定页面（标记为脏页，因为 LSN 已更新）
   buffer_pool_manager_->UnpinPage(page_id, true);
 }
@@ -981,7 +982,7 @@ void RmFileHandle::SetPageLSN(page_id_t page_id_, lsn_t lsn) {
 RmPageHandle RmFileHandle::CreatePageHandle() {
   // 1. 检查文件头中是否有空闲页面
   int page_no = file_hdr_.first_free_page_no;
-  
+
   if (page_no == RM_NO_PAGE) {
     // 1.1 没有空闲页面：创建新页面
     // CreateNewPageHandle 会：
@@ -1030,11 +1031,11 @@ void RmFileHandle::ReleasePageHandle(RmPageHandle &page_handle) {
   // 当页面从已满变成未满时，需要更新空闲页面链表：
   // 1. 将当前页面插入到空闲页面链表的头部
   // 2. 更新文件头中的 first_free_page_no
-  
+
   // 注意：当前实现只更新了文件头，未更新页面头的 next_free_page_no
   // 理想情况下应该执行：
   // page_handle.page_hdr_->next_free_page_no = file_hdr_.first_free_page_no;
-  
+
   // 将文件头中的 first_free_page_no 设置为当前页面号
   // （当前页面成为第一个空闲页面）
   file_hdr_.first_free_page_no = page_handle.page->GetPageId().page_no;

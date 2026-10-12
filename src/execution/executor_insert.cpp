@@ -68,7 +68,8 @@ std::unique_ptr<Tuple> InsertExecutor::Next() {
       keys.emplace_back(key);
       // wait
       std::vector<std::string> index_columns;
-      for (const auto &column : index.cols) index_columns.push_back(column.name);
+      for (const auto &column : index.cols)
+        index_columns.push_back(column.name);
       storage_engine_->WaitForIndexGap(tab_name_, index_columns, key, context_);
     }
   }
@@ -93,8 +94,8 @@ std::unique_ptr<Tuple> InsertExecutor::Next() {
 
     std::vector<std::string> index_columns;
     for (const auto &column : index.cols) index_columns.push_back(column.name);
-    auto is_insert = storage_engine_->InsertIndexEntry(
-        tab_name_, index_columns, key, rid_, context_);
+    auto is_insert = storage_engine_->InsertIndexEntry(tab_name_, index_columns,
+                                                       key, rid_, context_);
 
     if (!is_insert) {
       storage_engine_->DeleteTuple(tab_name_, rid_, context_);
