@@ -33,7 +33,6 @@ namespace easydb {
  * Transaction 类封装了事务的所有状态和操作信息，包括：
  * - 事务ID和状态
  * - 隔离级别
- * - 写操作集合（用于回滚）
  * - 锁集合（用于释放锁）
  * - 索引页面集合（用于索引操作）
  */
@@ -49,7 +48,6 @@ class Transaction {
       : state_(TransactionState::DEFAULT),
         isolation_level_(isolation_level),
         txn_id_(txn_id) {
-    write_set_ = std::make_shared<std::deque<WriteRecord *>>();
     lock_set_ = std::make_shared<std::unordered_set<LockDataId>>();
     index_latch_page_set_ = std::make_shared<std::deque<Page *>>();
     index_deleted_page_set_ = std::make_shared<std::deque<Page *>>();
@@ -127,23 +125,6 @@ class Transaction {
    * @param prev_lsn 新的LSN值
    */
   inline void SetPrevLsn(lsn_t prev_lsn) { prev_lsn_ = prev_lsn; }
-
-  /**
-   * @brief 获取写操作集合
-   * @return 事务包含的所有写操作的指针
-   * @note 用于事务回滚时撤销所有写操作
-   */
-  inline std::shared_ptr<std::deque<WriteRecord *>> GetWriteSet() {
-    return write_set_;
-  }
-
-  /**
-   * @brief 添加写操作记录
-   * @param write_record 写操作记录指针
-   */
-  inline void AppendWriteRecord(WriteRecord *write_record) {
-    write_set_->push_back(write_record);
-  }
 
   /**
    * @brief 获取索引删除页面集合
@@ -227,12 +208,6 @@ class Transaction {
    * @note 用于MVCC（多版本并发控制）和死锁预防
    */
   timestamp_t start_ts_;
-
-  /**
-   * @brief 事务包含的所有写操作
-   * @note 用于事务回滚时撤销所有写操作
-   */
-  std::shared_ptr<std::deque<WriteRecord *>> write_set_;
 
   /**
    * @brief 事务申请的所有锁

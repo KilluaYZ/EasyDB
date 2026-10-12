@@ -72,11 +72,6 @@ std::unique_ptr<Tuple> InsertExecutor::Next() {
     throw InternalError("failed to insert tuple into clustered table");
   }
 
-  // Update context_ for rollback (be sure to update after record insert)
-  WriteRecord *write_record =
-      new WriteRecord(WType::INSERT_TUPLE, tab_name_, tuple);
-  context_->txn_->AppendWriteRecord(write_record);
-
   storage_engine_->UpdateTableCount(tab_name_, 1);
 
   return nullptr;

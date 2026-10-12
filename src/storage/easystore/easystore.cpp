@@ -17,7 +17,6 @@
 #include "storage/easystore/recovery/recovery_manager.h"
 #include "storage/easystore/statistics/statistics_manager.h"
 #include "storage/easystore/table/clustered_table_manager.h"
-#include "storage/easystore/transaction/rollback_manager.h"
 #include "storage/easystore/transaction/transaction_manager.h"
 
 namespace easydb {
@@ -38,13 +37,11 @@ class EasyStore::Runtime {
         ddl_manager(std::make_unique<DdlManager>(
             catalog_manager.get(), buffer_pool_manager.get(),
             statistics_manager.get(), clustered_table_manager.get())),
-        rollback_manager(std::make_unique<RollbackManager>(
-            catalog_manager.get(), clustered_table_manager.get())),
         lock_manager(std::make_unique<LockManager>()),
         transaction_manager(std::make_unique<TransactionManager>(
-            lock_manager.get(), rollback_manager.get(), disk_manager.get(),
-            buffer_pool_manager.get(), catalog_manager.get(),
-            ddl_manager.get(), clustered_table_manager.get())),
+            lock_manager.get(), disk_manager.get(), buffer_pool_manager.get(),
+            catalog_manager.get(), ddl_manager.get(),
+            clustered_table_manager.get())),
         log_manager(std::make_unique<LogManager>(disk_manager.get())) {}
 
   std::unique_ptr<DiskManager> disk_manager;
@@ -53,7 +50,6 @@ class EasyStore::Runtime {
   std::unique_ptr<CatalogManager> catalog_manager;
   std::unique_ptr<StatisticsManager> statistics_manager;
   std::unique_ptr<DdlManager> ddl_manager;
-  std::unique_ptr<RollbackManager> rollback_manager;
   std::unique_ptr<LoadManager> load_manager;
   std::unique_ptr<LockManager> lock_manager;
   std::unique_ptr<TransactionManager> transaction_manager;

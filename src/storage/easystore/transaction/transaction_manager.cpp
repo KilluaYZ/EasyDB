@@ -17,12 +17,11 @@
 #include "storage/easystore/transaction/transaction_manager.h"
 
 #include "buffer/buffer_pool_manager.h"
-#include "common/context.h"
+#include "common/errors.h"
 #include "storage/easystore/catalog/catalog_manager.h"
 #include "storage/easystore/catalog/ddl_manager.h"
 #include "storage/easystore/recovery/recovery_manager.h"
 #include "storage/easystore/table/clustered_table_manager.h"
-#include "storage/easystore/transaction/rollback_manager.h"
 #include "storage/easystore/transaction/txn_defs.h"
 
 namespace easydb {
@@ -88,31 +87,22 @@ void TransactionManager::Commit(Transaction *txn, LogManager *log_manager) {
   lsn_t lsn = log_manager->add_log_to_buffer(&commit_log_record);
   txn->SetPrevLsn(lsn);
 
-  // 1. Commit all uncommitted write operations
-  for (auto write_record : *txn->GetWriteSet()) {
-    // // TODO: Commit the write operation
-    // std::cout << "Committing write operation: " <<
-    // write_record->GetWriteType() << std::endl;
-    delete write_record;
-  }
-  txn->GetWriteSet()->clear();
-
-  // 2. Release all locks
+  // 1. Release all locks
   auto lock_set = *txn->GetLockSet();
   for (auto const &lock_data_id : lock_set) {
     lock_manager_->Unlock(txn, lock_data_id);
   }
 
-  // 3. Release transaction-related resources, e.g., lock set, index page sets
+  // 2. Release transaction-related resources, e.g., lock set, index page sets
   // no need because we delete one by one in unlock()
   // txn->GetLockSet()->clear();
   txn->GetIndexLatchPageSet()->clear();
   txn->GetIndexDeletedPageSet()->clear();
 
-  // 4. Flush the log to disk
+  // 3. Flush the log to disk
   log_manager->flush_log_to_disk();
 
-  // 5. Update transaction state
+  // 4. Update transaction state
   txn->SetState(TransactionState::COMMITTED);
 }
 
@@ -136,24 +126,12 @@ void TransactionManager::Abort(Transaction *txn, LogManager *log_manager) {
   lsn_t lsn = log_manager->add_log_to_buffer(&abort_log_record);
   txn->SetPrevLsn(lsn);
 
-  // 1. Roll back from durable Undo Logs. Keep the WriteRecord fallback for
-  // callers that construct a transaction manager without clustered storage.
-  auto write_set = txn->GetWriteSet();
-  if (clustered_table_manager_ != nullptr) {
-    RecoveryManager recovery(clustered_table_manager_, log_manager);
-    recovery.UndoTransaction(txn->GetTransactionId());
-    for (auto *write_record : *write_set) delete write_record;
-    write_set->clear();
-  } else {
-    Context *context = new Context(lock_manager_, log_manager, txn, nullptr, 0);
-    while (!write_set->empty()) {
-      auto write_record = write_set->back();
-      rollback_manager_->Rollback(write_record, context);
-      write_set->pop_back();
-      delete write_record;
-    }
-    delete context;
+  // 1. Roll back from durable Undo Logs.
+  if (clustered_table_manager_ == nullptr) {
+    throw InternalError("clustered storage is required for Undo rollback");
   }
+  RecoveryManager recovery(clustered_table_manager_, log_manager);
+  recovery.UndoTransaction(txn->GetTransactionId());
 
   // 2. Release all locks
   auto lock_set = *txn->GetLockSet();

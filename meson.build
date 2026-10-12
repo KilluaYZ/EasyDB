@@ -88,7 +88,6 @@ easydb_sources = files(
   'src/execution/executor_update.cpp',
   'src/storage/easystore/concurrency/lock_manager.cpp',
   'src/storage/easystore/transaction/transaction_manager.cpp',
-  'src/storage/easystore/transaction/rollback_manager.cpp',
   'src/storage/easystore/recovery/log_manager.cpp',
   'src/storage/easystore/recovery/recovery_manager.cpp',
   'src/storage/easystore/catalog/ddl_manager.cpp',

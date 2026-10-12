@@ -13,7 +13,6 @@
 #include "storage/easystore/recovery/recovery_manager.h"
 #include "storage/easystore/recovery/log_manager.h"
 #include "storage/easystore/table/clustered_table_manager.h"
-#include "storage/easystore/transaction/rollback_manager.h"
 #include "storage/easystore/transaction/transaction_manager.h"
 
 namespace easydb {
@@ -196,10 +195,9 @@ TEST_F(DiskManagerTest, TransactionAbortUsesDurableUndoLog) {
 
   LockManager lock_manager;
   CatalogManager catalog_manager;
-  RollbackManager rollback_manager(&catalog_manager, &table_manager);
   TransactionManager transaction_manager(
-      &lock_manager, &rollback_manager, &disk_manager, &buffer_pool_manager,
-      &catalog_manager, nullptr, &table_manager);
+      &lock_manager, &disk_manager, &buffer_pool_manager, &catalog_manager,
+      nullptr, &table_manager);
 
   auto *txn = transaction_manager.Begin(nullptr, &log_manager);
   RedoLogRecord redo(LogKind::REDO, INSERT, txn->GetTransactionId(),

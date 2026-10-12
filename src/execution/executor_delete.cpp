@@ -75,11 +75,6 @@ std::unique_ptr<Tuple> DeleteExecutor::Next() {
     // delete records
     storage_engine_->DeleteTuple(tab_name_, key_tuple, context_);
 
-    // Update context_ for rollback
-    WriteRecord *write_record =
-        new WriteRecord(WType::DELETE_TUPLE, tab_name_, key_tuple, *rec);
-    context_->txn_->AppendWriteRecord(write_record);
-
     storage_engine_->UpdateTableCount(tab_name_, -1);
   }
 

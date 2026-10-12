@@ -97,10 +97,6 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
     // fh_->UpdateTupleInPlace(TupleMeta{0, false}, new_tuple, context_);
     storage_engine_->UpdateTuple(tab_name_, key_tuple, new_tuple, context_);
 
-    // Update context_ for rollback
-    WriteRecord *write_record =
-        new WriteRecord(WType::UPDATE_TUPLE, tab_name_, key_tuple, *tuple);
-    context_->txn_->AppendWriteRecord(write_record);
   }
 
   return nullptr;

@@ -29,7 +29,6 @@ class BufferPoolManager;
 class CatalogManager;
 class DiskManager;
 class DdlManager;
-class RollbackManager;
 class ClusteredTableManager;
 
 /**
@@ -52,13 +51,12 @@ enum class ConcurrencyMode {
 class TransactionManager {
  public:
   TransactionManager(
-      LockManager *lock_manager, RollbackManager *rollback_manager,
-      DiskManager *disk_manager, BufferPoolManager *buffer_pool_manager,
+      LockManager *lock_manager, DiskManager *disk_manager,
+      BufferPoolManager *buffer_pool_manager,
       CatalogManager *catalog_manager, DdlManager *ddl_manager,
       ClusteredTableManager *clustered_table_manager = nullptr,
       ConcurrencyMode concurrency_mode = ConcurrencyMode::TWO_PHASE_LOCKING) {
     lock_manager_ = lock_manager;
-    rollback_manager_ = rollback_manager;
     disk_manager_ = disk_manager;
     buffer_pool_manager_ = buffer_pool_manager;
     catalog_manager_ = catalog_manager;
@@ -195,7 +193,6 @@ class TransactionManager {
 
   /** @brief 系统管理器指针 */
   DiskManager *disk_manager_ = nullptr;
-  RollbackManager *rollback_manager_ = nullptr;
   BufferPoolManager *buffer_pool_manager_ = nullptr;
   CatalogManager *catalog_manager_ = nullptr;
   DdlManager *ddl_manager_ = nullptr;
