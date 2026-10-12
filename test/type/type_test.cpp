@@ -30,7 +30,8 @@ namespace easydb {
 const std::vector<TypeId> TYPE_TEST_TYPES = {TYPE_INT, TYPE_LONG, TYPE_DOUBLE};
 
 // Need special test
-const std::vector<TypeId> TYPE_TEST_EXTRA_TYPES = {TYPE_FLOAT, TYPE_DATE, TYPE_CHAR, TYPE_VARCHAR};
+const std::vector<TypeId> TYPE_TEST_EXTRA_TYPES = {TYPE_FLOAT, TYPE_DATE,
+                                                   TYPE_CHAR, TYPE_VARCHAR};
 
 template <typename KeyType, typename ValueType>
 class BPlusTreePage {

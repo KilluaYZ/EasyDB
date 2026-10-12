@@ -51,7 +51,8 @@
 //     index_file = "test_index_file";
 //     index_manager->CreateIndex(index_file, index_cols);
 
-//     index_handle = (IxExtendibleHashIndexHandle *)&(*index_manager->OpenIndex(index_file, index_cols));
+//     index_handle = (IxExtendibleHashIndexHandle
+//     *)&(*index_manager->OpenIndex(index_file, index_cols));
 //   }
 
 //   void TearDown() override {
@@ -79,8 +80,8 @@
 //   RID value = {1, 1};
 
 //   page_id_t inserted_page = index_handle->InsertEntry(key, value);
-//   page_id_t res = 2 + index_handle->HashFunction(key, index_handle->getGlobalDepth());
-//   EXPECT_EQ(inserted_page, res);
+//   page_id_t res = 2 + index_handle->HashFunction(key,
+//   index_handle->getGlobalDepth()); EXPECT_EQ(inserted_page, res);
 
 //   std::vector<RID> result;
 //   bool found = index_handle->GetValue(key, &result);
@@ -101,17 +102,16 @@
 //   for (size_t i = 0; i < keys_int.size(); ++i) {
 //     const char *key = IntToKey(keys_int[i]);
 //     page_id_t inserted_page = index_handle->InsertEntry(key, values[i]);
-//     page_id_t res = 2 + index_handle->HashFunction(key, index_handle->getGlobalDepth());
-//     EXPECT_EQ(inserted_page, res);
+//     page_id_t res = 2 + index_handle->HashFunction(key,
+//     index_handle->getGlobalDepth()); EXPECT_EQ(inserted_page, res);
 //     DeleteKey(key);
 //   }
 
 //   for (size_t i = 0; i < keys_int.size(); ++i) {
 //     const char *key = IntToKey(keys_int[i]);
-//     page_id_t index = index_handle->HashFunction(key, index_handle->getGlobalDepth());
-//     std::vector<RID> result;
-//     bool found = index_handle->GetValue(key, &result);
-//     EXPECT_TRUE(found);
+//     page_id_t index = index_handle->HashFunction(key,
+//     index_handle->getGlobalDepth()); std::vector<RID> result; bool found =
+//     index_handle->GetValue(key, &result); EXPECT_TRUE(found);
 //     ASSERT_EQ(result.size(), 1);
 //     EXPECT_EQ(result[0].GetPageId(), values[i].GetPageId());
 //     EXPECT_EQ(result[0].GetSlotNum(), values[i].GetSlotNum());
@@ -127,8 +127,8 @@
 //   RID value = {2, 2};
 
 //   page_id_t inserted_page = index_handle->InsertEntry(key, value);
-//   page_id_t res = 2 + index_handle->HashFunction(key, index_handle->getGlobalDepth());
-//   EXPECT_EQ(inserted_page, res);
+//   page_id_t res = 2 + index_handle->HashFunction(key,
+//   index_handle->getGlobalDepth()); EXPECT_EQ(inserted_page, res);
 
 //   // Verify insertion
 //   std::vector<RID> result;
@@ -160,8 +160,8 @@
 
 //   // Insert first entry
 //   page_id_t inserted_page1 = index_handle->InsertEntry(key, value1);
-//   page_id_t res = 2 + index_handle->HashFunction(key, index_handle->getGlobalDepth());
-//   EXPECT_EQ(inserted_page1, res);
+//   page_id_t res = 2 + index_handle->HashFunction(key,
+//   index_handle->getGlobalDepth()); EXPECT_EQ(inserted_page1, res);
 
 //   // Insert duplicate key
 //   page_id_t inserted_page2 = index_handle->InsertEntry(key, value2);
@@ -194,11 +194,16 @@
 
 // TEST_F(IxExtendibleHashIndexHandleTest, BucketSplit) {
 //   // Assuming size_per_bucket is 4, insert 5 entries to trigger a split
-//   std::vector<int> keys_int = {1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15,
-//                                16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30};
-//   std::vector<RID> values = {{1, 1},  {1, 2},  {1, 3},  {1, 4},  {2, 5},  {2, 6},  {2, 7},  {2, 8},  {3, 9},  {3, 10},
-//                              {3, 11}, {3, 12}, {4, 13}, {4, 14}, {4, 15}, {4, 16}, {5, 17}, {5, 18}, {5, 19}, {5, 20},
-//                              {6, 21}, {6, 22}, {6, 23}, {6, 24}, {7, 25}, {7, 26}, {7, 27}, {7, 28}, {8, 29}, {8, 30}};
+//   std::vector<int> keys_int = {1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11,
+//   12, 13, 14, 15,
+//                                16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
+//                                27, 28, 29, 30};
+//   std::vector<RID> values = {{1, 1},  {1, 2},  {1, 3},  {1, 4},  {2, 5},  {2,
+//   6},  {2, 7},  {2, 8},  {3, 9},  {3, 10},
+//                              {3, 11}, {3, 12}, {4, 13}, {4, 14}, {4, 15}, {4,
+//                              16}, {5, 17}, {5, 18}, {5, 19}, {5, 20}, {6,
+//                              21}, {6, 22}, {6, 23}, {6, 24}, {7, 25}, {7,
+//                              26}, {7, 27}, {7, 28}, {8, 29}, {8, 30}};
 
 //   for (size_t i = 0; i < keys_int.size(); ++i) {
 //     const char *key = IntToKey(keys_int[i]);
@@ -217,10 +222,10 @@
 //     std::vector<RID> result;
 //     bool found = index_handle->GetValue(key, &result);
 //     EXPECT_TRUE(found);
-//     // EXPECT_EQ(result.size(), 1) << "Key " << keys_int[i] << " has incorrect number of Rids.";
-//     EXPECT_EQ(result[0].GetPageId(), values[i].GetPageId());
-//     EXPECT_EQ(result[0].GetSlotNum(), values[i].GetSlotNum());
-//     DeleteKey(key);
+//     // EXPECT_EQ(result.size(), 1) << "Key " << keys_int[i] << " has
+//     incorrect number of Rids."; EXPECT_EQ(result[0].GetPageId(),
+//     values[i].GetPageId()); EXPECT_EQ(result[0].GetSlotNum(),
+//     values[i].GetSlotNum()); DeleteKey(key);
 //   }
 
 //   // Optionally, verify that global depth has increased

@@ -71,7 +71,9 @@ class FileReader {
     delete infile;
   }
 
-  std::basic_istream<char, std::char_traits<char>> &read_line() { return std::getline(*infile, buffer); }
+  std::basic_istream<char, std::char_traits<char>> &read_line() {
+    return std::getline(*infile, buffer);
+  }
 
   std::string get_buf() { return buffer; }
 
@@ -92,7 +94,8 @@ class FileReader {
 };
 const int MAX_RECORD_SIZE = 512;
 
-void create_file(DiskManager *disk_manager, const std::string &filename, int record_size) {
+void create_file(DiskManager *disk_manager, const std::string &filename,
+                 int record_size) {
   if (record_size < 1 || record_size > MAX_RECORD_SIZE) {
     throw InvalidRecordSizeError(record_size);
   }
@@ -105,7 +108,8 @@ void create_file(DiskManager *disk_manager, const std::string &filename, int rec
 
   // 将file header写入磁盘文件（名为file name，文件描述符为fd）中的第0页
   // head page直接写入磁盘，没有经过缓冲区的NewPage，那么也就不需要FlushPage
-  disk_manager->WritePage(fd, RM_FILE_HDR_PAGE, (char *)&file_hdr, sizeof(file_hdr));
+  disk_manager->WritePage(fd, RM_FILE_HDR_PAGE, (char *)&file_hdr,
+                          sizeof(file_hdr));
   disk_manager->CloseFile(fd);
 }
 
@@ -114,13 +118,15 @@ RID fh_insert(RmFileHandle *fh, std::vector<Value> &values, Schema *schema) {
   auto rid = fh->InsertTuple(TupleMeta{0, false}, tuple, nullptr);
   auto page_id = rid->GetPageId();
   auto slot_num = rid->GetSlotNum();
-  std::cout << "[TEST] insert rid: page id: " << page_id << " slot num: " << slot_num << std::endl;
+  std::cout << "[TEST] insert rid: page id: " << page_id
+            << " slot num: " << slot_num << std::endl;
   return {page_id, slot_num};
 }
 
 void fh_get(RmFileHandle *fh, RID rid, Schema *schema) {
   auto [meta, tuple] = fh->GetTuple(rid, nullptr);
-  std::cout << "[TEST] get rid: page id: " << rid.GetPageId() << " slot num: " << rid.GetSlotNum() << std::endl;
+  std::cout << "[TEST] get rid: page id: " << rid.GetPageId()
+            << " slot num: " << rid.GetSlotNum() << std::endl;
   // std::cout << "[TEST] get tuple: " << tuple.ToString(schema) << std::endl;
   std::ofstream outfile(TEST_DB_NAME + "/" + TEST_OUTPUT, std::ios::app);
   outfile << tuple.ToString(schema) << std::endl;
@@ -135,7 +141,8 @@ class TB_Reader {
   std::vector<RID> rids;
 
  public:
-  TB_Reader(std::string tab_name, std::string file_path, Schema schema) : schema(schema) {
+  TB_Reader(std::string tab_name, std::string file_path, Schema schema)
+      : schema(schema) {
     this->file_reader = new FileReader(file_path);
     this->tab_name = tab_name;
   }
@@ -220,7 +227,9 @@ class BPlusTreeDrawer : public DotDrawer {
  private:
   IxIndexHandle *b_plus_tree = nullptr;
   void printNode(IxNodeHandle *_node) {
-    if (_node == nullptr || _node->GetFileHdr() == nullptr || _node->GetPageHdr() == nullptr) return;
+    if (_node == nullptr || _node->GetFileHdr() == nullptr ||
+        _node->GetPageHdr() == nullptr)
+      return;
 
     // 先声明这个节点
     *outfile << getNodeDesc(_node) << std::endl;
@@ -228,8 +237,10 @@ class BPlusTreeDrawer : public DotDrawer {
     // 然后声明与子节点的关系
     for (int i = 0; i < _node->GetSize(); i++) {
       auto child = GetChild(_node, i);
-      // if (child == nullptr || child->GetFileHdr() == nullptr || child->GetPageHdr() == nullptr) continue;
-      *outfile << getNodeName(_node) << " : " << "f" << i << " : s -> " << getNodeName(child) << " : n" << std::endl;
+      // if (child == nullptr || child->GetFileHdr() == nullptr ||
+      // child->GetPageHdr() == nullptr) continue;
+      *outfile << getNodeName(_node) << " : " << "f" << i << " : s -> "
+               << getNodeName(child) << " : n" << std::endl;
       printNode(child);
       bpm->UnpinPage(child->GetPageId(), false);
       delete child;
@@ -276,7 +287,8 @@ class BPlusTreeDrawer : public DotDrawer {
     return ss.str();
   }
 
-  std::string replaceAll(std::string str, const std::string &oldChar, const std::string &newChar) {
+  std::string replaceAll(std::string str, const std::string &oldChar,
+                         const std::string &newChar) {
     size_t pos = 0;
     while ((pos = str.find(oldChar, pos)) != std::string::npos) {
       str.replace(pos, oldChar.length(), newChar);
@@ -302,8 +314,8 @@ class BPlusTreeDrawer : public DotDrawer {
 
   std::string getNodeDesc(IxNodeHandle *_node) {
     std::stringstream ss;
-    ss << getNodeName(_node) << "[label=\"{{" << getNodeKeyStr(_node, 0) << "} | {" << getAnonymousNodeStr(_node)
-       << "}}\"]";
+    ss << getNodeName(_node) << "[label=\"{{" << getNodeKeyStr(_node, 0)
+       << "} | {" << getAnonymousNodeStr(_node) << "}}\"]";
     return ss.str();
   }
 
@@ -334,11 +346,9 @@ class EasyDBTest : public ::testing::Test {
 TEST(EasyDBTest, SimpleTest) {
   std::cerr << "[TEST] => 测试开始" << std::endl;
   // system("pwd");
-  // std::cout << "../../tmp/benchmark_data/" + TEST_FILE_NAME_SUPPLIER << std::endl;
-  // parse create sql statement:
-  // CREATE TABLE SUPPLIER ( S_SUPPKEY INTEGER NOT NULL,
-  // S_NAME CHAR(25) NOT NULL,
-  // S_ADDRESS VARCHAR(40) NOT NULL,
+  // std::cout << "../../tmp/benchmark_data/" + TEST_FILE_NAME_SUPPLIER <<
+  // std::endl; parse create sql statement: CREATE TABLE SUPPLIER ( S_SUPPKEY
+  // INTEGER NOT NULL, S_NAME CHAR(25) NOT NULL, S_ADDRESS VARCHAR(40) NOT NULL,
   // S_NATIONKEY INTEGER NOT NULL,
   // S_PHONE CHAR(15) NOT NULL,
   // S_ACCTBAL FLOAT NOT NULL,
@@ -352,7 +362,9 @@ TEST(EasyDBTest, SimpleTest) {
   Column col7{"S_COMMENT", TypeId::TYPE_VARCHAR, 101};
   std::vector<Column> cols{col1, col2, col3, col4, col5, col6, col7};
   Schema schema{cols};
-  TB_Reader tb_reader(TEST_FILE_NAME_SUPPLIER, "../../tmp/benchmark_data/" + TEST_FILE_NAME_SUPPLIER, schema);
+  TB_Reader tb_reader(TEST_FILE_NAME_SUPPLIER,
+                      "../../tmp/benchmark_data/" + TEST_FILE_NAME_SUPPLIER,
+                      schema);
 
   // 创建DiskManager
   std::cout << "[TEST] 创建DiskManager" << std::endl;
@@ -389,7 +401,10 @@ TEST(EasyDBTest, SimpleTest) {
     index_cols.push_back(tb_reader.get_cols()[1]);
     // std::string index_col_name = "S_SUPPKEY";
     std::string index_col_name = "S_NAME";
-    IndexMeta index_meta = {.tab_name = TEST_TB_NAME, .col_tot_len = 25, .col_num = 1, .cols = index_cols};
+    IndexMeta index_meta = {.tab_name = TEST_TB_NAME,
+                            .col_tot_len = 25,
+                            .col_num = 1,
+                            .cols = index_cols};
     std::vector<uint32_t> key_ids{1};
     auto key_schema = Schema::CopySchema(&schema, key_ids);
 
@@ -409,18 +424,21 @@ TEST(EasyDBTest, SimpleTest) {
     while (!scan.IsEnd()) {
       auto rid = scan.GetRid();
       // auto rec = fh_->GetRecord(rid);
-      auto key_tuple = fh_->GetKeyTuple(schema, key_schema, key_ids, rid, nullptr);
+      auto key_tuple =
+          fh_->GetKeyTuple(schema, key_schema, key_ids, rid, nullptr);
       char *key = new char[index_meta.col_tot_len];
       int offset = 0;
       for (int i = 0; i < index_meta.col_num; ++i) {
-        // memcpy(key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
+        // memcpy(key + offset, rec->data + index_meta.cols[i].offset,
+        // index_meta.cols[i].len);
         auto val = key_tuple.GetValue(&key_schema, i);
         memcpy(key + offset, val.GetData(), val.GetStorageSize());
         if (!flag) {
           flag = true;
           delete_key = new char[index_meta.col_tot_len];
           delete_rid = rid;
-          // memcpy(delete_key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
+          // memcpy(delete_key + offset, rec->data + index_meta.cols[i].offset,
+          // index_meta.cols[i].len);
           memcpy(delete_key + offset, val.GetData(), val.GetStorageSize());
         }
         offset += index_meta.cols[i].len;
@@ -466,14 +484,16 @@ TEST(EasyDBTest, SimpleTest) {
   //   std::vector<ColMeta> index_cols;
   //   index_cols.push_back(tb_reader.get_cols()[0]);
   //   std::string index_col_name = "S_SUPPKEY";
-  //   IndexMeta index_meta = {.tab_name = TEST_TB_NAME, .col_tot_len = 4, .col_num = 1, .cols = index_cols};
+  //   IndexMeta index_meta = {.tab_name = TEST_TB_NAME, .col_tot_len = 4,
+  //   .col_num = 1, .cols = index_cols};
 
   //   // 创建index
   //   std::cerr << "[TEST] ===> 创建可扩展哈希索引" << std::endl;
 
   //   auto ix_manager = new IxManager(dm, bpm);
   //   ix_manager->CreateExtendibleHashIndex(path, index_cols);
-  //   IxExtendibleHashIndexHandle *ix_handler = &(*ix_manager->OpenExtendibleHashIndex(path, index_cols));
+  //   IxExtendibleHashIndexHandle *ix_handler =
+  //   &(*ix_manager->OpenExtendibleHashIndex(path, index_cols));
 
   //   // 将表中已经存在的记录插入到新创建的index中
   //   std::cerr << "[TEST] ===> 将表格数据加入到新建的索引中" << std::endl;
@@ -487,12 +507,12 @@ TEST(EasyDBTest, SimpleTest) {
   //     char *key = new char[index_meta.col_tot_len];
   //     int offset = 0;
   //     for (int i = 0; i < index_meta.col_num; ++i) {
-  //       memcpy(key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
-  //       if (!flag) {
+  //       memcpy(key + offset, rec->data + index_meta.cols[i].offset,
+  //       index_meta.cols[i].len); if (!flag) {
   //         flag = true;
   //         delete_key = new char[index_meta.col_tot_len];
-  //         memcpy(delete_key + offset, rec->data + index_meta.cols[i].offset, index_meta.cols[i].len);
-  //         delete_rid = rid;
+  //         memcpy(delete_key + offset, rec->data + index_meta.cols[i].offset,
+  //         index_meta.cols[i].len); delete_rid = rid;
   //       }
   //       offset += index_meta.cols[i].len;
   //     }
