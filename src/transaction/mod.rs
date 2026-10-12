@@ -1,7 +1,7 @@
 //! 事务：状态机、写集与锁集合。
 //!
 //! 对应 C++ 版 `src-cpp/include/transaction/`。C++ 的 WriteRecord 裸指针
-//! deque 收敛为 Owned Vec；隔离级别当前固定（无 NULL/MVCC 语义）。
+//! deque 收敛为 Owned Vec；版本可见性仍由后续 MVCC 层负责。
 
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicI32, Ordering};
@@ -21,6 +21,18 @@ pub enum TransactionState {
     Shrinking,
     Committed,
     Aborted,
+}
+
+/// SQL 标准事务隔离级别。
+///
+/// 当前版本先把隔离级别挂到事务对象上，读可见性规则将在 MVCC 接入时
+/// 使用它；默认值为 Serializable，保持现有行为的最保守语义。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IsolationLevel {
+    ReadUncommitted,
+    ReadCommitted,
+    RepeatableRead,
+    Serializable,
 }
 
 /// 写操作类型（对应 C++ `WType`）。
@@ -45,6 +57,7 @@ pub struct WriteRecord {
 /// 事务对象：多线程共享（Arc）。
 pub struct Transaction {
     pub id: TxnId,
+    isolation_level: IsolationLevel,
     state: Mutex<TransactionState>,
     write_set: Mutex<Vec<WriteRecord>>,
     lock_set: Mutex<HashSet<crate::concurrency::LockDataId>>,
@@ -53,13 +66,22 @@ pub struct Transaction {
 
 impl Transaction {
     pub fn new(id: TxnId) -> Self {
+        Self::with_isolation(id, IsolationLevel::Serializable)
+    }
+
+    pub fn with_isolation(id: TxnId, isolation_level: IsolationLevel) -> Self {
         Self {
             id,
+            isolation_level,
             state: Mutex::new(TransactionState::Default),
             write_set: Mutex::new(Vec::new()),
             lock_set: Mutex::new(HashSet::new()),
             prev_lsn: AtomicI32::new(INVALID_LSN),
         }
+    }
+
+    pub fn isolation_level(&self) -> IsolationLevel {
+        self.isolation_level
     }
 
     pub fn state(&self) -> TransactionState {
