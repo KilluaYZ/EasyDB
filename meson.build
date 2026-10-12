@@ -68,6 +68,8 @@ easydb_sources = files(
   'src/storage/disk/disk_manager.cpp',
   'src/storage/easystore/index/ix_index_handle.cpp',
   'src/storage/easystore/index/ix_extendible_hash_index_handle.cpp',
+  'src/storage/easystore/index/clustered_leaf_page.cpp',
+  'src/storage/easystore/index/clustered_index_handle.cpp',
   'src/storage/easystore/index/ix_scan.cpp',
   'src/storage/easystore/page/table_page.cpp',
   'src/storage/easystore/table/tuple.cpp',
@@ -141,6 +143,8 @@ test_sources = files(
   'test/parser/parser_ast_printer.cpp',
   'test/parser/parser_test.cpp',
   'test/storage/disk/disk_manager_test.cpp',
+  'test/storage/index/clustered_leaf_page_test.cpp',
+  'test/storage/index/clustered_index_handle_test.cpp',
   'test/storage/index/extendible_hash_index_test.cpp',
   'test/type/type_test.cpp',
 )
@@ -154,6 +158,8 @@ test_names = [
   'parser_ast_printer',
   'parser_test',
   'disk_manager_test',
+  'clustered_leaf_page_test',
+  'clustered_index_handle_test',
   'extendible_hash_index_test',
   'type_test',
 ]

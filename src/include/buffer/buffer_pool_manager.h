@@ -70,6 +70,8 @@ class BufferPoolManager {
    */
   auto Size() const -> size_t;
 
+  auto GetDiskManager() const -> DiskManager * { return disk_manager_; }
+
   /**
    * @brief 在磁盘上分配一个新页面
    * @param page_id 输出参数，返回新分配页面的PageId（需要预先设置fd）

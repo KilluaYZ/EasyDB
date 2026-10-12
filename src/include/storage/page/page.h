@@ -133,6 +133,7 @@ class Page {
    * @note 返回的指针指向PAGE_SIZE字节的数据缓冲区
    */
   inline auto GetData() -> char * { return data_.data(); }
+  inline auto GetData() const -> const char * { return data_.data(); }
   // inline auto GetData() -> char * { return data_; }
 
   /**
