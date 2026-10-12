@@ -24,7 +24,6 @@ use crate::index::ix_manager::IxManager;
 use crate::parser::ast;
 use crate::parser::parse_sql;
 use crate::planner::{self, Plan};
-use crate::record::rm_defs::TupleMeta;
 use crate::record::rm_file_handle::RmFileHandle;
 use crate::record::rm_manager::RmManager;
 use crate::recovery::{LogManager, LogRecord};
@@ -618,25 +617,27 @@ impl Database {
             WType::Delete => {
                 // 撤销删除：回写旧数据 + 复活 + 补索引条目
                 meta.fh.rewrite_tuple(rec.rid, &rec.data)?;
-                meta.fh.undelete_tuple(rec.rid, TupleMeta::default())?;
+                meta.fh.undelete_tuple(rec.rid, rec.old_meta)?;
                 let row = crate::record::tuple::decode_tuple(&schema, &rec.data)?;
                 for ix in &indexes {
                     ix.handle.insert_entry(&ix.key(&row)?, rec.rid)?;
                 }
             }
             WType::Update => {
-                // 撤销更新：回写旧数据 + 索引键换回（当前键取自现值）
-                let cur = meta.fh.get_tuple(rec.rid)?.1;
-                let cur_row = crate::record::tuple::decode_tuple(&schema, &cur)?;
+                // 撤销版本更新：删除新版本，恢复旧版本及其链元数据。
                 let old_row = crate::record::tuple::decode_tuple(&schema, &rec.data)?;
-                meta.fh.rewrite_tuple(rec.rid, &rec.data)?;
-                for ix in &indexes {
-                    let old_key = ix.key(&cur_row)?;
-                    let restored = ix.key(&old_row)?;
-                    if old_key != restored {
-                        ix.handle.delete_entry(&old_key, rec.rid)?;
-                        ix.handle.insert_entry(&restored, rec.rid)?;
+                if let Some(new_rid) = rec.new_rid {
+                    let new_data = meta.fh.get_tuple(new_rid)?.1;
+                    let new_row = crate::record::tuple::decode_tuple(&schema, &new_data)?;
+                    for ix in &indexes {
+                        ix.handle.delete_entry(&ix.key(&new_row)?, new_rid)?;
                     }
+                    meta.fh.delete_tuple(new_rid)?;
+                }
+                meta.fh.rewrite_tuple(rec.rid, &rec.data)?;
+                meta.fh.undelete_tuple(rec.rid, rec.old_meta)?;
+                for ix in &indexes {
+                    ix.handle.insert_entry(&ix.key(&old_row)?, rec.rid)?;
                 }
             }
         }
@@ -1444,6 +1445,7 @@ mod txn_tests {
                 txn: 99,
                 table: "t".into(),
                 rid: Rid::new(1, 1),
+                new_rid: Rid::new(1, 3),
                 old_data: enc(&[Value::Int(2), Value::Str("two".into())]),
                 new_data: enc(&[Value::Int(2), Value::Str("six".into())]),
             });
