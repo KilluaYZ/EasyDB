@@ -111,6 +111,16 @@ impl RmFileHandle {
     /// 恢复重放：在确切的 rid 处重做插入。
     /// 页按需创建（重放按原始顺序进行，页号/槽号与原执行完全一致）。
     pub fn recover_insert(&self, rid: Rid, data: &[u8]) -> Result<(), EasyDbError> {
+        self.recover_insert_with_meta(rid, TupleMeta::default(), data)
+    }
+
+    /// 恢复重放：在确切 RID 处重做插入，并保留版本元数据。
+    pub fn recover_insert_with_meta(
+        &self,
+        rid: Rid,
+        meta: TupleMeta,
+        data: &[u8],
+    ) -> Result<(), EasyDbError> {
         while self.file_hdr().num_pages <= rid.page_id() {
             self.create_new_page()?;
         }
@@ -120,7 +130,7 @@ impl RmFileHandle {
         let mut d = page.write();
         let slot = rid.slot_num() as usize;
         let num_records = page_num_records(&d[..]) as usize;
-        let (offset, size, meta) = if slot < num_records {
+        let (offset, size, slot_meta) = if slot < num_records {
             // 槽位已存在（原执行中先插后删再重放的场合）：直接覆写
             read_tuple_info(&d[..], slot)
         } else {
@@ -140,10 +150,11 @@ impl RmFileHandle {
             (
                 (slot_end - data.len()) as u16,
                 data.len() as u16,
-                TupleMeta::default(),
+                meta,
             )
         };
-        write_tuple_info(&mut d[..], slot, offset, size, meta);
+        let slot_meta = if slot < num_records { meta } else { slot_meta };
+        write_tuple_info(&mut d[..], slot, offset, size, slot_meta);
         if slot >= num_records {
             set_page_num_records(&mut d[..], slot as u16 + 1);
         }
@@ -201,7 +212,9 @@ impl RmFileHandle {
             offset,
             size,
             TupleMeta {
-                ts: meta.ts,
+                xmin: meta.xmin,
+                xmax: meta.xmax,
+                prev: meta.prev,
                 is_deleted: false,
             },
         );
@@ -210,6 +223,15 @@ impl RmFileHandle {
 
     /// 逻辑删除一条记录（置删除标记，不回收空间）。
     pub fn delete_tuple(&self, rid: Rid) -> Result<(), EasyDbError> {
+        self.mark_deleted(rid, crate::common::config::INVALID_TXN_ID)
+    }
+
+    /// 将当前版本标记为被某事务删除/替换，并保留其在版本链中的位置。
+    pub fn mark_deleted(
+        &self,
+        rid: Rid,
+        txn: crate::common::config::TxnId,
+    ) -> Result<(), EasyDbError> {
         let page = self.bpm.fetch_page(PageId::new(self.fd, rid.page_id()))?;
         let mut data = page.write();
         let slot = rid.slot_num() as usize;
@@ -224,6 +246,9 @@ impl RmFileHandle {
             ));
         }
         meta.is_deleted = true;
+        if txn != crate::common::config::INVALID_TXN_ID {
+            meta.xmax = Some(txn);
+        }
         let deleted = page_num_deleted(&data[..]) + 1;
         set_page_num_deleted(&mut data[..], deleted);
         write_tuple_info(&mut data[..], slot, offset, size, meta);
@@ -249,7 +274,9 @@ impl RmFileHandle {
             return Err(EasyDbError::Internal("tuple size mismatch".to_string()));
         }
         let meta = TupleMeta {
-            ts: meta.ts,
+            xmin: meta.xmin,
+            xmax: meta.xmax,
+            prev: meta.prev,
             is_deleted: meta.is_deleted,
         };
         if !old_meta.is_deleted && meta.is_deleted {
@@ -305,6 +332,21 @@ impl RmFileHandle {
         }
         let (_, _, meta) = read_tuple_info(&data[..], slot);
         Ok(meta)
+    }
+
+    /// 从指定版本沿 `prev` 指针向旧版本遍历，返回“新到旧”的版本链。
+    pub fn version_chain(
+        &self,
+        rid: Rid,
+    ) -> Result<Vec<(Rid, TupleMeta, Vec<u8>)>, EasyDbError> {
+        let mut chain = Vec::new();
+        let mut current = Some(rid);
+        while let Some(version_rid) = current {
+            let (meta, data) = self.get_tuple(version_rid)?;
+            current = meta.prev;
+            chain.push((version_rid, meta, data));
+        }
+        Ok(chain)
     }
 
     /// 指定槽位是否为已删除的有效记录。
@@ -496,5 +538,41 @@ mod tests {
             fh.insert_tuple(TupleMeta::default(), &big),
             Err(EasyDbError::InvalidRecordSize(_))
         ));
+    }
+
+    #[test]
+    fn version_chain_keeps_xmin_xmax_and_previous_rid() {
+        let (_dir, rm, path) = setup();
+        rm.create_file(&path).unwrap();
+        let fh = rm.open_file(&path).unwrap();
+        let first = fh
+            .insert_tuple(
+                TupleMeta {
+                    xmin: 1,
+                    ..TupleMeta::default()
+                },
+                b"v1",
+            )
+            .unwrap();
+        let second = fh
+            .insert_tuple(
+                TupleMeta {
+                    xmin: 2,
+                    prev: Some(first),
+                    ..TupleMeta::default()
+                },
+                b"v2",
+            )
+            .unwrap();
+        fh.mark_deleted(first, 2).unwrap();
+
+        let chain = fh.version_chain(second).unwrap();
+        assert_eq!(chain.len(), 2);
+        assert_eq!(chain[0].0, second);
+        assert_eq!(chain[0].1.xmin, 2);
+        assert_eq!(chain[0].1.prev, Some(first));
+        assert_eq!(chain[1].0, first);
+        assert_eq!(chain[1].1.xmax, Some(2));
+        assert_eq!(chain[1].2, b"v1");
     }
 }

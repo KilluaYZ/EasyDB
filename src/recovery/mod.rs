@@ -72,6 +72,7 @@ pub enum LogRecord {
         txn: TxnId,
         table: String,
         rid: Rid,
+        new_rid: Rid,
         old_data: Vec<u8>,
         new_data: Vec<u8>,
     },
@@ -208,12 +209,14 @@ impl LogRecord {
             LogRecord::Update {
                 table,
                 rid,
+                new_rid,
                 old_data,
                 new_data,
                 ..
             } => {
                 put_str(&mut buf, table);
                 put_i64(&mut buf, rid.encoded());
+                put_i64(&mut buf, new_rid.encoded());
                 put_bytes(&mut buf, old_data);
                 put_bytes(&mut buf, new_data);
             }
@@ -259,12 +262,14 @@ impl LogRecord {
             t if t == LogType::Update as u32 => {
                 let table = r.strv()?;
                 let rid = Rid::from_encoded(r.i64v()?);
+                let new_rid = Rid::from_encoded(r.i64v()?);
                 let old_data = r.bytesv()?;
                 let new_data = r.bytesv()?;
                 LogRecord::Update {
                     txn,
                     table,
                     rid,
+                    new_rid,
                     old_data,
                     new_data,
                 }
@@ -394,25 +399,43 @@ pub fn recover(
     for record in &records {
         match record {
             LogRecord::Insert {
-                table, rid, data, ..
+                table, rid, data, txn
             } => {
                 if let Some((_, fh)) = handles.iter().find(|(n, _)| n == table) {
-                    fh.recover_insert(*rid, data)?;
+                    fh.recover_insert_with_meta(
+                        *rid,
+                        TupleMeta {
+                            xmin: *txn,
+                            ..TupleMeta::default()
+                        },
+                        data,
+                    )?;
                 }
             }
-            LogRecord::Delete { table, rid, .. } => {
+            LogRecord::Delete { table, rid, txn, .. } => {
                 if let Some((_, fh)) = handles.iter().find(|(n, _)| n == table) {
-                    let _ = fh.delete_tuple(*rid);
+                    let _ = fh.mark_deleted(*rid, *txn);
                 }
             }
             LogRecord::Update {
                 table,
                 rid,
+                new_rid,
+                txn,
                 new_data,
                 ..
             } => {
                 if let Some((_, fh)) = handles.iter().find(|(n, _)| n == table) {
-                    let _ = fh.update_tuple_in_place(*rid, TupleMeta::default(), new_data);
+                    let _ = fh.recover_insert_with_meta(
+                        *new_rid,
+                        TupleMeta {
+                            xmin: *txn,
+                            prev: Some(*rid),
+                            ..TupleMeta::default()
+                        },
+                        new_data,
+                    );
+                    let _ = fh.mark_deleted(*rid, *txn);
                 }
             }
             _ => {}
@@ -449,11 +472,14 @@ pub fn recover(
                 LogRecord::Update {
                     table,
                     rid,
+                    new_rid,
                     old_data,
                     ..
                 } => {
                     if let Some((_, fh)) = handles.iter().find(|(n, _)| n == table) {
+                        let _ = fh.delete_tuple(*new_rid);
                         let _ = fh.rewrite_tuple(*rid, old_data);
+                        let _ = fh.undelete_tuple(*rid, TupleMeta::default());
                     }
                 }
                 _ => {}
