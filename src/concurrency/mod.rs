@@ -1,7 +1,7 @@
 //! 并发控制：锁管理器（严格两阶段锁 + wait-die 死锁避免）。
 //!
 //! 对应 C++ 版 `src-cpp/concurrency/lock_manager.cpp`。简化（文档注明）：
-//! - 锁点为表级 S/X 与记录级 S/X，不实现意向锁（IS/IX/SIX）与间隙锁；
+//! - 锁点为表级 S/X 与记录级 S/X；当前仍未实现意向锁与间隙锁；
 //! - wait-die：冲突时年长事务（id 更小）等待，年轻事务直接中止
 //!   （等待边严格从低 id 指向高 id，等待图无环，天然无死锁）。
 
@@ -109,6 +109,22 @@ impl LockManager {
         self.acquire(txn, LockDataId::table(fd), LockMode::Shared)
     }
 
+    /// 表级排他锁（DDL 或需要锁住整张表的操作）。
+    pub fn lock_exclusive_on_table(&self, txn: &Transaction, fd: i32) -> Result<(), EasyDbError> {
+        self.acquire(txn, LockDataId::table(fd), LockMode::Exclusive)
+    }
+
+    /// 记录级共享锁。Serializable/严格 2PL 读取路径使用；MVCC 接入后
+    /// Read Committed 等级可按语句生命周期决定是否需要它。
+    pub fn lock_shared_on_record(
+        &self,
+        txn: &Transaction,
+        fd: i32,
+        rid: Rid,
+    ) -> Result<(), EasyDbError> {
+        self.acquire(txn, LockDataId::record(fd, rid), LockMode::Shared)
+    }
+
     /// 记录级排他锁（写行）。
     pub fn lock_exclusive_on_record(
         &self,
@@ -163,37 +179,25 @@ impl LockManager {
     ) -> Result<(), EasyDbError> {
         self.check_state(txn)?;
         let mut inner = lock(&self.inner);
-        let q = inner.table.entry(id).or_default();
 
-        // 已持有（含升级豁免）：S→S / X→X / 已有 S 升 X 且为唯一持有者
-        if let Some(pos) = q.requests.iter().position(|r| r.txn == txn.id) {
-            let held = q.requests[pos].mode;
-            if held == mode || q.requests.len() == 1 {
-                if held == LockMode::Shared && mode == LockMode::Exclusive {
-                    q.requests[pos].mode = LockMode::Exclusive;
-                    q.group = recompute_group(&q.requests);
-                }
+        // 已持有同级锁直接成功。升级则继续走冲突检查，避免旧的
+        // “队列长度为 1 即可升级”逻辑绕过层级锁冲突。
+        if let Some(q) = inner.table.get(&id) {
+            if q.requests
+                .iter()
+                .any(|r| r.txn == txn.id && r.mode == mode)
+            {
                 return Ok(());
             }
         }
 
-        fn compatible(q: &LockQueue, mode: LockMode) -> bool {
-            match q.group {
-                GroupMode::NonLock => true,
-                GroupMode::Shared if mode == LockMode::Shared => true,
-                _ => false,
-            }
-        }
+        let conflicts = |inner: &Inner| conflicting_txns(inner, id, mode, txn.id);
 
         // wait-die：与冲突持有者比较——请求者更年长（id 更小）→ 等待
         // 持有者释放；更年轻 → 立即中止（等待图无环，无死锁）
-        if !compatible(q, mode) {
-            let conflict = q
-                .requests
-                .iter()
-                .find(|r| r.txn != txn.id)
-                .map(|r| r.txn)
-                .unwrap_or(0);
+        let conflicting = conflicts(&inner);
+        if !conflicting.is_empty() {
+            let conflict = *conflicting.iter().min().unwrap();
             if txn.id > conflict {
                 return Err(EasyDbError::TransactionAbort(txn.id));
             }
@@ -205,8 +209,7 @@ impl LockManager {
                     .wait_timeout(inner, std::time::Duration::from_millis(20))
                     .unwrap_or_else(|e| e.into_inner());
                 inner = g;
-                let still_conflict = !compatible(inner.table.entry(id).or_default(), mode);
-                if !still_conflict {
+                if conflicts(&inner).is_empty() {
                     break;
                 }
                 match txn.state() {
@@ -216,17 +219,15 @@ impl LockManager {
                     _ => {}
                 }
             }
-            let q = inner.table.entry(id).or_default();
-            q.requests.push_back(LockRequest { txn: txn.id, mode });
-            q.group = recompute_group(&q.requests);
-            txn.lock_set()
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .insert(id);
-            return Ok(());
         }
 
-        q.requests.push_back(LockRequest { txn: txn.id, mode });
+        let q = inner.table.entry(id).or_default();
+        if let Some(pos) = q.requests.iter().position(|r| r.txn == txn.id) {
+            // 只有升级会到这里；此时层级范围内已无其它冲突者。
+            q.requests[pos].mode = mode;
+        } else {
+            q.requests.push_back(LockRequest { txn: txn.id, mode });
+        }
         q.group = recompute_group(&q.requests);
         txn.lock_set()
             .lock()
@@ -234,6 +235,38 @@ impl LockManager {
             .insert(id);
         Ok(())
     }
+}
+
+/// 判断两个锁对象是否处于同一层级冲突范围。
+fn lock_scope_overlaps(a: LockDataId, b: LockDataId) -> bool {
+    if a.fd != b.fd {
+        return false;
+    }
+    match (a.typ, b.typ) {
+        (LockType::Table, LockType::Table) => true,
+        (LockType::Record, LockType::Record) => a.key == b.key,
+        _ => true,
+    }
+}
+
+fn modes_conflict(requested: LockMode, held: LockMode) -> bool {
+    requested == LockMode::Exclusive || held == LockMode::Exclusive
+}
+
+fn conflicting_txns(
+    inner: &Inner,
+    id: LockDataId,
+    mode: LockMode,
+    requester: TxnId,
+) -> Vec<TxnId> {
+    inner
+        .table
+        .iter()
+        .filter(|(held_id, _)| lock_scope_overlaps(**held_id, id))
+        .flat_map(|(_, q)| q.requests.iter())
+        .filter(|r| r.txn != requester && modes_conflict(mode, r.mode))
+        .map(|r| r.txn)
+        .collect()
 }
 
 fn recompute_group(requests: &VecDeque<LockRequest>) -> GroupMode {
