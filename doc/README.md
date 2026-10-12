@@ -81,7 +81,7 @@
 
 | 文档 | 说明 |
 |------|------|
-| [build-and-cmake.md](modules/build-and-cmake.md) | 顶层与 `src/CMakeLists.txt` 如何组织静态库与 `easydb_server` |
+| [build-and-meson.md](modules/build-and-meson.md) | Meson 如何组织静态库、解析器生成与 `easydb_server` |
 
 ## 关键常量速查（代码来源：`src/include/common/config.h`）
 

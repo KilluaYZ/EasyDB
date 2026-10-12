@@ -3,7 +3,7 @@
 ## 命令行客户端
 
 - **路径**：`client/main.cpp`  
-- **构建**：`client/CMakeLists.txt` 生成可执行文件（名称以 CMake 项目名为准，根 README 中常称为 `easydb_client`）。  
+- **构建**：根目录 `meson.build` 生成 `easydb_client` 可执行文件。
 - **协议**：与 `easydb_server` 通过 **TCP** 传输 SQL 文本与结果；具体为定长/换行约定，以 `BUFFER_LENGTH` 与 `read`/`write` 循环为准（见 `easydb.cpp` 与客户端源码）。
 
 ## Web 客户端

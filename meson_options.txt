@@ -1,0 +1,4 @@
+option('easydb_enable_asan',
+  type: 'boolean',
+  value: true,
+  description: 'Build with AddressSanitizer enabled')

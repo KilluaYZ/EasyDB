@@ -8,8 +8,9 @@ rm -rf $ROOT_DIR/build
 mkdir $ROOT_DIR/build
 cd $ROOT_DIR/build
 echo "[INFO] Build"
-cmake ..
-make -j
-cd test
+meson setup . "$ROOT_DIR" \
+  --native-file "$ROOT_DIR/meson-clang.ini" \
+  -Deasydb_enable_asan=true
+meson compile -j
 echo "[INFO] Run"
 ./comprehensive_test

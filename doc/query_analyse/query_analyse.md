@@ -10,7 +10,7 @@ clang版本：18.1.3
 
 glibc版本：2.39
 
-cmake版本：3.28.3
+Meson 版本：1.2+
 
 # 2 实验设计与实现
 
@@ -751,11 +751,10 @@ cd /path/to/easydb
 
 # 新建build目录并进入
 mkdir build
-cd build
 
-# 使用cmake编译项目
-cmake ..
-make -j
+# 使用 Meson 编译项目
+meson setup build --native-file meson-clang.ini -Deasydb_enable_asan=true
+meson compile -C build
 ```
 
 ## 4.2 运行

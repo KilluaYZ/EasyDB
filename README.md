@@ -52,8 +52,8 @@ EasyDB提供了终端中使用的客户端和网页端使用的客户端，二�
 
 - Linux 系统（推荐 Ubuntu 24.04）
 - Nix 包管理器（用于依赖管理）
-- CMake 3.28+
-- C++ 编译器（支持 C++17）
+- Meson 1.2+ and Ninja
+- Clang/Clang++（支持 C++17）
 
 ### 安装 Nix 并开启 Flake
 
@@ -98,12 +98,18 @@ result
 nix develop
 ```
 
-进入开发环境后，可以使用传统的 CMake 方式编译：
+进入开发环境后，可以使用 Meson + Ninja 编译：
 
 ```shell
-mkdir build && cd build
-cmake ..
-make -j
+meson setup build --native-file meson-clang.ini -Deasydb_enable_asan=true
+meson compile -C build
+```
+
+构建默认使用 Clang/Clang++ 并启用 AddressSanitizer；如需关闭 ASAN，可以使用
+`meson setup build --native-file meson-clang.ini -Deasydb_enable_asan=false`。运行测试使用：
+
+```shell
+meson test -C build --print-errorlogs
 ```
 
 ## 运行
@@ -232,7 +238,9 @@ EasyDB2024/
 │   └── optimizer/         # 查询优化文档
 ├── web_client/            # Web 客户端
 ├── deps/                  # 第三方依赖
-├── CMakeLists.txt         # CMake 构建配置
+├── meson.build            # Meson 构建配置
+├── meson_options.txt      # Meson 构建选项
+├── meson-clang.ini        # Clang 默认编译器配置
 ├── flake.nix              # Nix Flake 配置
 └── README.md              # 本文件
 ```

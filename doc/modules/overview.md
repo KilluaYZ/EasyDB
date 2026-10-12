@@ -55,7 +55,7 @@ flowchart TB
 
 ## 静态库与构建顺序
 
-根目录 `CMakeLists.txt` 将 `src/` 下各子目录编译为多个静态库，最终链接为 `libeasydb.a` 与可执行文件 `easydb_server`（见 `src/CMakeLists.txt`）。
+根目录 `meson.build` 将 `src/` 下的实现文件编译为 `libeasydb.a`，最终链接为可执行文件 `easydb_server`。
 
 链接顺序上，**缓冲池**依赖**磁盘**；**记录/索引**依赖**缓冲池 + 磁盘**；**系统管理器**聚合元数据并操作表与索引文件；**执行器**依赖目录、记录、索引与事务。
 
