@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -37,6 +38,7 @@ class DatabaseManager {
 
   std::filesystem::path root_path_;
   bool enable_output_;
+  mutable std::mutex latch_;
   std::unordered_map<std::string, std::unique_ptr<EasyStore>> databases_;
 };
 

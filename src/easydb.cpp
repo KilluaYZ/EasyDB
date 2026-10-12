@@ -49,6 +49,49 @@ std::unique_ptr<QlManager> ql_manager;
 LogManager *log_manager;
 std::unique_ptr<Analyze> analyze;
 std::unique_ptr<Portal> portal;
+std::string default_database_name;
+
+struct ConnectionSession {
+  DatabaseManager *database_manager;
+  std::string database_name;
+  EasyStore *storage_engine;
+  DiskManager *disk_manager;
+  BufferPoolManager *buffer_pool_manager;
+  LockManager *lock_manager;
+  TransactionManager *txn_manager;
+  LogManager *log_manager;
+  std::unique_ptr<Planner> planner;
+  std::unique_ptr<Optimizer> optimizer;
+  std::unique_ptr<QlManager> ql_manager;
+  std::unique_ptr<Analyze> analyze;
+  std::unique_ptr<Portal> portal;
+
+  ConnectionSession(DatabaseManager *manager, std::string initial_database)
+      : database_manager(manager), database_name(std::move(initial_database)) {
+    Rebind();
+  }
+
+  void Rebind() {
+    storage_engine = database_manager->OpenDatabase(database_name);
+    disk_manager = storage_engine->GetDiskManager();
+    buffer_pool_manager = storage_engine->GetBufferPoolManager();
+    lock_manager = storage_engine->GetLockManager();
+    txn_manager = storage_engine->GetTransactionManager();
+    log_manager = storage_engine->GetLogManager();
+    planner = std::make_unique<Planner>(storage_engine);
+    optimizer = std::make_unique<Optimizer>(storage_engine, planner.get());
+    ql_manager =
+        std::make_unique<QlManager>(storage_engine, txn_manager, planner.get());
+    analyze = std::make_unique<Analyze>(storage_engine);
+    portal = std::make_unique<Portal>(storage_engine);
+  }
+
+  void UseDatabase(const std::string &name) {
+    database_manager->OpenDatabase(name);
+    database_name = name;
+    Rebind();
+  }
+};
 
 int sockfd;
 pthread_mutex_t *buffer_mutex;
@@ -63,20 +106,65 @@ void sigint_handler(int signo) {
 }
 
 // 判断当前正在执行的是显式事务还是单条SQL语句的事务，并更新事务ID
-void SetTransaction(txn_id_t *txn_id, Context *context) {
-  context->txn_ = txn_manager->GetTransaction(*txn_id);
+void SetTransaction(txn_id_t *txn_id, Context *context,
+                    TransactionManager *transaction_manager,
+                    LogManager *log_manager) {
+  context->txn_ = transaction_manager->GetTransaction(*txn_id);
   if (context->txn_ == nullptr ||
       context->txn_->GetState() == TransactionState::COMMITTED ||
       context->txn_->GetState() == TransactionState::ABORTED) {
-    context->txn_ = txn_manager->Begin(nullptr, context->log_mgr_);
+    context->txn_ = transaction_manager->Begin(nullptr, log_manager);
     *txn_id = context->txn_->GetTransactionId();
     context->txn_->SetTxnMode(false);
+  }
+}
+
+bool IsDatabasePlan(PlanTag tag) {
+  return tag == T_ShowDatabase || tag == T_CreateDatabase ||
+         tag == T_DropDatabase || tag == T_UseDatabase;
+}
+
+void RunDatabasePlan(const std::shared_ptr<Plan> &plan,
+                     ConnectionSession *session, txn_id_t *txn_id,
+                     Context *context) {
+  auto database_plan = std::dynamic_pointer_cast<OtherPlan>(plan);
+  if (database_plan == nullptr) {
+    throw InternalError("invalid database command plan");
+  }
+  switch (plan->tag) {
+    case T_ShowDatabase: {
+      std::string result = "Databases:\n";
+      for (const auto &name : session->database_manager->ListDatabases()) {
+        result += name + "\n";
+      }
+      memcpy(context->data_send_, result.data(), result.size());
+      *context->offset_ = static_cast<int>(result.size());
+      break;
+    }
+    case T_CreateDatabase:
+      session->database_manager->CreateDatabase(database_plan->tab_name_);
+      break;
+    case T_DropDatabase:
+      if (database_plan->tab_name_ == session->database_name) {
+        throw InternalError("cannot drop the current database");
+      }
+      session->database_manager->DropDatabase(database_plan->tab_name_);
+      break;
+    case T_UseDatabase:
+      session->txn_manager->Commit(context->txn_, context->log_mgr_);
+      session->txn_manager->ReleaseTxnOfThread(std::this_thread::get_id());
+      session->UseDatabase(database_plan->tab_name_);
+      *txn_id = INVALID_TXN_ID;
+      break;
+    default:
+      throw InternalError("unexpected database command");
   }
 }
 
 void *client_handler(void *sock_fd) {
   int fd = *((int *)sock_fd);
   pthread_mutex_unlock(sockfd_mutex);
+  ConnectionSession session(database_manager.get(), default_database_name);
 
   int i_recvBytes;
   // 接收客户端发送的请求
@@ -125,9 +213,9 @@ void *client_handler(void *sock_fd) {
     offset = 0;
 
     // 开启事务，初始化系统所需的上下文信息（包括事务对象指针、锁管理器指针、日志管理器指针、存放结果的buffer、记录结果长度的变量）
-    Context *context =
-        new Context(lock_manager, log_manager, nullptr, data_send, &offset);
-    SetTransaction(&txn_id, context);
+    Context *context = new Context(session.lock_manager, session.log_manager,
+                                   nullptr, data_send, &offset);
+    SetTransaction(&txn_id, context, session.txn_manager, session.log_manager);
     context->InitJson();
 
     // 用于判断是否已经调用了yy_delete_buffer来删除buf
@@ -138,7 +226,8 @@ void *client_handler(void *sock_fd) {
       if (ast::parse_tree != nullptr) {
         try {
           // analyze and rewrite
-          std::shared_ptr<Query> query = analyze->do_analyze(ast::parse_tree);
+          std::shared_ptr<Query> query =
+              session.analyze->do_analyze(ast::parse_tree);
           yy_delete_buffer(buf);
           finish_analyze = true;
           pthread_mutex_unlock(buffer_mutex);
@@ -147,13 +236,19 @@ void *client_handler(void *sock_fd) {
           // << std::endl; if (!optimizer->bypass(query, context))
           {
             auto temp1 = std::chrono::high_resolution_clock::now();
-            std::shared_ptr<Plan> plan = optimizer->plan_query(query, context);
+            std::shared_ptr<Plan> plan =
+                session.optimizer->plan_query(query, context);
             // portal
             if (plan->tag != easydb::T_Empty) {
-              std::shared_ptr<PortalStmt> portalStmt =
-                  portal->start(plan, context);
-              portal->run(portalStmt, ql_manager.get(), &txn_id, context);
-              portal->drop();
+              if (IsDatabasePlan(plan->tag)) {
+                RunDatabasePlan(plan, &session, &txn_id, context);
+              } else {
+                std::shared_ptr<PortalStmt> portalStmt =
+                    session.portal->start(plan, context);
+                session.portal->run(portalStmt, session.ql_manager.get(),
+                                    &txn_id, context);
+                session.portal->drop();
+              }
             } else {
               std::string str = "empty set\n";
               memcpy(context->data_send_, str.c_str(), str.length());
@@ -178,10 +273,10 @@ void *client_handler(void *sock_fd) {
           context->SetJsonMsg("abort");
 
           // 回滚事务
-          txn_manager->Abort(context->txn_, log_manager);
+          session.txn_manager->Abort(context->txn_, session.log_manager);
           std::cout << e.GetInfo() << std::endl;
 
-          if (storage_engine->IsEnableOutput()) {
+          if (session.storage_engine->IsEnableOutput()) {
             std::fstream outfile;
             outfile.open("output.txt", std::ios::out | std::ios::app);
             outfile << str;
@@ -198,7 +293,7 @@ void *client_handler(void *sock_fd) {
           context->SetJsonMsg(e.what());
 
           // 将报错信息写入output.txt
-          if (storage_engine->IsEnableOutput()) {
+          if (session.storage_engine->IsEnableOutput()) {
             std::fstream outfile;
             outfile.open("output.txt", std::ios::out | std::ios::app);
             outfile << "failure\n";
@@ -218,7 +313,7 @@ void *client_handler(void *sock_fd) {
     if (context->txn_->GetTxnMode() == false) {
       // 如果已经 abort，则无需提交事务
       if (context->txn_->GetState() != TransactionState::ABORTED) {
-        txn_manager->Commit(context->txn_, context->log_mgr_);
+        session.txn_manager->Commit(context->txn_, context->log_mgr_);
       }
     }
 
@@ -248,7 +343,7 @@ void *client_handler(void *sock_fd) {
   // Clear
   delete[] data_send;  // release memory.
   // SetTransaction maybe allocate some txn
-  txn_manager->ReleaseTxnOfThread(std::this_thread::get_id());
+  session.txn_manager->ReleaseTxnOfThread(std::this_thread::get_id());
   std::cout << "Terminating current client_connection..." << std::endl;
   close(fd);           // close a file descriptor.
   pthread_exit(NULL);  // terminate calling thread!
@@ -378,6 +473,7 @@ int main(int argc, char **argv) {
     const auto database_path = std::filesystem::absolute(db_name);
     const auto database_root = database_path.parent_path();
     const auto database_name = database_path.filename().string();
+    default_database_name = database_name;
     database_manager = std::make_unique<DatabaseManager>(database_root);
     if (!database_manager->Exists(database_name)) {
       database_manager->CreateDatabase(database_name);

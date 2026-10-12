@@ -83,6 +83,17 @@ class TreePrinter {
       std::cout << "HELP" << std::endl;
     } else if (auto x = std::dynamic_pointer_cast<ShowTables>(node)) {
       std::cout << "SHOW_TABLES" << std::endl;
+    } else if (auto x = std::dynamic_pointer_cast<ShowDatabases>(node)) {
+      std::cout << "SHOW_DATABASES" << std::endl;
+    } else if (auto x = std::dynamic_pointer_cast<CreateDatabase>(node)) {
+      std::cout << "CREATE_DATABASE" << std::endl;
+      print_val(x->database_name, offset);
+    } else if (auto x = std::dynamic_pointer_cast<DropDatabase>(node)) {
+      std::cout << "DROP_DATABASE" << std::endl;
+      print_val(x->database_name, offset);
+    } else if (auto x = std::dynamic_pointer_cast<UseDatabase>(node)) {
+      std::cout << "USE_DATABASE" << std::endl;
+      print_val(x->database_name, offset);
     } else if (auto x = std::dynamic_pointer_cast<ShowIndex>(node)) {
       std::cout << "SHOW_INDEX" << std::endl;
       print_val(x->tab_name, offset);

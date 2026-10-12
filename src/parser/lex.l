@@ -58,6 +58,9 @@ arith_op "+"|"-"|"*"|"/"
 {new_line} { /* ignore new line */ }
     /* keywords */
 "SHOW" { return SHOW; }
+"DATABASE" { return DATABASE; }
+"DATABASES" { return DATABASES; }
+"USE" { return USE; }
 "BEGIN" { return TXN_BEGIN; }
 "COMMIT" { return TXN_COMMIT; }
 "ABORT" { return TXN_ABORT; }

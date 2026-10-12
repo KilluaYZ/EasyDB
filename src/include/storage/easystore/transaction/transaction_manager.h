@@ -132,9 +132,8 @@ class TransactionManager {
     if (txn_id == INVALID_TXN_ID) return nullptr;
 
     std::unique_lock<std::mutex> lock(latch_);
-    assert(TransactionManager::txn_map.find(txn_id) !=
-           TransactionManager::txn_map.end());
-    auto *res = TransactionManager::txn_map[txn_id];
+    assert(txn_map.find(txn_id) != txn_map.end());
+    auto *res = txn_map[txn_id];
     lock.unlock();
     assert(res != nullptr);
     assert(res->GetThreadId() == std::this_thread::get_id());
@@ -162,9 +161,9 @@ class TransactionManager {
 
   /**
    * @brief 全局事务表，存放事务ID与事务对象的映射关系
-   * @note 静态成员，所有TransactionManager实例共享
+   * @note 每个数据库实例维护独立的事务表
    */
-  static std::unordered_map<txn_id_t, Transaction *> txn_map;
+  std::unordered_map<txn_id_t, Transaction *> txn_map;
 
  private:
   /**

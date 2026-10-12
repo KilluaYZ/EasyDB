@@ -21,7 +21,7 @@ using namespace ast;
 %define parse.error verbose
 
 // keywords
-%token SHOW TABLES CREATE TABLE DROP DESC INSERT INTO VALUES DELETE FROM ASC ORDER BY AS COUNT MAX MIN SUM GROUP HAVING IN
+%token SHOW TABLES DATABASE DATABASES USE CREATE TABLE DROP DESC INSERT INTO VALUES DELETE FROM ASC ORDER BY AS COUNT MAX MIN SUM GROUP HAVING IN
 WHERE UPDATE SET SELECT INT CHAR VARCHAR FLOAT DATETIME NOT_NULL INDEX AND JOIN EXIT HELP TXN_BEGIN TXN_COMMIT TXN_ABORT TXN_ROLLBACK ORDER_BY 
 UNIQUE ENABLE_NESTLOOP ENABLE_SORTMERGE ENABLE_HASHJOIN ENABLE_OPTIMIZER
 STATIC_CHECKPOINT LOAD OUTPUT_FILE
@@ -124,6 +124,22 @@ dbStmt:
     |   SHOW INDEX FROM tbName
     {
         $$ = std::make_shared<ShowIndex>($4);
+    }
+    |   SHOW DATABASES
+    {
+        $$ = std::make_shared<ShowDatabases>();
+    }
+    |   CREATE DATABASE tbName
+    {
+        $$ = std::make_shared<CreateDatabase>($3);
+    }
+    |   DROP DATABASE tbName
+    {
+        $$ = std::make_shared<DropDatabase>($3);
+    }
+    |   USE tbName
+    {
+        $$ = std::make_shared<UseDatabase>($2);
     }
     ;
 

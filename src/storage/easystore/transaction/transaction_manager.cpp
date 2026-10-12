@@ -26,8 +26,6 @@
 
 namespace easydb {
 
-std::unordered_map<txn_id_t, Transaction *> TransactionManager::txn_map = {};
-
 /**
  * @description: 事务的开始方法
  * @return {Transaction*} 开始事务的指针

@@ -33,6 +33,10 @@ typedef enum PlanTag {
   T_Invalid = 1,            /**< 无效计划 */
   T_Help,                   /**< HELP命令 */
   T_ShowTable,              /**< SHOW TABLES命令 */
+  T_ShowDatabase,           /**< SHOW DATABASES命令 */
+  T_CreateDatabase,          /**< CREATE DATABASE命令 */
+  T_DropDatabase,            /**< DROP DATABASE命令 */
+  T_UseDatabase,             /**< USE命令 */
   T_ShowIndex,              /**< SHOW INDEX命令 */
   T_DescTable,              /**< DESC TABLE命令 */
   T_CreateTable,            /**< CREATE TABLE命令 */

@@ -109,6 +109,27 @@ struct Help : public TreeNode {};
  */
 struct ShowTables : public TreeNode {};
 
+/** @brief SHOW DATABASES命令节点 */
+struct ShowDatabases : public TreeNode {};
+
+/** @brief CREATE DATABASE命令节点 */
+struct CreateDatabase : public TreeNode {
+  std::string database_name;
+  explicit CreateDatabase(std::string name) : database_name(std::move(name)) {}
+};
+
+/** @brief DROP DATABASE命令节点 */
+struct DropDatabase : public TreeNode {
+  std::string database_name;
+  explicit DropDatabase(std::string name) : database_name(std::move(name)) {}
+};
+
+/** @brief USE命令节点 */
+struct UseDatabase : public TreeNode {
+  std::string database_name;
+  explicit UseDatabase(std::string name) : database_name(std::move(name)) {}
+};
+
 /**
  * @brief SHOW INDEX命令节点
  */

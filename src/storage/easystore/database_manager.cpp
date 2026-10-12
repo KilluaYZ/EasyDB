@@ -33,10 +33,12 @@ std::filesystem::path DatabaseManager::DatabasePath(
 }
 
 bool DatabaseManager::Exists(const std::string &database_name) const {
+  std::scoped_lock lock(latch_);
   return std::filesystem::is_directory(DatabasePath(database_name));
 }
 
 std::vector<std::string> DatabaseManager::ListDatabases() const {
+  std::scoped_lock lock(latch_);
   std::vector<std::string> result;
   if (!std::filesystem::exists(root_path_)) return result;
   for (const auto &entry : std::filesystem::directory_iterator(root_path_)) {
@@ -47,13 +49,17 @@ std::vector<std::string> DatabaseManager::ListDatabases() const {
 }
 
 void DatabaseManager::CreateDatabase(const std::string &database_name) {
+  std::scoped_lock lock(latch_);
   const auto path = DatabasePath(database_name);
   if (std::filesystem::exists(path)) throw DatabaseExistsError(database_name);
   std::filesystem::create_directories(path);
-  OpenDatabase(database_name);
+  auto database = std::make_unique<EasyStore>(path.string(), enable_output_);
+  database->OpenDB(path.string());
+  databases_.emplace(database_name, std::move(database));
 }
 
 EasyStore *DatabaseManager::OpenDatabase(const std::string &database_name) {
+  std::scoped_lock lock(latch_);
   const auto path = DatabasePath(database_name);
   if (!std::filesystem::is_directory(path)) {
     throw DatabaseNotFoundError(database_name);
@@ -69,6 +75,7 @@ EasyStore *DatabaseManager::OpenDatabase(const std::string &database_name) {
 }
 
 void DatabaseManager::CloseDatabase(const std::string &database_name) {
+  std::scoped_lock lock(latch_);
   auto it = databases_.find(database_name);
   if (it == databases_.end()) return;
   it->second->CloseDB();
@@ -76,16 +83,22 @@ void DatabaseManager::CloseDatabase(const std::string &database_name) {
 }
 
 void DatabaseManager::DropDatabase(const std::string &database_name) {
+  std::scoped_lock lock(latch_);
   const auto path = DatabasePath(database_name);
   if (!std::filesystem::is_directory(path)) {
     throw DatabaseNotFoundError(database_name);
   }
-  CloseDatabase(database_name);
+  auto it = databases_.find(database_name);
+  if (it != databases_.end()) {
+    it->second->CloseDB();
+    databases_.erase(it);
+  }
   std::filesystem::remove_all(path);
 }
 
 EasyStore *DatabaseManager::GetDatabase(
     const std::string &database_name) const {
+  std::scoped_lock lock(latch_);
   auto it = databases_.find(database_name);
   if (it == databases_.end()) throw DatabaseNotFoundError(database_name);
   return it->second.get();

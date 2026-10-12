@@ -218,7 +218,6 @@ TEST_F(DiskManagerTest, TransactionAbortUsesDurableUndoLog) {
   EXPECT_FALSE(table_manager.Get("users")->Get(tuple).has_value());
   EXPECT_EQ(txn->GetState(), TransactionState::ABORTED);
 
-  TransactionManager::txn_map.erase(txn->GetTransactionId());
   delete txn;
   table_manager.Close("users");
   std::filesystem::current_path(original_dir);

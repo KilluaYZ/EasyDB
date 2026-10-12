@@ -143,6 +143,21 @@ class TreeDotPrinter {
       // std::cout << "SHOW_TABLES" << std::endl;
       int _node_id = alloc_node("SHOW_TABLES");
       print_edge(_node_id, parent);
+    } else if (auto x = std::dynamic_pointer_cast<ShowDatabases>(node)) {
+      int _node_id = alloc_node("SHOW_DATABASES");
+      print_edge(_node_id, parent);
+    } else if (auto x = std::dynamic_pointer_cast<CreateDatabase>(node)) {
+      int _node_id = alloc_node("CREATE_DATABASE");
+      print_edge(_node_id, parent);
+      print_val(x->database_name, _node_id);
+    } else if (auto x = std::dynamic_pointer_cast<DropDatabase>(node)) {
+      int _node_id = alloc_node("DROP_DATABASE");
+      print_edge(_node_id, parent);
+      print_val(x->database_name, _node_id);
+    } else if (auto x = std::dynamic_pointer_cast<UseDatabase>(node)) {
+      int _node_id = alloc_node("USE_DATABASE");
+      print_edge(_node_id, parent);
+      print_val(x->database_name, _node_id);
     } else if (auto x = std::dynamic_pointer_cast<ShowIndex>(node)) {
       // std::cout << "SHOW_INDEX" << std::endl;
       int _node_id = alloc_node("SHOW_INDEX");

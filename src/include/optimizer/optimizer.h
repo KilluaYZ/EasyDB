@@ -42,6 +42,18 @@ class Optimizer {
                    std::dynamic_pointer_cast<ast::ShowTables>(query->parse)) {
       // show tables;
       return std::make_shared<OtherPlan>(T_ShowTable, std::string());
+    } else if (auto x = std::dynamic_pointer_cast<ast::ShowDatabases>(
+                   query->parse)) {
+      return std::make_shared<OtherPlan>(T_ShowDatabase, std::string());
+    } else if (auto x = std::dynamic_pointer_cast<ast::CreateDatabase>(
+                   query->parse)) {
+      return std::make_shared<OtherPlan>(T_CreateDatabase, x->database_name);
+    } else if (auto x = std::dynamic_pointer_cast<ast::DropDatabase>(
+                   query->parse)) {
+      return std::make_shared<OtherPlan>(T_DropDatabase, x->database_name);
+    } else if (auto x = std::dynamic_pointer_cast<ast::UseDatabase>(
+                   query->parse)) {
+      return std::make_shared<OtherPlan>(T_UseDatabase, x->database_name);
     } else if (auto x =
                    std::dynamic_pointer_cast<ast::ShowIndex>(query->parse)) {
       // show index;
