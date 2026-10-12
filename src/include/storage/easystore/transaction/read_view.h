@@ -29,6 +29,8 @@ class ReadView {
            !meta.is_deleted_;
   }
 
+  timestamp_t GetSnapshotTs() const { return snapshot_ts_; }
+
  private:
   timestamp_t snapshot_ts_;
   txn_id_t creator_txn_id_;

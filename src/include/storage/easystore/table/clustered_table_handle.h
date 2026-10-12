@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -38,6 +39,9 @@ class ClusteredTableHandle {
   auto MarkDelete(const Tuple &key_tuple, const TupleMeta &meta) -> bool;
   auto Scan() -> std::vector<Tuple>;
   auto ScanRecords() -> std::vector<ClusteredLeafEntry>;
+  auto Purge(timestamp_t oldest_snapshot_ts,
+             const std::unordered_map<txn_id_t, timestamp_t> &committed_txns)
+      -> size_t;
 
  private:
   auto MakeKey(const Tuple &tuple) const -> std::vector<char>;

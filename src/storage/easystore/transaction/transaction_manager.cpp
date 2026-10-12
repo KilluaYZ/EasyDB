@@ -107,6 +107,14 @@ void TransactionManager::Commit(Transaction *txn, LogManager *log_manager) {
     std::scoped_lock lock(latch_);
     committed_txns_[txn->GetTransactionId()] = txn->GetCommitTs();
   }
+  if (clustered_table_manager_ != nullptr) {
+    std::unordered_map<txn_id_t, timestamp_t> committed_txns;
+    {
+      std::scoped_lock lock(latch_);
+      committed_txns = committed_txns_;
+    }
+    clustered_table_manager_->Purge(GetOldestReadViewTs(), committed_txns);
+  }
 }
 
 /**

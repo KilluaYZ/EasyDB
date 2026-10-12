@@ -94,6 +94,16 @@ void ClusteredTableManager::Flush() {
   }
 }
 
+auto ClusteredTableManager::Purge(
+    timestamp_t oldest_snapshot_ts,
+    const std::unordered_map<txn_id_t, timestamp_t> &committed_txns) -> size_t {
+  size_t purged = 0;
+  for (auto &entry : entries_) {
+    purged += entry.second->table->Purge(oldest_snapshot_ts, committed_txns);
+  }
+  return purged;
+}
+
 auto ClusteredTableManager::Get(const std::string &table_name) const
     -> ClusteredTableHandle * {
   return entries_.at(table_name)->table.get();

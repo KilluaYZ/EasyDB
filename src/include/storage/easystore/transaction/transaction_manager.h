@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <atomic>
 #include <unordered_map>
 
@@ -140,6 +141,20 @@ class TransactionManager {
         std::move(active_txns), committed_txns_);
     txn->SetReadView(view);
     return view;
+  }
+
+  /** Oldest snapshot that may still need a deleted version. */
+  timestamp_t GetOldestReadViewTs() {
+    std::scoped_lock lock(latch_);
+    timestamp_t oldest = next_timestamp_.load();
+    for (const auto &[txn_id, txn] : txn_map) {
+      if (txn != nullptr && txn->GetReadView() != nullptr &&
+          txn->GetState() != TransactionState::ABORTED &&
+          txn->GetState() != TransactionState::COMMITTED) {
+        oldest = std::min(oldest, txn->GetReadView()->GetSnapshotTs());
+      }
+    }
+    return oldest;
   }
 
   /**

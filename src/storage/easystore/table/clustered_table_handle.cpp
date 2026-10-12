@@ -87,4 +87,20 @@ auto ClusteredTableHandle::ScanRecords() -> std::vector<ClusteredLeafEntry> {
   return index_->ScanAll();
 }
 
+auto ClusteredTableHandle::Purge(
+    timestamp_t oldest_snapshot_ts,
+    const std::unordered_map<txn_id_t, timestamp_t> &committed_txns) -> size_t {
+  if (index_ == nullptr) return 0;
+  size_t purged = 0;
+  for (const auto &entry : index_->ScanAll()) {
+    if (!entry.meta.is_deleted_) continue;
+    const auto it = committed_txns.find(entry.meta.trx_id_);
+    if (it != committed_txns.end() && it->second < oldest_snapshot_ts &&
+        index_->Delete(entry.key)) {
+      ++purged;
+    }
+  }
+  return purged;
+}
+
 }  // namespace easydb
