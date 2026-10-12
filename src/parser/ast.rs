@@ -182,6 +182,7 @@ pub enum Statement {
     TxnCommit,
     TxnAbort,
     TxnRollback,
+    SetIsolationLevel(crate::transaction::IsolationLevel),
     SetKnob {
         knob: Knob,
         value: bool,

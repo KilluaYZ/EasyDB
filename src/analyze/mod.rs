@@ -104,6 +104,7 @@ pub enum Query {
     TxnCommit,
     TxnAbort,
     TxnRollback,
+    SetIsolationLevel(crate::transaction::IsolationLevel),
     SetKnob {
         knob: ast::Knob,
         value: bool,
@@ -176,6 +177,7 @@ impl<'a> Analyzer<'a> {
             ast::Statement::TxnCommit => Ok(Query::TxnCommit),
             ast::Statement::TxnAbort => Ok(Query::TxnAbort),
             ast::Statement::TxnRollback => Ok(Query::TxnRollback),
+            ast::Statement::SetIsolationLevel(level) => Ok(Query::SetIsolationLevel(level)),
             ast::Statement::SetKnob { knob, value } => Ok(Query::SetKnob { knob, value }),
             ast::Statement::CreateTable { table, fields } => {
                 let columns = fields

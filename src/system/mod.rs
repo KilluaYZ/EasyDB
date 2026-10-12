@@ -29,7 +29,7 @@ use crate::record::rm_file_handle::RmFileHandle;
 use crate::record::rm_manager::RmManager;
 use crate::recovery::{LogManager, LogRecord};
 use crate::storage::disk::DiskManager;
-use crate::transaction::{Transaction, TransactionState, WType, WriteRecord};
+use crate::transaction::{IsolationLevel, Transaction, TransactionState, WType, WriteRecord};
 use crate::types::ColType;
 
 pub mod format;
@@ -96,6 +96,51 @@ pub struct Database {
     txn_counter: std::sync::atomic::AtomicI64,
     /// 显式事务（BEGIN 后存在；自动提交语句的事务不入此字段）
     current_txn: Option<Arc<Transaction>>,
+    /// `run_sql` 的兼容入口使用的默认隔离级别。TCP 服务端使用独立 Session。
+    default_isolation: IsolationLevel,
+}
+
+/// 客户端连接级会话。
+///
+/// 事务属于连接，而不是数据库实例。`Database::run_sql` 仍保留用于单线程
+/// 测试和嵌入式调用；TCP 服务端必须使用 [`Database::run_sql_in_session`]。
+pub struct Session {
+    current_txn: Option<Arc<Transaction>>,
+    isolation_level: IsolationLevel,
+}
+
+impl Session {
+    pub fn new() -> Self {
+        Self {
+            current_txn: None,
+            isolation_level: IsolationLevel::Serializable,
+        }
+    }
+
+    pub fn isolation_level(&self) -> IsolationLevel {
+        self.isolation_level
+    }
+
+    /// 只允许在事务外设置隔离级别，和 SQL 标准的事务边界语义一致。
+    pub fn set_isolation_level(&mut self, level: IsolationLevel) -> Result<(), EasyDbError> {
+        if self.current_txn.is_some() {
+            return Err(EasyDbError::Internal(
+                "cannot change isolation level during a transaction".to_string(),
+            ));
+        }
+        self.isolation_level = level;
+        Ok(())
+    }
+
+    pub fn in_transaction(&self) -> bool {
+        self.current_txn.is_some()
+    }
+}
+
+impl Default for Session {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Database {
@@ -121,6 +166,7 @@ impl Database {
             log_mgr,
             txn_counter: std::sync::atomic::AtomicI64::new(1),
             current_txn: None,
+            default_isolation: IsolationLevel::Serializable,
         };
         db.load_persisted()?;
         Ok(db)
@@ -186,6 +232,11 @@ impl Database {
         &self.dir
     }
 
+    /// 创建一个连接级会话。每个 TCP 客户端都应持有自己的 Session。
+    pub fn new_session(&self) -> Session {
+        Session::new()
+    }
+
     pub fn disk(&self) -> &Arc<DiskManager> {
         &self.disk
     }
@@ -227,10 +278,56 @@ impl Database {
         self.execute(query)
     }
 
+    /// 在指定连接会话中执行 SQL。
+    pub fn run_sql_in_session(
+        &mut self,
+        session: &mut Session,
+        sql: &str,
+    ) -> Result<Output, EasyDbError> {
+        let stmt = parse_sql(sql)?;
+        let query = Analyzer::new(self).analyze(stmt)?;
+
+        if let Query::SetIsolationLevel(level) = &query {
+            session.set_isolation_level(*level)?;
+            return Ok(Output::Ok);
+        }
+
+        // 复用现有事务执行路径，同时把事务槽位的所有权限定在本次
+        // Database 锁保护的调用中。各连接的真实状态保存在 Session。
+        let old_txn = self.current_txn.take();
+        debug_assert!(old_txn.is_none(), "database session slot is already in use");
+        self.current_txn = session.current_txn.take();
+        self.default_isolation = session.isolation_level;
+        let result = self.execute(query);
+        session.current_txn = self.current_txn.take();
+        self.current_txn = old_txn;
+        result
+    }
+
+    /// 连接断开时回滚其未提交事务并释放锁。
+    pub fn close_session(&mut self, session: &mut Session) {
+        let old_txn = self.current_txn.take();
+        self.current_txn = session.current_txn.take();
+        if let Some(txn) = self.current_txn.take() {
+            self.rollback_writes(&txn, 0);
+            self.abort_txn(&txn);
+        }
+        self.current_txn = old_txn;
+    }
+
     /// 执行绑定后的查询。
     pub fn execute(&mut self, query: Query) -> Result<Output, EasyDbError> {
         // 事务控制语句先于常规生命周期处理
         match query {
+            Query::SetIsolationLevel(level) => {
+                if self.current_txn.is_some() {
+                    return Err(EasyDbError::Internal(
+                        "cannot change isolation level during a transaction".to_string(),
+                    ));
+                }
+                self.default_isolation = level;
+                return Ok(Output::Ok);
+            }
             Query::TxnBegin => {
                 if self.current_txn.is_some() {
                     return Err(EasyDbError::Internal(
@@ -338,7 +435,11 @@ impl Database {
                     rows,
                 })
             }
-            Query::TxnBegin | Query::TxnCommit | Query::TxnAbort | Query::TxnRollback => {
+            Query::TxnBegin
+            | Query::TxnCommit
+            | Query::TxnAbort
+            | Query::TxnRollback
+            | Query::SetIsolationLevel(_) => {
                 // 事务在 P6 接入；此处按成功处理
                 Ok(Output::Ok)
             }
@@ -347,12 +448,32 @@ impl Database {
                 Ok(Output::Ok)
             }
             Query::CreateTable { table, columns } => self.create_table(&table, columns),
-            Query::DropTable { table } => self.drop_table(&table),
+            Query::DropTable { table } => {
+                let fd = self.table(&table)?.fh.fd();
+                ctx.locks.lock_exclusive_on_table(&ctx.txn, fd)?;
+                self.drop_table(&table)
+            }
             Query::DescTable { table } => self.desc_table(&table),
-            Query::CreateIndex { table, cols } => self.create_index(&table, &cols),
-            Query::CreateHashIndex { table, cols } => self.create_hash_index(&table, &cols),
-            Query::DropIndex { table, cols } => self.drop_index(&table, &cols),
-            Query::DropHashIndex { table, cols } => self.drop_hash_index(&table, &cols),
+            Query::CreateIndex { table, cols } => {
+                let fd = self.table(&table)?.fh.fd();
+                ctx.locks.lock_exclusive_on_table(&ctx.txn, fd)?;
+                self.create_index(&table, &cols)
+            }
+            Query::CreateHashIndex { table, cols } => {
+                let fd = self.table(&table)?.fh.fd();
+                ctx.locks.lock_exclusive_on_table(&ctx.txn, fd)?;
+                self.create_hash_index(&table, &cols)
+            }
+            Query::DropIndex { table, cols } => {
+                let fd = self.table(&table)?.fh.fd();
+                ctx.locks.lock_exclusive_on_table(&ctx.txn, fd)?;
+                self.drop_index(&table, &cols)
+            }
+            Query::DropHashIndex { table, cols } => {
+                let fd = self.table(&table)?.fh.fd();
+                ctx.locks.lock_exclusive_on_table(&ctx.txn, fd)?;
+                self.drop_hash_index(&table, &cols)
+            }
             Query::CreateStaticCheckpoint => {
                 // 检查点随 P6 WAL 落地
                 Ok(Output::Ok)
@@ -434,7 +555,7 @@ impl Database {
         let id = self
             .txn_counter
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let txn = Arc::new(Transaction::new(id));
+        let txn = Arc::new(Transaction::with_isolation(id, self.default_isolation));
         {
             let mut log = self.log_mgr.lock().unwrap_or_else(|e| e.into_inner());
             let lsn = log.append(&LogRecord::Begin { txn: id });

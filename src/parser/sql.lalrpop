@@ -81,6 +81,14 @@ extern {
         STATIC_CHECKPOINT => Tok::StaticCheckpoint,
         LOAD => Tok::Load,
         OUTPUT_FILE => Tok::OutputFile,
+        TRANSACTION => Tok::Transaction,
+        ISOLATION => Tok::Isolation,
+        LEVEL => Tok::Level,
+        READ => Tok::Read,
+        UNCOMMITTED => Tok::Uncommitted,
+        COMMITTED => Tok::Committed,
+        REPEATABLE => Tok::Repeatable,
+        SERIALIZABLE => Tok::Serializable,
 
         IDENT => Tok::Ident(<String>),
         STRING => Tok::Str(<String>),
@@ -123,6 +131,14 @@ DbStmt: ast::Statement = {
 };
 
 SetStmt: ast::Statement = {
+    SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED =>
+        ast::Statement::SetIsolationLevel(crate::transaction::IsolationLevel::ReadUncommitted),
+    SET TRANSACTION ISOLATION LEVEL READ COMMITTED =>
+        ast::Statement::SetIsolationLevel(crate::transaction::IsolationLevel::ReadCommitted),
+    SET TRANSACTION ISOLATION LEVEL REPEATABLE READ =>
+        ast::Statement::SetIsolationLevel(crate::transaction::IsolationLevel::RepeatableRead),
+    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE =>
+        ast::Statement::SetIsolationLevel(crate::transaction::IsolationLevel::Serializable),
     // 方言：`SET knob = bool` 与 `SET knob bool` 两种形式并存
     SET <k:SetKnob> "=" <v:BOOL_LIT> =>
         ast::Statement::SetKnob { knob: k, value: v },
@@ -377,4 +393,3 @@ CountAlias: String = {
 Name: String = {
     IDENT => <>,
 };
-
