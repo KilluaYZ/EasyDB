@@ -113,7 +113,13 @@ impl Executor for InsertExec {
             &crate::catalog::Schema::new(self.table_cols.clone()),
             &values,
         )?;
-        let rid = self.fh.insert_tuple(TupleMeta::default(), &data)?;
+        let rid = self.fh.insert_tuple(
+            TupleMeta {
+                xmin: self.ctx.txn.id,
+                ..TupleMeta::default()
+            },
+            &data,
+        )?;
         // 写锁 + 写集 + WAL
         self.ctx
             .locks
@@ -122,6 +128,8 @@ impl Executor for InsertExec {
             wtype: WType::Insert,
             table: self.table.clone(),
             rid,
+            new_rid: None,
+            old_meta: TupleMeta::default(),
             data: data.clone(),
         });
         {
@@ -189,11 +197,13 @@ impl Executor for DeleteExec {
         self.ctx
             .locks
             .lock_exclusive_on_record(&self.ctx.txn, self.fh.fd(), row.rid)?;
-        let (_, old_data) = self.fh.get_tuple(row.rid)?;
+        let (old_meta, old_data) = self.fh.get_tuple(row.rid)?;
         self.ctx.txn.append_write(WriteRecord {
             wtype: WType::Delete,
             table: self.table.clone(),
             rid: row.rid,
+            new_rid: None,
+            old_meta,
             data: old_data.clone(),
         });
         {
@@ -210,7 +220,7 @@ impl Executor for DeleteExec {
         for ix in &self.indexes {
             ix.handle.delete_entry(&ix.key(&row.values)?, row.rid)?;
         }
-        self.fh.delete_tuple(row.rid)?;
+        self.fh.mark_deleted(row.rid, self.ctx.txn.id)?;
         Ok(Some(row))
     }
 }
@@ -275,7 +285,7 @@ impl Executor for UpdateExec {
         self.ctx
             .locks
             .lock_exclusive_on_record(&self.ctx.txn, self.fh.fd(), old.rid)?;
-        let (_, old_data) = self.fh.get_tuple(old.rid)?;
+        let (old_meta, old_data) = self.fh.get_tuple(old.rid)?;
         let mut new_values = old.values.clone();
         for (target_idx, clause) in &self.clauses {
             let v = match &clause.rhs {
@@ -298,11 +308,25 @@ impl Executor for UpdateExec {
             &new_values,
         )?;
 
+        // UPDATE 采用追加版本：旧版本进入链尾，新版本通过 prev 指向旧
+        // 版本。旧版本不再被当前扫描返回，但仍保留在磁盘上供快照读取。
+        let new_rid = self.fh.insert_tuple(
+            TupleMeta {
+                xmin: self.ctx.txn.id,
+                prev: Some(old.rid),
+                ..TupleMeta::default()
+            },
+            &data,
+        )?;
+        self.fh.mark_deleted(old.rid, self.ctx.txn.id)?;
+
         // 写集 + WAL（旧数据留存以支持撤销与恢复）
         self.ctx.txn.append_write(WriteRecord {
             wtype: WType::Update,
             table: self.table.clone(),
             rid: old.rid,
+            new_rid: Some(new_rid),
+            old_meta,
             data: old_data.clone(),
         });
         {
@@ -311,6 +335,7 @@ impl Executor for UpdateExec {
                 txn: self.ctx.txn.id,
                 table: self.table.clone(),
                 rid: old.rid,
+                new_rid,
                 old_data: old_data.clone(),
                 new_data: data.clone(),
             });
@@ -323,14 +348,14 @@ impl Executor for UpdateExec {
             let new_key = ix.key(&new_values)?;
             if old_key != new_key {
                 ix.handle.delete_entry(&old_key, old.rid)?;
-                ix.handle.insert_entry(&new_key, old.rid)?;
+                ix.handle.insert_entry(&new_key, new_rid)?;
+            } else {
+                ix.handle.delete_entry(&old_key, old.rid)?;
+                ix.handle.insert_entry(&old_key, new_rid)?;
             }
         }
-
-        self.fh
-            .update_tuple_in_place(old.rid, TupleMeta::default(), &data)?;
         Ok(Some(Row {
-            rid: old.rid,
+            rid: new_rid,
             values: new_values,
         }))
     }
