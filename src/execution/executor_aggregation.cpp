@@ -35,15 +35,15 @@ namespace easydb {
 
 /**
  * @description: 聚合执行器的构造函数
- * @param sm_manager 系统管理器指针
+ * @param storage_engine 系统管理器指针
  * @param prev 前一个执行器
  * @param sel_col_ 选择的列信息，包含聚合函数类型
  */
-AggregationExecutor::AggregationExecutor(SmManager *sm_manager,
+AggregationExecutor::AggregationExecutor(StorageEngine *storage_engine,
                                          std::unique_ptr<AbstractExecutor> prev,
                                          std::vector<TabCol> sel_col_) {
   //  std::vector<TabCol> group_cols, std::vector<Condition> having_conds) {
-  sm_manager_ = sm_manager;
+  storage_engine_ = storage_engine;
   prev_ = std::move(prev);
   prev_schema_ = prev_->schema();
   tab_name_ = prev_->getTabName();
@@ -258,28 +258,28 @@ Value AggregationExecutor::aggregation_to_value(Column target_colu) {
     case AggregationType::SUM_AGG:
       if (target_colu.GetType() == TypeId::TYPE_INT) {
         return Value(target_colu.GetType(),
-                     int(sm_manager_->GetTableAttrSum(tab_name_, col_name)));
+                     int(storage_engine_->GetTableAttrSum(tab_name_, col_name)));
       } else {
         return Value(target_colu.GetType(),
-                     sm_manager_->GetTableAttrSum(tab_name_, col_name));
+                     storage_engine_->GetTableAttrSum(tab_name_, col_name));
       }
     case AggregationType::COUNT_AGG:
-      return Value(TypeId::TYPE_INT, sm_manager_->GetTableCount(tab_name_));
+      return Value(TypeId::TYPE_INT, storage_engine_->GetTableCount(tab_name_));
     case AggregationType::MAX_AGG:
       if (target_colu.GetType() == TypeId::TYPE_INT) {
         return Value(target_colu.GetType(),
-                     int(sm_manager_->GetTableAttrMax(tab_name_, col_name)));
+                     int(storage_engine_->GetTableAttrMax(tab_name_, col_name)));
       } else {
         return Value(target_colu.GetType(),
-                     sm_manager_->GetTableAttrMax(tab_name_, col_name));
+                     storage_engine_->GetTableAttrMax(tab_name_, col_name));
       }
     case AggregationType::MIN_AGG:
       if (target_colu.GetType() == TypeId::TYPE_INT) {
         return Value(target_colu.GetType(),
-                     int(sm_manager_->GetTableAttrMin(tab_name_, col_name)));
+                     int(storage_engine_->GetTableAttrMin(tab_name_, col_name)));
       } else {
         return Value(target_colu.GetType(),
-                     sm_manager_->GetTableAttrMin(tab_name_, col_name));
+                     storage_engine_->GetTableAttrMin(tab_name_, col_name));
       }
     default:
       throw InternalError("unsupported aggregation operator.");

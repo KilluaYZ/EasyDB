@@ -63,19 +63,19 @@ void QlManager::run_mutli_query(std::shared_ptr<Plan> plan, Context *context) {
   if (auto x = std::dynamic_pointer_cast<DDLPlan>(plan)) {
     switch (x->tag) {
       case T_CreateTable: {
-        sm_manager_->CreateTable(x->tab_name_, x->cols_, context);
+        storage_engine_->CreateTable(x->tab_name_, x->cols_, context);
         break;
       }
       case T_DropTable: {
-        sm_manager_->DropTable(x->tab_name_, context);
+        storage_engine_->DropTable(x->tab_name_, context);
         break;
       }
       case T_CreateIndex: {
-        sm_manager_->CreateIndex(x->tab_name_, x->tab_col_names_, context);
+        storage_engine_->CreateIndex(x->tab_name_, x->tab_col_names_, context);
         break;
       }
       case T_DropIndex: {
-        sm_manager_->DropIndex(x->tab_name_, x->tab_col_names_, context);
+        storage_engine_->DropIndex(x->tab_name_, x->tab_col_names_, context);
         break;
       }
       default:
@@ -103,15 +103,15 @@ void QlManager::run_cmd_utility(std::shared_ptr<Plan> plan, txn_id_t *txn_id,
         break;
       }
       case T_ShowTable: {
-        sm_manager_->ShowTables(context);
+        storage_engine_->ShowTables(context);
         break;
       }
       case T_ShowIndex: {
-        sm_manager_->ShowIndex(x->tab_name_, context);
+        storage_engine_->ShowIndex(x->tab_name_, context);
         break;
       }
       case T_DescTable: {
-        sm_manager_->DescTable(x->tab_name_, context);
+        storage_engine_->DescTable(x->tab_name_, context);
         break;
       }
       case T_Transaction_begin: {
@@ -162,7 +162,7 @@ void QlManager::run_cmd_utility(std::shared_ptr<Plan> plan, txn_id_t *txn_id,
         planner_->SetEnableOptimizer(x->bool_value_);
       }
       case ast::SetKnobType::EnableOutput: {
-        sm_manager_->SetEnableOutput(x->bool_value_);
+        storage_engine_->SetEnableOutput(x->bool_value_);
         break;
       }
       default: {
@@ -172,8 +172,8 @@ void QlManager::run_cmd_utility(std::shared_ptr<Plan> plan, txn_id_t *txn_id,
     }
   } else if (auto x = std::dynamic_pointer_cast<LoadDataPlan>(plan)) {
     // assert(x->tag == T_LoadData);
-    sm_manager_->AsyncLoadData(x->file_name_, x->tab_name_, context);
-    // sm_manager_->LoadData(x->file_name_, x->tab_name_, context);
+    storage_engine_->AsyncLoadData(x->file_name_, x->tab_name_, context);
+    // storage_engine_->LoadData(x->file_name_, x->tab_name_, context);
   }
 }
 
@@ -204,7 +204,7 @@ void QlManager::select_from(std::unique_ptr<AbstractExecutor> executorTreeRoot,
   // print header into file
   std::fstream outfile;
   outfile.open("output.txt", std::ios::out | std::ios::app);
-  bool enable_output = sm_manager_->IsEnableOutput();
+  bool enable_output = storage_engine_->IsEnableOutput();
   bool print_caption = false;
 
   // Print records

@@ -21,7 +21,7 @@ See the Mulan PSL v2 for more details. */
 #include "parser/parser.h"
 
 #include "common/common.h"
-#include "system/sm_manager.h"
+#include "storage/storage_engine.h"
 
 namespace easydb {
 
@@ -117,18 +117,18 @@ class ScanPlan : public Plan {
   /**
    * @brief 构造函数
    * @param tag 计划标签（T_SeqScan或T_IndexScan）
-   * @param sm_manager 系统管理器指针
+   * @param storage_engine 系统管理器指针
    * @param tab_name 表名
    * @param conds 扫描条件列表
    * @param index_col_names 索引列名列表（用于索引扫描）
    */
-  ScanPlan(PlanTag tag, SmManager *sm_manager, std::string tab_name,
+  ScanPlan(PlanTag tag, StorageEngine *storage_engine, std::string tab_name,
            std::vector<Condition> conds,
            std::vector<std::string> index_col_names) {
     Plan::tag = tag;
     tab_name_ = std::move(tab_name);
     conds_ = std::move(conds);
-    TabMeta &tab = sm_manager->db_.get_table(tab_name_);
+    TabMeta &tab = storage_engine->GetTableMeta(tab_name_);
     cols_ = tab.cols;
     len_ = cols_.back().offset + cols_.back().len;
     fed_conds_ = conds_;

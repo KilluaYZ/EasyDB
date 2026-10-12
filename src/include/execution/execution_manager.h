@@ -42,7 +42,7 @@ namespace easydb {
 class QlManager {
  private:
   /** @brief 系统管理器指针 */
-  SmManager *sm_manager_;
+  StorageEngine *storage_engine_;
 
   /** @brief 事务管理器指针 */
   TransactionManager *txn_mgr_;
@@ -53,27 +53,27 @@ class QlManager {
  public:
   /**
    * @brief 构造函数（完整版本）
-   * @param sm_manager 系统管理器指针
+   * @param storage_engine 系统管理器指针
    * @param txn_mgr 事务管理器指针
    * @param planner 查询计划器指针
    */
-  QlManager(SmManager *sm_manager, TransactionManager *txn_mgr,
+  QlManager(StorageEngine *storage_engine, TransactionManager *txn_mgr,
             Planner *planner)
-      : sm_manager_(sm_manager), txn_mgr_(txn_mgr), planner_(planner) {}
+      : storage_engine_(storage_engine), txn_mgr_(txn_mgr), planner_(planner) {}
 
   /**
    * @brief 构造函数（不带计划器）
-   * @param sm_manager 系统管理器指针
+   * @param storage_engine 系统管理器指针
    * @param txn_mgr 事务管理器指针
    */
-  QlManager(SmManager *sm_manager, TransactionManager *txn_mgr)
-      : sm_manager_(sm_manager), txn_mgr_(txn_mgr) {}
+  QlManager(StorageEngine *storage_engine, TransactionManager *txn_mgr)
+      : storage_engine_(storage_engine), txn_mgr_(txn_mgr) {}
 
   /**
    * @brief 构造函数（只带系统管理器）
-   * @param sm_manager 系统管理器指针
+   * @param storage_engine 系统管理器指针
    */
-  QlManager(SmManager *sm_manager) : sm_manager_(sm_manager) {}
+  QlManager(StorageEngine *storage_engine) : storage_engine_(storage_engine) {}
 
   /**
    * @brief 执行多查询计划

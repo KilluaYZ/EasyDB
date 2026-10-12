@@ -20,26 +20,25 @@ namespace easydb {
 
 /**
  * @description: 索引扫描执行器的构造函数
- * @param sm_manager 系统管理器指针
+ * @param storage_engine 系统管理器指针
  * @param tab_name 表名
  * @param conds 查询条件
  * @param index_col_names 索引列名列表
  * @param context 上下文指针
  */
-IndexScanExecutor::IndexScanExecutor(SmManager *sm_manager,
+IndexScanExecutor::IndexScanExecutor(StorageEngine *storage_engine,
                                      std::string tab_name,
                                      std::vector<Condition> conds,
                                      std::vector<std::string> index_col_names,
                                      Context *context) {
-  sm_manager_ = sm_manager;
+  storage_engine_ = storage_engine;
   context_ = context;
   tab_name_ = std::move(tab_name);
-  tab_ = sm_manager_->db_.get_table(tab_name_);
+  tab_ = storage_engine_->GetTableMeta(tab_name_);
   conds_ = std::move(conds);
   // index_no_ = index_no;
   index_col_names_ = index_col_names;
   index_meta_ = *(tab_.get_index_meta(index_col_names_));
-  fh_ = sm_manager_->fhs_.at(tab_name_).get();
 
   // cols_ = tab_.cols;
   schema_ = tab_.schema;
@@ -74,8 +73,8 @@ IndexScanExecutor::IndexScanExecutor(SmManager *sm_manager,
 
   // lock table
   if (context_ != nullptr) {
-    // context_->lock_mgr_->LockSharedOnTable(context_->txn_, fh_->GetFd());
-    context_->lock_mgr_->LockISOnTable(context_->txn_, fh_->GetFd());
+    context_->lock_mgr_->LockISOnTable(
+        context_->txn_, storage_engine_->GetTableLockId(tab_name_));
     // // IS lock only works for unique index (one column)
     // if (index_meta_.col_num == 1) {
     //     context_->lock_mgr_->LockISOnTable(context_->txn_, fh_->GetFd());
@@ -97,11 +96,6 @@ void IndexScanExecutor::beginTuple() {
   // std::cout << "IndexScanExecutor beginTuple" << std::endl;
   // 1. Determine the lower and upper bounds for the index scan based on the
   // conditions
-  auto index_name =
-      sm_manager_->GetIxManager()->GetIndexName(tab_name_, index_col_names_);
-  auto ih = sm_manager_->ihs_.at(index_name).get();
-  Iid lower = ih->LeafBegin();
-  Iid upper = ih->LeafEnd();
   // Initialize key buffer
   char *key_lower = new char[index_meta_.col_tot_len];
   char *key_upper = new char[index_meta_.col_tot_len];
@@ -135,8 +129,6 @@ void IndexScanExecutor::beginTuple() {
           cond.rhs_val.SerializeTo(key_lower + offset);
           cond.rhs_val.SerializeTo(key_upper + offset);
         }
-        lower = ih->LowerBound(key_lower);
-        upper = ih->UpperBound(key_upper);
         break;
       case OP_GE:
         // lower = ih->lower_bound(key);
@@ -148,7 +140,6 @@ void IndexScanExecutor::beginTuple() {
                                       .GetTypeSize(cond.rhs_val.GetTypeId()));
           cond.rhs_val.SerializeTo(key_lower + offset);
         }
-        lower = ih->LowerBound(key_lower);
         break;
       case OP_GT:
         // lower = ih->upper_bound(key);
@@ -160,7 +151,6 @@ void IndexScanExecutor::beginTuple() {
                                       .GetTypeSize(cond.rhs_val.GetTypeId()));
           cond.rhs_val.SerializeTo(key_lower + offset);
         }
-        lower = ih->UpperBound(key_lower);
         break;
       case OP_LE:
         // upper = ih->upper_bound(key);
@@ -172,7 +162,6 @@ void IndexScanExecutor::beginTuple() {
                                       .GetTypeSize(cond.rhs_val.GetTypeId()));
           cond.rhs_val.SerializeTo(key_upper + offset);
         }
-        upper = ih->UpperBound(key_upper);
         break;
       case OP_LT:
         // upper = ih->lower_bound(key);
@@ -184,7 +173,6 @@ void IndexScanExecutor::beginTuple() {
                                       .GetTypeSize(cond.rhs_val.GetTypeId()));
           cond.rhs_val.SerializeTo(key_upper + offset);
         }
-        upper = ih->LowerBound(key_upper);
         break;
       default:
         break;
@@ -192,7 +180,10 @@ void IndexScanExecutor::beginTuple() {
   }
 
   // 2. Initialize the index scan
-  scan_ = std::make_unique<IxScan>(ih, lower, upper, sm_manager_->GetBpm());
+  std::vector<char> lower(key_lower, key_lower + index_meta_.col_tot_len);
+  std::vector<char> upper(key_upper, key_upper + index_meta_.col_tot_len);
+  scan_ = storage_engine_->ScanIndex(tab_name_, index_col_names_, lower, upper,
+                                      context_);
 
   // 3. Find the first tuple that satisfies the conditions
   while (!IsEnd()) {
@@ -204,24 +195,6 @@ void IndexScanExecutor::beginTuple() {
       break;
     }
     scan_->Next();
-  }
-
-  // Lock the gap between lower and upper bounds
-  if (context_ != nullptr) {
-    // The reason do before check IsEnd() is that we need to lock the gap of
-    // next key when the current key is the last one in the index or the
-    // lower=upper.
-    auto iid = scan_->GetIid();
-    auto lower_iid = iid;
-    context_->lock_mgr_->LockGapOnIndex(context_->txn_, iid, fh_->GetFd());
-    // lock the gap of next key
-    while (!IsEnd()) {
-      scan_->Next();
-      iid = scan_->GetIid();
-      context_->lock_mgr_->LockGapOnIndex(context_->txn_, iid, fh_->GetFd());
-    }
-    // reset the lower bound to the first record
-    scan_->set_lower(lower_iid);
   }
 
   delete[] key_lower;

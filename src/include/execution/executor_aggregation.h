@@ -126,16 +126,16 @@ class AggregationExecutor : public AbstractExecutor {
   /**
    * @brief 系统管理器指针
    */
-  SmManager *sm_manager_;
+  StorageEngine *storage_engine_;
 
  public:
   /**
    * @brief 构造函数
-   * @param sm_manager 系统管理器指针
+   * @param storage_engine 系统管理器指针
    * @param prev 子节点执行器的智能指针
    * @param sel_col_ 选择的列列表（包含聚合函数）
    */
-  AggregationExecutor(SmManager *sm_manager,
+  AggregationExecutor(StorageEngine *storage_engine,
                       std::unique_ptr<AbstractExecutor> prev,
                       std::vector<TabCol> sel_col_);
   // std::vector<TabCol> group_cols, std::vector<Condition> having_conds);

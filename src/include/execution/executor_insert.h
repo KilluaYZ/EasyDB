@@ -13,8 +13,6 @@
 #include "common/errors.h"
 #include "execution_manager.h"
 #include "executor_abstract.h"
-#include "storage/index/ix_manager.h"
-#include "storage/index/ix_scan.h"
 #include "system/sm_defs.h"
 #include "system/sm_meta.h"
 #include "transaction/txn_defs.h"
@@ -44,8 +42,6 @@ class InsertExecutor : public AbstractExecutor {
    * @brief 表的数据文件句柄
    * @note 用于执行实际的插入操作
    */
-  RmFileHandle *fh_;
-
   /**
    * @brief 表名称
    */
@@ -60,17 +56,17 @@ class InsertExecutor : public AbstractExecutor {
   /**
    * @brief 系统管理器指针
    */
-  SmManager *sm_manager_;
+  StorageEngine *storage_engine_;
 
  public:
   /**
    * @brief 构造函数
-   * @param sm_manager 系统管理器指针
+   * @param storage_engine 系统管理器指针
    * @param tab_name 表名
    * @param values 要插入的值列表
    * @param context 事务上下文指针
    */
-  InsertExecutor(SmManager *sm_manager, const std::string &tab_name,
+  InsertExecutor(StorageEngine *storage_engine, const std::string &tab_name,
                  std::vector<Value> values, Context *context);
 
   /**

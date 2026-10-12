@@ -14,19 +14,18 @@ namespace easydb {
 
 /**
  * @description: 顺序扫描执行器的构造函数
- * @param sm_manager 系统管理器指针
+ * @param storage_engine 系统管理器指针
  * @param tab_name 表名
  * @param conds 查询条件
  * @param context 上下文指针
  */
-SeqScanExecutor::SeqScanExecutor(SmManager *sm_manager, std::string tab_name,
+SeqScanExecutor::SeqScanExecutor(StorageEngine *storage_engine, std::string tab_name,
                                  std::vector<Condition> conds,
                                  Context *context) {
-  sm_manager_ = sm_manager;
+  storage_engine_ = storage_engine;
   tab_name_ = std::move(tab_name);
   conds_ = std::move(conds);
-  TabMeta &tab = sm_manager_->db_.get_table(tab_name_);
-  fh_ = sm_manager_->fhs_.at(tab_name_).get();
+  TabMeta &tab = storage_engine_->GetTableMeta(tab_name_);
   schema_ = tab.schema;
   cols_ = tab.cols;
   // len_ = cols_.back().offset + cols_.back().len;
@@ -38,7 +37,8 @@ SeqScanExecutor::SeqScanExecutor(SmManager *sm_manager, std::string tab_name,
 
   // lock table
   if (context_ != nullptr) {
-    context_->lock_mgr_->LockSharedOnTable(context_->txn_, fh_->GetFd());
+    context_->lock_mgr_->LockSharedOnTable(
+        context_->txn_, storage_engine_->GetTableLockId(tab_name_));
   }
 }
 
@@ -46,7 +46,7 @@ SeqScanExecutor::SeqScanExecutor(SmManager *sm_manager, std::string tab_name,
  * @description: 初始化顺序扫描，定位到第一个满足条件的记录
  */
 void SeqScanExecutor::beginTuple() {
-  scan_ = std::make_unique<RmScan>(fh_);
+  scan_ = storage_engine_->ScanTable(tab_name_, context_);
   rid_ = scan_->GetRid();
   while (!IsEnd() && !predicate()) {
     scan_->Next();
@@ -65,7 +65,7 @@ void SeqScanExecutor::nextTuple() {
 }
 
 std::unique_ptr<Tuple> SeqScanExecutor::Next() {
-  return fh_->GetTupleValue(rid_, context_);
+  return storage_engine_->ReadTuple(tab_name_, rid_, context_);
 }
 
 /**

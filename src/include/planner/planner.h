@@ -24,13 +24,13 @@ See the Mulan PSL v2 for more details. */
 #include "parser/parser.h"
 #include "plan.h"
 #include "record/rm.h"
-#include "system/sm.h"
+#include "storage/storage_engine.h"
 #include "type/type_id.h"
 
 namespace easydb {
 class Planner {
  private:
-  SmManager *sm_manager_;
+  StorageEngine *storage_engine_;
 
   bool enable_nestedloop_join = true;
   bool enable_sortmerge_join = false;
@@ -63,7 +63,7 @@ class Planner {
   }
 
  public:
-  Planner(SmManager *sm_manager) : sm_manager_(sm_manager) {}
+  Planner(StorageEngine *storage_engine) : storage_engine_(storage_engine) {}
 
   std::shared_ptr<Plan> do_planner(std::shared_ptr<Query> query,
                                    Context *context);

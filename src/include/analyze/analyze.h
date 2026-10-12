@@ -19,7 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/common.h"
 #include "common/condition.h"
 #include "parser/parser.h"
-#include "system/sm.h"
+#include "storage/storage_engine.h"
 
 namespace easydb {
 
@@ -132,14 +132,14 @@ class Analyze {
    * @brief 系统管理器指针
    * @note 用于访问数据库元数据，检查表和列是否存在
    */
-  SmManager *sm_manager_;
+  StorageEngine *storage_engine_;
 
  public:
   /**
    * @brief 构造函数
-   * @param sm_manager 系统管理器指针
+   * @param storage_engine 系统管理器指针
    */
-  Analyze(SmManager *sm_manager) : sm_manager_(sm_manager) {}
+  Analyze(StorageEngine *storage_engine) : storage_engine_(storage_engine) {}
 
   /**
    * @brief 析构函数

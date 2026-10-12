@@ -15,10 +15,8 @@
 #include "defs.h"
 #include "execution_manager.h"
 #include "executor_abstract.h"
-#include "storage/index/ix_manager.h"
-#include "storage/index/ix_scan.h"
 #include "system/sm_defs.h"
-#include "system/sm_manager.h"
+#include "storage/storage_engine.h"
 #include "system/sm_meta.h"
 namespace easydb {
 
@@ -45,8 +43,6 @@ class SeqScanExecutor : public AbstractExecutor {
    * @brief 表的数据文件句柄
    * @note 用于访问表的实际数据
    */
-  RmFileHandle *fh_;
-
   /**
    * @brief 扫描后生成的记录的字段元数据
    */
@@ -77,24 +73,24 @@ class SeqScanExecutor : public AbstractExecutor {
    * @brief 表迭代器（记录扫描器）
    * @note 用于遍历表中的所有元组
    */
-  std::unique_ptr<RecScan> scan_;
+  std::unique_ptr<TableScan> scan_;
 
   /**
    * @brief 系统管理器指针
    */
-  SmManager *sm_manager_;
+  StorageEngine *storage_engine_;
 
  public:
   /**
    * @brief 构造函数
-   * @param sm_manager 系统管理器指针
+   * @param storage_engine 系统管理器指针
    * @param tab_name 表名
    * @param conds 扫描条件列表
    * @param context 事务上下文指针
    */
-  SeqScanExecutor(SmManager *sm_manager, std::string tab_name,
+  SeqScanExecutor(StorageEngine *storage_engine, std::string tab_name,
                   std::vector<Condition> conds, Context *context);
-  // SeqScanExecutor(SmManager *sm_manager, std::string tab_name,
+  // SeqScanExecutor(StorageEngine *storage_engine, std::string tab_name,
   // std::vector<Condition> conds);
 
   /**

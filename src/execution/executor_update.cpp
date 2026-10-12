@@ -15,30 +15,30 @@ namespace easydb {
 
 /**
  * @description: 更新执行器的构造函数
- * @param sm_manager 系统管理器指针
+ * @param storage_engine 系统管理器指针
  * @param tab_name 表名
  * @param set_clauses 更新子句列表
  * @param conds 更新条件
  * @param rids 要更新的记录ID列表
  * @param context 上下文指针
  */
-UpdateExecutor::UpdateExecutor(SmManager *sm_manager,
+UpdateExecutor::UpdateExecutor(StorageEngine *storage_engine,
                                const std::string &tab_name,
                                std::vector<SetClause> set_clauses,
                                std::vector<Condition> conds,
                                std::vector<RID> rids, Context *context) {
-  sm_manager_ = sm_manager;
+  storage_engine_ = storage_engine;
   tab_name_ = tab_name;
   set_clauses_ = set_clauses;
-  tab_ = sm_manager_->db_.get_table(tab_name);
-  fh_ = sm_manager_->fhs_.at(tab_name).get();
+  tab_ = storage_engine_->GetTableMeta(tab_name);
   conds_ = conds;
   rids_ = rids;
   context_ = context;
 
   // lock table
   if (context_ != nullptr) {
-    context_->lock_mgr_->LockIXOnTable(context_->txn_, fh_->GetFd());
+    context_->lock_mgr_->LockIXOnTable(
+        context_->txn_, storage_engine_->GetTableLockId(tab_name));
   }
 }
 
@@ -52,7 +52,7 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
   for (int i = 0; i < rid_size; i++) {
     RID rid = rids_[i];
     // get records and construct updated value buf
-    auto tuple = fh_->GetTupleValue(rid, context_);
+    auto tuple = storage_engine_->ReadTuple(tab_name_, rid, context_);
     auto old_values = tuple->GetValueVec(&tab_.schema);
     auto new_values = old_values;
 
@@ -79,10 +79,6 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
     // 1. construct key_d and key_i
     // 2. delete old index entry and insert new index entry
     for (auto index : tab_.indexes) {
-      auto ih = sm_manager_->ihs_
-                    .at(sm_manager_->GetIxManager()->GetIndexName(tab_name_,
-                                                                  index.cols))
-                    .get();
       auto ids = index.col_ids;
       char *key_d = new char[index.col_tot_len];
       char *key_i = new char[index.col_tot_len];
@@ -105,14 +101,21 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
 
       // Wait for GAP lock before insert
       if (context_ != nullptr) {
-        Iid lower = ih->LowerBound(key_i);
-        context_->lock_mgr_->HandleIndexGapWaitDie(context_->txn_, lower,
-                                                   fh_->GetFd());
+        std::vector<std::string> index_columns;
+        for (const auto &column : index.cols)
+          index_columns.push_back(column.name);
+        storage_engine_->WaitForIndexGap(tab_name_, index_columns,
+                                          std::vector<char>(key_i, key_i + index.col_tot_len),
+                                          context_);
       }
 
       // check if the new key duplicated
-      auto is_insert = ih->InsertEntry(key_i, rid, context_->txn_);
-      if (is_insert == -1) {
+      std::vector<std::string> index_columns;
+      for (const auto &column : index.cols) index_columns.push_back(column.name);
+      std::vector<char> new_key(key_i, key_i + index.col_tot_len);
+      auto is_insert = storage_engine_->InsertIndexEntry(
+          tab_name_, index_columns, new_key, rid, context_);
+      if (!is_insert) {
         std::vector<std::string> col_names;
         for (auto col : index.cols) {
           col_names.emplace_back(col.name);
@@ -122,12 +125,14 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
 
       // Wait for GAP lock before delete
       if (context_ != nullptr) {
-        Iid lower = ih->LowerBound(key_d);
-        context_->lock_mgr_->HandleIndexGapWaitDie(context_->txn_, lower,
-                                                   fh_->GetFd());
+        storage_engine_->WaitForIndexGap(
+            tab_name_, index_columns,
+            std::vector<char>(key_d, key_d + index.col_tot_len), context_);
       }
 
-      ih->DeleteEntry(key_d, context_->txn_);
+      storage_engine_->DeleteIndexEntry(
+          tab_name_, index_columns,
+          std::vector<char>(key_d, key_d + index.col_tot_len), context_);
       delete[] key_d;
       delete[] key_i;
     }
@@ -138,7 +143,7 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
 
     // update records
     // fh_->UpdateTupleInPlace(TupleMeta{0, false}, new_tuple, context_);
-    fh_->UpdateTupleInPlace(TupleMeta{0, false}, new_tuple, rid, context_);
+    storage_engine_->UpdateTuple(tab_name_, rid, new_tuple, context_);
 
     // // Log the update operation(after update)
     // update_log_rec.prev_lsn_ = context_->txn_->GetPrevLsn();

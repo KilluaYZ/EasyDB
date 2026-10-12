@@ -30,6 +30,7 @@ See the Mulan PSL v2 for more details. */
 #include "execution/executor_seq_scan.h"
 #include "execution/executor_update.h"
 #include "planner/plan.h"
+#include "storage/storage_engine.h"
 
 namespace easydb {
 
@@ -60,10 +61,10 @@ struct PortalStmt {
 
 class Portal {
  private:
-  SmManager *sm_manager_;
+  StorageEngine *storage_engine_;
 
  public:
-  Portal(SmManager *sm_manager) : sm_manager_(sm_manager) {}
+  Portal(StorageEngine *storage_engine) : storage_engine_(storage_engine) {}
   ~Portal() {}
 
   // 将查询执行计划转换成对应的算子树
@@ -106,7 +107,7 @@ class Portal {
             rids.push_back(scan->rid());
           }
           std::unique_ptr<AbstractExecutor> root =
-              std::make_unique<UpdateExecutor>(sm_manager_, x->tab_name_,
+              std::make_unique<UpdateExecutor>(storage_engine_, x->tab_name_,
                                                x->set_clauses_, x->conds_, rids,
                                                context);
           return std::make_shared<PortalStmt>(PORTAL_DML_WITHOUT_SELECT,
@@ -122,7 +123,7 @@ class Portal {
           }
 
           std::unique_ptr<AbstractExecutor> root =
-              std::make_unique<DeleteExecutor>(sm_manager_, x->tab_name_,
+              std::make_unique<DeleteExecutor>(storage_engine_, x->tab_name_,
                                                x->conds_, rids, context);
 
           return std::make_shared<PortalStmt>(PORTAL_DML_WITHOUT_SELECT,
@@ -131,7 +132,7 @@ class Portal {
         }
         case T_Insert: {
           std::unique_ptr<AbstractExecutor> root =
-              std::make_unique<InsertExecutor>(sm_manager_, x->tab_name_,
+              std::make_unique<InsertExecutor>(storage_engine_, x->tab_name_,
                                                x->values_, context);
 
           return std::make_shared<PortalStmt>(PORTAL_DML_WITHOUT_SELECT,
@@ -205,13 +206,13 @@ class Portal {
         }
       }
       if (x->tag == T_SeqScan) {
-        return std::make_unique<SeqScanExecutor>(sm_manager_, x->tab_name_,
+        return std::make_unique<SeqScanExecutor>(storage_engine_, x->tab_name_,
                                                  x->conds_, context);
-        // return std::make_unique<SeqScanExecutor>(sm_manager_, x->tab_name_,
+        // return std::make_unique<SeqScanExecutor>(storage_engine_, x->tab_name_,
         // x->conds_);
       } else {
         return std::make_unique<IndexScanExecutor>(
-            sm_manager_, x->tab_name_, x->conds_, x->index_col_names_, context);
+            storage_engine_, x->tab_name_, x->conds_, x->index_col_names_, context);
       }
     } else if (auto x = std::dynamic_pointer_cast<JoinPlan>(plan)) {
       std::unique_ptr<AbstractExecutor> left =
@@ -242,7 +243,7 @@ class Portal {
           x->is_desc_);
     } else if (auto x = std::dynamic_pointer_cast<AggregationPlan>(plan)) {
       return std::make_unique<AggregationExecutor>(
-          sm_manager_, convert_plan_executor(x->subplan_, context),
+          storage_engine_, convert_plan_executor(x->subplan_, context),
           x->sel_cols_);
       //  x->sel_cols_, x->group_cols_, x->having_conds_);
       // UNIMPLEMENTED("AggregationExecutor is not implemented yet.");

@@ -25,6 +25,7 @@
 #include "planner/plan.h"
 #include "planner/planner.h"
 #include "recovery/log_recovery.h"
+#include "storage/easydb_storage_engine.h"
 
 // #define SOCK_PORT 8765
 #define MAX_CONN_LIMIT 256
@@ -40,6 +41,7 @@ std::unique_ptr<BufferPoolManager> buffer_pool_manager;
 std::unique_ptr<RmManager> rm_manager;
 std::unique_ptr<IxManager> ix_manager;
 std::unique_ptr<SmManager> sm_manager;
+std::unique_ptr<EasyDBStorageEngine> storage_engine;
 std::unique_ptr<LockManager> lock_manager;
 std::unique_ptr<TransactionManager> txn_manager;
 std::unique_ptr<Planner> planner;
@@ -385,20 +387,21 @@ int main(int argc, char **argv) {
     sm_manager = std::make_unique<SmManager>(
         disk_manager.get(), buffer_pool_manager.get(), rm_manager.get(),
         ix_manager.get());
+    storage_engine = std::make_unique<EasyDBStorageEngine>(sm_manager.get());
     lock_manager = std::make_unique<LockManager>();
     txn_manager = std::make_unique<TransactionManager>(lock_manager.get(),
                                                        sm_manager.get());
-    planner = std::make_unique<Planner>(sm_manager.get());
+    planner = std::make_unique<Planner>(storage_engine.get());
     optimizer = std::make_unique<Optimizer>(sm_manager.get(), planner.get());
-    ql_manager = std::make_unique<QlManager>(sm_manager.get(),
+    ql_manager = std::make_unique<QlManager>(storage_engine.get(),
                                              txn_manager.get(), planner.get());
     log_manager = std::make_unique<LogManager>(disk_manager.get());
     recovery = std::make_unique<RecoveryManager>(
         disk_manager.get(), buffer_pool_manager.get(), sm_manager.get(),
         txn_manager.get(), log_manager.get());
 
-    portal = std::make_unique<Portal>(sm_manager.get());
-    analyze = std::make_unique<Analyze>(sm_manager.get());
+    portal = std::make_unique<Portal>(storage_engine.get());
+    analyze = std::make_unique<Analyze>(storage_engine.get());
 
     signal(SIGINT, sigint_handler);
     if (!sm_manager->IsDir(db_name)) {

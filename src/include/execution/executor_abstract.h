@@ -14,6 +14,7 @@
 #include "common/context.h"
 #include "common/errors.h"
 #include "defs.h"
+#include "storage/storage_engine.h"
 #include "storage/index/ix_manager.h"
 #include "storage/index/ix_scan.h"
 #include "system/sm_defs.h"

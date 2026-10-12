@@ -41,8 +41,8 @@ std::shared_ptr<Query> Analyze::do_analyze(
     // LoadData语句，暂不处理
   } else {
     // 如果不是LoadData语句，检查是否需要完成异步数据加载
-    if (sm_manager_->GetLoadStatus() == 0) {
-      sm_manager_->AsyncLoadDataFinish();
+    if (storage_engine_->GetLoadStatus() == 0) {
+      storage_engine_->AsyncLoadDataFinish();
     }
   }
   
@@ -54,7 +54,7 @@ std::shared_ptr<Query> Analyze::do_analyze(
     
     // 检查每个表是否存在，如果不存在则抛出异常
     for (auto tab_name : query->tables) {
-      if (!sm_manager_->db_.is_table(tab_name)) {
+      if (!storage_engine_->HasTable(tab_name)) {
         throw TableNotFoundError(tab_name);
       }
     }
@@ -143,7 +143,7 @@ std::shared_ptr<Query> Analyze::do_analyze(
                  parse)) {
 
     // 检查表是否存在
-    if (!sm_manager_->db_.is_table(x->tab_name)) {
+    if (!storage_engine_->HasTable(x->tab_name)) {
       throw TableNotFoundError(x->tab_name);
     }
     query->tables = {x->tab_name};
@@ -243,7 +243,7 @@ TabCol Analyze::check_column(const std::vector<ColMeta> &all_cols,
   } else {
     // ========== 情况2: 表名已指定，验证列是否存在 ==========
     // 首先检查表是否存在
-    if (!sm_manager_->db_.is_table(target.tab_name)) {
+    if (!storage_engine_->HasTable(target.tab_name)) {
       throw TableNotFoundError(target.tab_name);
     }
     // 在指定表中查找列
@@ -272,7 +272,7 @@ void Analyze::get_all_cols(const std::vector<std::string> &tab_names,
   // 遍历每个表，将其列信息追加到all_cols中
   for (auto &sel_tab_name : tab_names) {
     // 获取表的列元数据
-    const auto &sel_tab_cols = sm_manager_->db_.get_table(sel_tab_name).cols;
+    const auto &sel_tab_cols = storage_engine_->GetTableMeta(sel_tab_name).cols;
     // 将当前表的列信息追加到all_cols末尾
     all_cols.insert(all_cols.end(), sel_tab_cols.begin(), sel_tab_cols.end());
   }
@@ -425,14 +425,14 @@ void Analyze::get_clause(
 //                 cond.rhs_col = check_column(all_cols, cond.rhs_col);
 //             }
 //             TabMeta &lhs_tab =
-//             sm_manager_->db_.get_table(cond.lhs_col.tab_name); auto lhs_col =
+//             storage_engine_->GetTableMeta(cond.lhs_col.tab_name); auto lhs_col =
 //             lhs_tab.get_col(cond.lhs_col.col_name); ColType lhs_type =
 //             lhs_col->type; ColType rhs_type; if (cond.is_rhs_val) {
 //                 cond.rhs_val.init_raw(lhs_col->len);
 //                 rhs_type = cond.rhs_val.type;
 //             } else {
 //                 TabMeta &rhs_tab =
-//                 sm_manager_->db_.get_table(cond.rhs_col.tab_name); auto
+//                 storage_engine_->GetTableMeta(cond.rhs_col.tab_name); auto
 //                 rhs_col = rhs_tab.get_col(cond.rhs_col.col_name); rhs_type =
 //                 rhs_col->type;
 //             }
@@ -528,7 +528,7 @@ void Analyze::check_clause(const std::vector<std::string> &tab_names,
 
       // ========== 步骤5: 类型兼容性检查 ==========
       // 获取左侧列的类型
-      TabMeta &lhs_tab = sm_manager_->db_.get_table(cond.lhs_col.tab_name);
+      TabMeta &lhs_tab = storage_engine_->GetTableMeta(cond.lhs_col.tab_name);
       auto lhs_col = lhs_tab.get_col(cond.lhs_col.col_name);
       ColType lhs_type = lhs_col->type;
       
@@ -539,7 +539,7 @@ void Analyze::check_clause(const std::vector<std::string> &tab_names,
         rhs_type = cond.rhs_val.GetTypeId();
       } else {
         // 右侧是列，获取列的类型
-        TabMeta &rhs_tab = sm_manager_->db_.get_table(cond.rhs_col.tab_name);
+        TabMeta &rhs_tab = storage_engine_->GetTableMeta(cond.rhs_col.tab_name);
         auto rhs_col = rhs_tab.get_col(cond.rhs_col.col_name);
         rhs_type = rhs_col->type;
       }

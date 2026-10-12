@@ -19,8 +19,6 @@
 #include "defs.h"
 #include "execution_manager.h"
 #include "executor_abstract.h"
-#include "storage/index/ix_manager.h"
-#include "storage/index/ix_scan.h"
 #include "system/sm_defs.h"
 #include "system/sm_meta.h"
 namespace easydb {
@@ -53,8 +51,6 @@ class IndexScanExecutor : public AbstractExecutor {
    * @brief 表的数据文件句柄
    * @note 用于访问表的实际数据
    */
-  RmFileHandle *fh_;
-
   // std::vector<ColMeta> cols_;         // 需要读取的字段
 
   /**
@@ -93,23 +89,23 @@ class IndexScanExecutor : public AbstractExecutor {
    * @brief 索引扫描器
    * @note 用于遍历索引，获取满足条件的RID列表
    */
-  std::unique_ptr<IxScan> scan_;
+  std::unique_ptr<IndexScan> scan_;
 
   /**
    * @brief 系统管理器指针
    */
-  SmManager *sm_manager_;
+  StorageEngine *storage_engine_;
 
  public:
   /**
    * @brief 构造函数
-   * @param sm_manager 系统管理器指针
+   * @param storage_engine 系统管理器指针
    * @param tab_name 表名
    * @param conds 扫描条件列表
    * @param index_col_names 索引列名列表
    * @param context 事务上下文指针
    */
-  IndexScanExecutor(SmManager *sm_manager, std::string tab_name,
+  IndexScanExecutor(StorageEngine *storage_engine, std::string tab_name,
                     std::vector<Condition> conds,
                     std::vector<std::string> index_col_names, Context *context);
 
@@ -170,7 +166,7 @@ class IndexScanExecutor : public AbstractExecutor {
    */
   std::unique_ptr<Tuple> Next() override {
     // assert(!IsEnd());
-    return fh_->GetTupleValue(rid_, context_);
+    return storage_engine_->ReadTuple(tab_name_, rid_, context_);
   }
 
  private:

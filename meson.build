@@ -95,6 +95,7 @@ easydb_sources = files(
   'src/system/sm_manager.cpp',
   'src/analyze/analyze.cpp',
   'src/parser/ast.cpp',
+  'src/storage/easydb_storage_engine.cpp',
 )
 
 easydb = static_library(

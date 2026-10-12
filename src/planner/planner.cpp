@@ -571,7 +571,7 @@ bool Planner::get_index_cols(std::string tab_name,
       }
     }
   }
-  TabMeta &tab = sm_manager_->db_.get_table(tab_name);
+  TabMeta &tab = storage_engine_->GetTableMeta(tab_name);
   if (tab.is_index(index_col_names)) return true;
   return false;
 }
@@ -607,7 +607,7 @@ bool Planner::get_index_cols_swap(std::string tab_name,
       }
     }
   }
-  TabMeta &tab = sm_manager_->db_.get_table(tab_name);
+  TabMeta &tab = storage_engine_->GetTableMeta(tab_name);
   if (tab.is_index(index_col_names)) return true;
   return false;
 }
@@ -755,7 +755,7 @@ void Planner::reorder_conds_based_on_table_size(std::shared_ptr<Query> query) {
   }
 
   auto get_table_size = [&](const std::string &tab_name) {
-    int count = sm_manager_->GetTableCount(tab_name);
+    int count = storage_engine_->GetTableCount(tab_name);
     if (count < 0) {
       count = 1000;  // 若无统计信息则假设为1000
     }
@@ -767,9 +767,9 @@ void Planner::reorder_conds_based_on_table_size(std::shared_ptr<Query> query) {
                                    const std::string &right_tab_name,
                                    const std::string &right_col_name) {
     int left_count =
-        sm_manager_->GetTableAttrDistinct(left_tab_name, left_col_name);
+        storage_engine_->GetTableAttrDistinct(left_tab_name, left_col_name);
     int right_count =
-        sm_manager_->GetTableAttrDistinct(right_tab_name, right_col_name);
+        storage_engine_->GetTableAttrDistinct(right_tab_name, right_col_name);
     if (left_count < 0 && right_count < 0) {
       return 1;  // 若无统计信息则返回1，相当于不进行distinct值统计
     }
@@ -877,8 +877,8 @@ void Planner::reorder_joins(std::shared_ptr<Query> query) {
  * @return double 估计的扫描代价（行数）
  */
 double Planner::estimate_table_scan_cost(const std::string &tab_name) {
-  // 简单估计：行数越多，cost越高。行数从sm_manager_获取
-  int count = sm_manager_->GetTableCount(tab_name);
+  // 简单估计：行数越多，cost越高。行数从storage_engine_获取
+  int count = storage_engine_->GetTableCount(tab_name);
   if (count < 0) {
     // 如果没有统计信息，假设一个默认值
     return 1000.0;
@@ -978,10 +978,10 @@ std::shared_ptr<Plan> Planner::make_one_rel(std::shared_ptr<Query> query,
     if (index_exist == false) {  // 该表没有匹配的索引，使用顺序扫描
       index_col_names.clear();
       table_scan_executors[i] = std::make_shared<ScanPlan>(
-          T_SeqScan, sm_manager_, tables[i], curr_conds, index_col_names);
+          T_SeqScan, storage_engine_, tables[i], curr_conds, index_col_names);
     } else {  // 存在匹配的索引，使用索引扫描
       table_scan_executors[i] = std::make_shared<ScanPlan>(
-          T_IndexScan, sm_manager_, tables[i], curr_conds, index_col_names);
+          T_IndexScan, storage_engine_, tables[i], curr_conds, index_col_names);
     }
   }
   // 只有一个表，不需要join，直接返回扫描计划
@@ -1034,10 +1034,10 @@ std::shared_ptr<Plan> Planner::make_one_rel(std::shared_ptr<Query> query,
           // Note that we need the original condition!
           // 重新创建索引扫描计划
           left = std::make_shared<ScanPlan>(
-              T_IndexScan, sm_manager_, it->lhs_col.tab_name, left->get_conds(),
+              T_IndexScan, storage_engine_, it->lhs_col.tab_name, left->get_conds(),
               index_col_name_left);
           right = std::make_shared<ScanPlan>(
-              T_IndexScan, sm_manager_, it->rhs_col.tab_name,
+              T_IndexScan, storage_engine_, it->rhs_col.tab_name,
               right->get_conds(), index_col_name_right);
 
           // 使用索引合并连接（Index Merge Join）
@@ -1151,7 +1151,7 @@ std::shared_ptr<Plan> Planner::generate_sort_plan(std::shared_ptr<Query> query,
   std::vector<ColMeta> all_cols;
   for (auto &sel_tab_name : tables) {
     // 这里db_不能写成get_db(), 注意要传指针
-    const auto &sel_tab_cols = sm_manager_->db_.get_table(sel_tab_name).cols;
+    const auto &sel_tab_cols = storage_engine_->GetTableMeta(sel_tab_name).cols;
     all_cols.insert(all_cols.end(), sel_tab_cols.begin(), sel_tab_cols.end());
   }
   // 查找排序列
@@ -1289,10 +1289,10 @@ std::shared_ptr<Plan> Planner::do_planner(std::shared_ptr<Query> query,
     if (index_exist == false) {  // 该表没有匹配的索引，使用顺序扫描
       index_col_names.clear();
       table_scan_executors = std::make_shared<ScanPlan>(
-          T_SeqScan, sm_manager_, x->tab_name, query->conds, index_col_names);
+          T_SeqScan, storage_engine_, x->tab_name, query->conds, index_col_names);
     } else {  // 存在匹配的索引，使用索引扫描
       table_scan_executors = std::make_shared<ScanPlan>(
-          T_IndexScan, sm_manager_, x->tab_name, query->conds, index_col_names);
+          T_IndexScan, storage_engine_, x->tab_name, query->conds, index_col_names);
     }
 
     plannerRoot = std::make_shared<DMLPlan>(
@@ -1311,10 +1311,10 @@ std::shared_ptr<Plan> Planner::do_planner(std::shared_ptr<Query> query,
     if (index_exist == false) {  // 该表没有匹配的索引，使用顺序扫描
       index_col_names.clear();
       table_scan_executors = std::make_shared<ScanPlan>(
-          T_SeqScan, sm_manager_, x->tab_name, query->conds, index_col_names);
+          T_SeqScan, storage_engine_, x->tab_name, query->conds, index_col_names);
     } else {  // 存在匹配的索引，使用索引扫描
       table_scan_executors = std::make_shared<ScanPlan>(
-          T_IndexScan, sm_manager_, x->tab_name, query->conds, index_col_names);
+          T_IndexScan, storage_engine_, x->tab_name, query->conds, index_col_names);
     }
     plannerRoot = std::make_shared<DMLPlan>(T_Update, table_scan_executors,
                                             x->tab_name, std::vector<Value>(),

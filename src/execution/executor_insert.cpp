@@ -17,27 +17,27 @@ namespace easydb {
 
 /**
  * @description: 插入执行器的构造函数
- * @param sm_manager 系统管理器指针
+ * @param storage_engine 系统管理器指针
  * @param tab_name 表名
  * @param values 要插入的值列表
  * @param context 上下文指针
  */
-InsertExecutor::InsertExecutor(SmManager *sm_manager,
+InsertExecutor::InsertExecutor(StorageEngine *storage_engine,
                                const std::string &tab_name,
                                std::vector<Value> values, Context *context) {
-  sm_manager_ = sm_manager;
-  tab_ = sm_manager_->db_.get_table(tab_name);
+  storage_engine_ = storage_engine;
+  tab_ = storage_engine_->GetTableMeta(tab_name);
   values_ = values;
   tab_name_ = tab_name;
   if (values.size() != tab_.cols.size()) {
     throw InvalidValueCountError();
   }
-  fh_ = sm_manager_->fhs_.at(tab_name).get();
   context_ = context;
 
   // lock table
   if (context_ != nullptr) {
-    context_->lock_mgr_->LockIXOnTable(context_->txn_, fh_->GetFd());
+    context_->lock_mgr_->LockIXOnTable(
+        context_->txn_, storage_engine_->GetTableLockId(tab_name));
   }
 };
 
@@ -53,10 +53,6 @@ std::unique_ptr<Tuple> InsertExecutor::Next() {
   // Wait for GAP lock first
   if (context_ != nullptr) {
     for (auto index : tab_.indexes) {
-      auto ih = sm_manager_->ihs_
-                    .at(sm_manager_->GetIxManager()->GetIndexName(tab_name_,
-                                                                  index.cols))
-                    .get();
       auto key_schema = Schema::CopySchema(&tab_.schema, index.col_ids);
       auto key_tuple =
           tuple.KeyFromTuple(tab_.schema, key_schema, index.col_ids);
@@ -71,18 +67,15 @@ std::unique_ptr<Tuple> InsertExecutor::Next() {
       }
       keys.emplace_back(key);
       // wait
-      Iid lower = ih->LowerBound(key.data());
-      context_->lock_mgr_->HandleIndexGapWaitDie(context_->txn_, lower,
-                                                 fh_->GetFd());
+      std::vector<std::string> index_columns;
+      for (const auto &column : index.cols) index_columns.push_back(column.name);
+      storage_engine_->WaitForIndexGap(tab_name_, index_columns, key, context_);
     }
   }
   // Now we can insert the record into the file and index safely
 
   // Insert into record file
-  auto rid = fh_->InsertTuple(TupleMeta{0, false}, tuple, context_);
-  // auto page_id = rid->GetPageId();
-  // auto slot_num = rid->GetSlotNum();
-  rid_ = RID{rid->GetPageId(), rid->GetSlotNum()};
+  rid_ = storage_engine_->InsertTuple(tab_name_, tuple, context_);
 
   // // Log the insert operation
   // InsertLogRecord insert_log_rec(context_->txn_->GetTransactionId(), rec,
@@ -96,16 +89,15 @@ std::unique_ptr<Tuple> InsertExecutor::Next() {
   int index_len = tab_.indexes.size();
   for (auto i = 0; i < index_len; ++i) {
     auto index = tab_.indexes[i];
-    auto ih = sm_manager_->ihs_
-                  .at(sm_manager_->GetIxManager()->GetIndexName(tab_name_,
-                                                                index.cols))
-                  .get();
     auto key = keys[i];
 
-    auto is_insert = ih->InsertEntry(key.data(), rid_, context_->txn_);
+    std::vector<std::string> index_columns;
+    for (const auto &column : index.cols) index_columns.push_back(column.name);
+    auto is_insert = storage_engine_->InsertIndexEntry(
+        tab_name_, index_columns, key, rid_, context_);
 
-    if (is_insert == -1) {
-      fh_->DeleteTuple(rid_, context_);
+    if (!is_insert) {
+      storage_engine_->DeleteTuple(tab_name_, rid_, context_);
       std::vector<std::string> col_names;
       for (auto col : index.cols) {
         col_names.emplace_back(col.name);
@@ -119,7 +111,7 @@ std::unique_ptr<Tuple> InsertExecutor::Next() {
       new WriteRecord(WType::INSERT_TUPLE, tab_name_, rid_);
   context_->txn_->AppendWriteRecord(write_record);
 
-  sm_manager_->UpdateTableCount(tab_name_, 1);
+  storage_engine_->UpdateTableCount(tab_name_, 1);
 
   return nullptr;
 }

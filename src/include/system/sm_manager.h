@@ -13,6 +13,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/context.h"
 #include "record/rm_file_handle.h"
 #include "record/rm_manager.h"
+#include "system/catalog_defs.h"
 #include "sm_defs.h"
 #include "sm_meta.h"
 #include "storage/index/ix_defs.h"
@@ -23,21 +24,6 @@ See the Mulan PSL v2 for more details. */
 namespace easydb {
 
 class Context;
-
-/**
- * @brief 列定义结构体
- * @note 用于CREATE TABLE语句中定义列
- */
-struct ColDef {
-  /** @brief 列名 */
-  std::string name;
-
-  /** @brief 列的类型 */
-  ColType type;
-
-  /** @brief 列的长度（对于变长类型） */
-  int len;
-};
 
 /**
  * @brief 系统管理器类，负责元数据管理和DDL语句的执行
