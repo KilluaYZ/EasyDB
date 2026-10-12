@@ -27,6 +27,7 @@ pub struct SeqScanExec {
     page: i32,
     slot: u32,
     num_pages: i32,
+    page_limits: Vec<u16>,
     done: bool,
 }
 
@@ -50,6 +51,9 @@ impl SeqScanExec {
         conds: Vec<ResolvedCond>,
     ) -> Self {
         let num_pages = fh.file_hdr().num_pages;
+        let page_limits = (0..num_pages)
+            .map(|page| fh.page_num_tuples(page).unwrap_or(0))
+            .collect();
         let tuple_schema = Schema::new(table_cols.clone());
         let schema = RowSchema::new(
             table_cols
@@ -65,6 +69,7 @@ impl SeqScanExec {
             page: crate::record::rm_defs::RM_FIRST_RECORD_PAGE,
             slot: 0,
             num_pages,
+            page_limits,
             done: false,
         }
     }
@@ -74,7 +79,11 @@ impl SeqScanExec {
             if self.done || self.page >= self.num_pages {
                 return None;
             }
-            let num_records = self.fh.page_num_tuples(self.page).unwrap_or(0);
+            let num_records = self
+                .page_limits
+                .get(self.page as usize)
+                .copied()
+                .unwrap_or(0);
             if (self.slot as usize) < num_records as usize {
                 let rid = Rid::new(self.page, self.slot);
                 self.slot += 1;
