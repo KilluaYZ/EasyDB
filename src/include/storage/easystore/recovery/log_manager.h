@@ -860,7 +860,8 @@ class LogManager {
    * @brief 构造函数
    * @param disk_manager 磁盘管理器指针
    */
-  LogManager(DiskManager *disk_manager) { disk_manager_ = disk_manager; }
+  explicit LogManager(DiskManager *disk_manager);
+  ~LogManager() noexcept;
 
   /**
    * @brief 将日志记录添加到缓冲区
@@ -879,6 +880,12 @@ class LogManager {
    */
   void flush_log_to_disk();
 
+  /** Flush buffered records and return the last durable LSN. */
+  lsn_t GetPersistentLsn() const;
+
+  /** Return the next LSN that will be assigned. */
+  lsn_t GetNextLsn() const;
+
   /**
    * @brief 获取日志缓冲区
    * @return 日志缓冲区的指针
@@ -886,6 +893,9 @@ class LogManager {
   LogBuffer *get_log_buffer() { return &log_buffer_; }
 
  private:
+  void flush_log_to_disk_unlocked();
+  void recover_lsn_state();
+
   /**
    * @brief 全局LSN（日志序列号）
    * @note 原子变量，递增，用于为每条日志记录分发唯一的LSN
@@ -896,7 +906,7 @@ class LogManager {
    * @brief 保护log_buffer_的互斥锁
    * @note 用于确保多线程环境下日志缓冲区操作的线程安全性
    */
-  std::mutex latch_;
+  mutable std::mutex latch_;
 
   /**
    * @brief 日志缓冲区
@@ -908,7 +918,10 @@ class LogManager {
    * @brief 已持久化到磁盘的最后一条日志的LSN
    * @note 用于跟踪哪些日志已经安全地写入磁盘
    */
-  lsn_t persist_lsn_;
+  lsn_t persist_lsn_{INVALID_LSN};
+
+  /** Byte offset where the in-memory buffer will be appended. */
+  size_t log_file_offset_{0};
 
   /**
    * @brief 磁盘管理器指针

@@ -99,7 +99,6 @@ void EasyStore::CreateDB(const std::string &db_name) {
   runtime_->disk_manager->CreateDir(db_name);
   if (chdir(db_name.c_str()) < 0) throw UnixError();
   runtime_->catalog_manager->Initialize(db_name);
-  runtime_->disk_manager->CreateFile(LOG_FILE_NAME);
   if (chdir("..") < 0) throw UnixError();
 }
 
@@ -116,6 +115,8 @@ void EasyStore::OpenDB(const std::string &db_name) {
 }
 
 void EasyStore::CloseDB() {
+  // WAL must be durable before closing table files and the database handle.
+  runtime_->log_manager->flush_log_to_disk();
   for (const auto &entry : runtime_->catalog_manager->Tables()) {
     runtime_->table_manager->Close(entry.first);
     if (runtime_->index_manager->Exists(entry.first, entry.second.cols)) {

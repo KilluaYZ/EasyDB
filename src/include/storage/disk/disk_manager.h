@@ -43,7 +43,7 @@ class DiskManager {
    */
   explicit DiskManager(const std::filesystem::path &db_dir);
 
-  virtual ~DiskManager() = default;
+  virtual ~DiskManager();
 
   /**
    * Write a page to the database file.
@@ -116,13 +116,25 @@ class DiskManager {
    */
   inline auto GetFd2Pageno(int fd) -> page_id_t { return fd2pageno_[fd]; }
 
-  // Log operations
+  // Log operations. Log offsets are byte offsets from the beginning of db.log.
+  // The log file is opened independently from the page-file descriptor map so
+  // that logging also works while EasyStore temporarily changes cwd.
+  size_t GetLogSize() const;
+
+  void ReadLog(size_t offset, char *log_data, size_t num_bytes) const;
+
+  void WriteLog(size_t offset, const char *log_data, size_t num_bytes);
+
+  void FlushLog();
+
+  void TruncateLog(size_t size);
 
  protected:
   static constexpr int MAX_FD = 8192;
 
   // streams to write db directory
   std::filesystem::path dir_name_;
+  std::filesystem::path log_path_;
   std::fstream db_meta_io_;
   // path to fd and fd to path mapping
   std::unordered_map<std::filesystem::path, int> path2fd_;

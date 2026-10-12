@@ -1,11 +1,14 @@
 
 #include <cstring>
+#include <filesystem>
+#include <memory>
 #include <string>
 
 #include "common/config.h"
 #include "common/exception.h"
 #include "gtest/gtest.h"
 #include "storage/disk/disk_manager.h"
+#include "storage/easystore/recovery/log_manager.h"
 
 namespace easydb {
 
@@ -16,10 +19,10 @@ const std::string TEST_TABLE_NAME = "test.table";
 class DiskManagerTest : public ::testing::Test {
  protected:
   // This function is called before every test.
-  void SetUp() override { remove(TEST_DB_NAME.c_str()); }
+  void SetUp() override { std::filesystem::remove_all(TEST_DB_NAME); }
 
   // This function is called after every test.
-  void TearDown() override { remove(TEST_DB_NAME.c_str()); };
+  void TearDown() override { std::filesystem::remove_all(TEST_DB_NAME); };
 };
 
 // NOLINTNEXTLINE
@@ -47,6 +50,32 @@ TEST_F(DiskManagerTest, ReadWritePageTest) {
   EXPECT_EQ(std::memcmp(buf, data, sizeof(buf)), 0);
 
   dm.CloseFile(fd);
+}
+
+// NOLINTNEXTLINE
+TEST_F(DiskManagerTest, LogPersistsAndResumesLsn) {
+  lsn_t first_lsn;
+  {
+    DiskManager dm(TEST_DB_NAME);
+    auto log_manager = std::make_unique<LogManager>(&dm);
+    BeginLogRecord begin(42);
+    first_lsn = log_manager->add_log_to_buffer(&begin);
+    log_manager->flush_log_to_disk();
+
+    EXPECT_EQ(first_lsn, 0);
+    EXPECT_EQ(log_manager->GetPersistentLsn(), first_lsn);
+    EXPECT_GT(dm.GetLogSize(), 0U);
+  }
+
+  DiskManager dm(TEST_DB_NAME);
+  auto log_manager = std::make_unique<LogManager>(&dm);
+  EXPECT_EQ(log_manager->GetNextLsn(), first_lsn + 1);
+  EXPECT_EQ(log_manager->GetPersistentLsn(), first_lsn);
+
+  BeginLogRecord next_begin(43);
+  EXPECT_EQ(log_manager->add_log_to_buffer(&next_begin), first_lsn + 1);
+  log_manager->flush_log_to_disk();
+  EXPECT_GT(dm.GetLogSize(), static_cast<size_t>(LOG_HEADER_SIZE));
 }
 
 }  // namespace easydb

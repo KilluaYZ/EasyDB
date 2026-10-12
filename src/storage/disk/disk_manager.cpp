@@ -15,6 +15,7 @@
  */
 
 #include <fcntl.h>
+#include <cerrno>
 #include <sys/stat.h>
 #include <unistd.h>  // for lseek
 #include <cassert>
@@ -42,24 +43,16 @@ namespace easydb {
  * 3. 初始化文件描述符到页面号的映射数组
  */
 DiskManager::DiskManager(const std::filesystem::path &db_dir)
-    : dir_name_(db_dir) {
+    : dir_name_(std::filesystem::absolute(db_dir)),
+      log_path_(dir_name_ / LOG_FILE_NAME) {
   // create directory if not exist
   if (!std::filesystem::exists(dir_name_)) {
     std::filesystem::create_directory(dir_name_);
   }
-  // log_name_ = dir_name_ / (dir_name_.filename().stem().string() + ".log");
-
-  // log_io_.open(log_name_, std::ios::binary | std::ios::in | std::ios::app |
-  // std::ios::out);
-  // // directory or file does not exist
-  // if (!log_io_.is_open()) {
-  //   log_io_.clear();
-  //   // create a new file
-  //   log_io_.open(log_name_, std::ios::binary | std::ios::trunc |
-  //   std::ios::out | std::ios::in); if (!log_io_.is_open()) {
-  //     throw Exception("can't open dblog file");
-  //   }
-  // }
+  log_fd_ = open(log_path_.c_str(), O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+  if (log_fd_ == -1) {
+    throw Exception("can't open log file " + log_path_.string());
+  }
 
   // meta
   auto db_meta_file =
@@ -82,6 +75,16 @@ DiskManager::DiskManager(const std::filesystem::path &db_dir)
   // fd2pageno_
   memset(fd2pageno_, 0,
          MAX_FD * (sizeof(std::atomic<page_id_t>) / sizeof(char)));
+}
+
+DiskManager::~DiskManager() {
+  if (log_fd_ != -1) {
+    close(log_fd_);
+    log_fd_ = -1;
+  }
+  if (db_meta_io_.is_open()) {
+    db_meta_io_.close();
+  }
 }
 
 /**
@@ -336,6 +339,70 @@ int DiskManager::GetFileFd(const std::string &path) {
   }
 
   return path2fd_[path];
+}
+
+size_t DiskManager::GetLogSize() const {
+  struct stat stat_buf {};
+  if (log_fd_ == -1 || fstat(log_fd_, &stat_buf) == -1) {
+    throw Exception("failed to stat log file " + log_path_.string());
+  }
+  return static_cast<size_t>(stat_buf.st_size);
+}
+
+void DiskManager::ReadLog(size_t offset, char *log_data, size_t num_bytes) const {
+  if (log_fd_ == -1) {
+    throw Exception("log file is not open");
+  }
+  size_t completed = 0;
+  while (completed < num_bytes) {
+    ssize_t count = pread(log_fd_, log_data + completed,
+                          num_bytes - completed,
+                          static_cast<off_t>(offset + completed));
+    if (count == 0) {
+      break;
+    }
+    if (count < 0) {
+      if (errno == EINTR) continue;
+      throw Exception("failed to read log file " + log_path_.string());
+    }
+    completed += static_cast<size_t>(count);
+  }
+  if (completed != num_bytes) {
+    throw Exception("unexpected end of log file " + log_path_.string());
+  }
+}
+
+void DiskManager::WriteLog(size_t offset, const char *log_data,
+                            size_t num_bytes) {
+  if (log_fd_ == -1) {
+    throw Exception("log file is not open");
+  }
+  size_t completed = 0;
+  while (completed < num_bytes) {
+    ssize_t count = pwrite(log_fd_, log_data + completed,
+                           num_bytes - completed,
+                           static_cast<off_t>(offset + completed));
+    if (count < 0) {
+      if (errno == EINTR) continue;
+      throw Exception("failed to write log file " + log_path_.string());
+    }
+    if (count == 0) {
+      throw Exception("zero-byte write to log file " + log_path_.string());
+    }
+    completed += static_cast<size_t>(count);
+  }
+}
+
+void DiskManager::FlushLog() {
+  if (log_fd_ == -1 || fsync(log_fd_) == -1) {
+    throw Exception("failed to flush log file " + log_path_.string());
+  }
+}
+
+void DiskManager::TruncateLog(size_t size) {
+  if (log_fd_ == -1 || ftruncate(log_fd_, static_cast<off_t>(size)) == -1) {
+    throw Exception("failed to truncate log file " + log_path_.string());
+  }
 }
 
 }  // namespace easydb

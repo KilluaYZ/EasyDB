@@ -10,9 +10,29 @@ See the Mulan PSL v2 for more details. */
 
 #include "storage/easystore/recovery/log_manager.h"
 
+#include <algorithm>
+#include <array>
 #include <cstring>
+#include "common/errors.h"
 
 namespace easydb {
+
+LogManager::LogManager(DiskManager *disk_manager)
+    : disk_manager_(disk_manager) {
+  if (disk_manager_ == nullptr) {
+    throw InternalError("LogManager requires a DiskManager");
+  }
+  recover_lsn_state();
+}
+
+LogManager::~LogManager() noexcept {
+  try {
+    flush_log_to_disk();
+  } catch (...) {
+    // Destructors must not throw. The explicit Flush API remains the place
+    // where callers can observe an I/O failure.
+  }
+}
 
 /**
  * @description: 添加日志记录到日志缓冲区中，并返回日志记录号
@@ -32,8 +52,11 @@ lsn_t LogManager::add_log_to_buffer(LogRecord *log_record) {
   int log_size = log_record->log_tot_len_;
 
   // Check if there is enough space in the log buffer
+  if (log_size > static_cast<int>(sizeof(log_buffer_.buffer_))) {
+    throw InternalError("log record is larger than the log buffer");
+  }
   if (log_buffer_.is_full(log_size)) {
-    flush_log_to_disk();
+    flush_log_to_disk_unlocked();
   }
 
   // Serialize the log record directly to the log buffer
@@ -52,16 +75,62 @@ lsn_t LogManager::add_log_to_buffer(LogRecord *log_record) {
  */
 void LogManager::flush_log_to_disk() {
   std::scoped_lock lock{latch_};
+  flush_log_to_disk_unlocked();
+}
 
-  // // Write the buffer to disk
-  // disk_manager_->write_log(log_buffer_.buffer_, log_buffer_.offset_);
+void LogManager::flush_log_to_disk_unlocked() {
+  if (log_buffer_.offset_ == 0) return;
+
+  disk_manager_->WriteLog(log_file_offset_, log_buffer_.buffer_,
+                          static_cast<size_t>(log_buffer_.offset_));
+  disk_manager_->FlushLog();
+  log_file_offset_ += static_cast<size_t>(log_buffer_.offset_);
 
   // Update the persistent LSN
-  persist_lsn_ = global_lsn_.load() - 1;
+  persist_lsn_ = global_lsn_.load() == 0 ? INVALID_LSN : global_lsn_.load() - 1;
 
   // Clear the buffer
   log_buffer_.offset_ = 0;
   memset(log_buffer_.buffer_, 0, sizeof(log_buffer_.buffer_));
+}
+
+lsn_t LogManager::GetPersistentLsn() const {
+  std::scoped_lock lock{latch_};
+  return persist_lsn_;
+}
+
+lsn_t LogManager::GetNextLsn() const {
+  std::scoped_lock lock{latch_};
+  return global_lsn_.load();
+}
+
+void LogManager::recover_lsn_state() {
+  std::scoped_lock lock{latch_};
+  log_file_offset_ = disk_manager_->GetLogSize();
+  size_t offset = 0;
+  lsn_t last_lsn = INVALID_LSN;
+  std::array<char, LOG_HEADER_SIZE> header{};
+
+  while (offset + LOG_HEADER_SIZE <= log_file_offset_) {
+    disk_manager_->ReadLog(offset, header.data(), header.size());
+    LogRecord record;
+    record.deserialize(header.data());
+    if (record.log_tot_len_ < LOG_HEADER_SIZE ||
+        offset + record.log_tot_len_ > log_file_offset_) {
+      break;
+    }
+    last_lsn = std::max(last_lsn, record.lsn_);
+    offset += record.log_tot_len_;
+  }
+
+  // A crash can leave a partial tail. It must not be placed before the next
+  // valid record when the next process appends new WAL records.
+  if (offset != log_file_offset_) {
+    disk_manager_->TruncateLog(offset);
+    log_file_offset_ = offset;
+  }
+  persist_lsn_ = last_lsn;
+  global_lsn_.store(last_lsn == INVALID_LSN ? 0 : last_lsn + 1);
 }
 
 }  // namespace easydb
