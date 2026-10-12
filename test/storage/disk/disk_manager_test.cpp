@@ -8,7 +8,9 @@
 #include "common/exception.h"
 #include "gtest/gtest.h"
 #include "storage/disk/disk_manager.h"
+#include "storage/easystore/recovery/recovery_manager.h"
 #include "storage/easystore/recovery/log_manager.h"
+#include "storage/easystore/table/clustered_table_manager.h"
 
 namespace easydb {
 
@@ -103,6 +105,69 @@ TEST_F(DiskManagerTest, ClusteredRedoUndoLogRoundTrip) {
   UndoLogRecord undo(LogKind::UNDO, UPDATE, 7, redo.lsn_, "users", key,
                      old_tuple, new_tuple);
   EXPECT_EQ(undo.GetKind(), LogKind::UNDO);
+}
+
+// NOLINTNEXTLINE
+TEST_F(DiskManagerTest, RecoversCommittedAndUncommittedClusteredChanges) {
+  const std::filesystem::path db_dir = "recovery_test.easydb";
+  std::filesystem::remove_all(db_dir);
+  std::filesystem::create_directories(db_dir);
+  const auto original_dir = std::filesystem::current_path();
+  std::filesystem::current_path(db_dir);
+
+  Schema schema({Column("id", TYPE_INT), Column("value", TYPE_INT)});
+  const auto make_tuple = [&schema](int id, int value) {
+    return Tuple({Value(TYPE_INT, static_cast<int32_t>(id)),
+                  Value(TYPE_INT, static_cast<int32_t>(value))},
+                 &schema);
+  };
+  const auto committed_tuple = make_tuple(1, 10);
+  const auto uncommitted_tuple = make_tuple(2, 20);
+
+  DiskManager disk_manager(".");
+  BufferPoolManager buffer_pool_manager(64, &disk_manager);
+  ClusteredTableManager table_manager(&disk_manager, &buffer_pool_manager);
+  table_manager.Create("users", schema);
+  table_manager.Open("users", schema);
+  LogManager log_manager(&disk_manager);
+
+  BeginLogRecord begin_committed(1);
+  log_manager.add_log_to_buffer(&begin_committed);
+  RedoLogRecord redo_committed(LogKind::REDO, INSERT, 1,
+                               begin_committed.lsn_, "users",
+                               committed_tuple, Tuple{}, committed_tuple);
+  log_manager.add_log_to_buffer(&redo_committed);
+  UndoLogRecord undo_committed(LogKind::UNDO, INSERT, 1, redo_committed.lsn_,
+                               "users", committed_tuple, Tuple{},
+                               committed_tuple);
+  log_manager.add_log_to_buffer(&undo_committed);
+  CommitLogRecord commit(1, undo_committed.lsn_);
+  log_manager.add_log_to_buffer(&commit);
+
+  BeginLogRecord begin_uncommitted(2);
+  log_manager.add_log_to_buffer(&begin_uncommitted);
+  RedoLogRecord redo_uncommitted(LogKind::REDO, INSERT, 2,
+                                 begin_uncommitted.lsn_, "users",
+                                 uncommitted_tuple, Tuple{},
+                                 uncommitted_tuple);
+  log_manager.add_log_to_buffer(&redo_uncommitted);
+  UndoLogRecord undo_uncommitted(LogKind::UNDO, INSERT, 2,
+                                 redo_uncommitted.lsn_, "users",
+                                 uncommitted_tuple, Tuple{},
+                                 uncommitted_tuple);
+  log_manager.add_log_to_buffer(&undo_uncommitted);
+  log_manager.flush_log_to_disk();
+
+  RecoveryManager recovery(&table_manager, &log_manager);
+  recovery.Recover();
+
+  EXPECT_TRUE(table_manager.Get("users")->Get(committed_tuple).has_value());
+  EXPECT_FALSE(
+      table_manager.Get("users")->Get(uncommitted_tuple).has_value());
+
+  table_manager.Close("users");
+  std::filesystem::current_path(original_dir);
+  std::filesystem::remove_all(db_dir);
 }
 
 }  // namespace easydb
