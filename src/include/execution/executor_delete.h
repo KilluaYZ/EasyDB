@@ -47,7 +47,7 @@ class DeleteExecutor : public AbstractExecutor {
    * @brief 需要删除的记录的位置列表
    * @note 存储所有满足条件的元组的RID
    */
-  std::vector<RID> rids_;
+  std::vector<Tuple> tuples_;
 
   /**
    * @brief 表名称
@@ -69,7 +69,7 @@ class DeleteExecutor : public AbstractExecutor {
    * @param context 事务上下文指针
    */
   DeleteExecutor(StorageEngine *storage_engine, const std::string &tab_name,
-                 std::vector<Condition> conds, std::vector<RID> rids,
+                 std::vector<Condition> conds, std::vector<Tuple> tuples,
                  Context *context);
 
   /**
@@ -80,12 +80,6 @@ class DeleteExecutor : public AbstractExecutor {
    *   - 删除操作包括：从表中删除、更新索引、记录日志
    */
   std::unique_ptr<Tuple> Next() override;
-
-  /**
-   * @brief 获取当前元组的RID
-   * @return 抽象RID的引用
-   */
-  RID &rid() override { return _abstract_rid; }
 };
 
 }  // namespace easydb

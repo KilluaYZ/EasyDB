@@ -187,7 +187,6 @@ void IndexScanExecutor::beginTuple() {
 
   // 3. Find the first tuple that satisfies the conditions
   while (!IsEnd()) {
-    rid_ = scan_->GetRid();
     // Note: There maybe some not satisfied records in the index scan,
     // because the lower and upper bounds may not correct in some cases,
     // eg. when using a multiple-column index.
@@ -211,7 +210,6 @@ void IndexScanExecutor::nextTuple() {
   scan_->Next();
   // Note that scan_->next() may out of range
   while (!IsEnd()) {
-    rid_ = scan_->GetRid();
     // Note: There maybe some not satisfied records in the index scan,
     // because the lower and upper bounds may not correct in some cases,
     // eg. when using a multiple-column index.

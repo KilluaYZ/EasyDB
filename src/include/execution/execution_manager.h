@@ -22,10 +22,9 @@
 #include "planner/plan.h"
 #include "planner/planner.h"
 #include "storage/easystore/record/record_printer.h"
-#include "storage/easystore/record/rm.h"
+#include "storage/easystore/transaction/transaction_manager.h"
 #include "system/sm_defs.h"
 #include "system/sm_meta.h"
-#include "storage/easystore/transaction/transaction_manager.h"
 
 // class Planner;
 namespace easydb {

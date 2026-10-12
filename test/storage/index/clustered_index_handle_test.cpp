@@ -35,7 +35,8 @@ TEST(ClusteredIndexHandleTest, InsertsAndFindsTuplesAfterLeafSplits) {
     const std::string path = (db_dir / "primary.index").string();
     disk_manager.CreateFile(path);
     const int fd = disk_manager.OpenFile(path);
-    ASSERT_TRUE(ClusteredIndexHandle::Initialize(fd, &disk_manager, sizeof(int)));
+    ASSERT_TRUE(
+        ClusteredIndexHandle::Initialize(fd, &disk_manager, sizeof(int)));
     auto buffer_pool_manager =
         std::make_unique<BufferPoolManager>(64, &disk_manager);
     ClusteredIndexHandle index(fd, buffer_pool_manager.get(), sizeof(int),

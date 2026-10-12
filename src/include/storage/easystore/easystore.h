@@ -9,16 +9,12 @@ namespace easydb {
 
 class DiskManager;
 class BufferPoolManager;
-class RmManager;
-class IxManager;
 class LockManager;
 class TransactionManager;
 class LogManager;
-class RecoveryManager;
 class CatalogManager;
-class TableManager;
-class IndexManager;
 class StatisticsManager;
+class ClusteredTableManager;
 
 /** Adapter exposing the current EasyDB storage implementation. */
 class EasyStore final : public StorageEngine {
@@ -36,15 +32,11 @@ class EasyStore final : public StorageEngine {
 
   DiskManager *GetDiskManager() const;
   BufferPoolManager *GetBufferPoolManager() const;
-  RmManager *GetRecordManager() const;
-  IxManager *GetIndexManager() const;
   LockManager *GetLockManager() const;
   TransactionManager *GetTransactionManager() const;
   LogManager *GetLogManager() const;
-  RecoveryManager *GetRecoveryManager() const;
+  ClusteredTableManager *GetClusteredTableManager() const;
   CatalogManager *GetCatalogManager() const;
-  TableManager *GetTableManager() const;
-  IndexManager *GetIndexComponent() const;
   StatisticsManager *GetStatisticsManager() const;
 
   bool HasTable(const std::string &table_name) const override;
@@ -56,19 +48,12 @@ class EasyStore final : public StorageEngine {
                                        const std::vector<char> &,
                                        const std::vector<char> &,
                                        Context *) override;
-  std::unique_ptr<Tuple> ReadTuple(const std::string &, const RID &,
+  std::unique_ptr<Tuple> ReadTuple(const std::string &, const Tuple &,
                                    Context *) override;
-  RID InsertTuple(const std::string &, const Tuple &, Context *) override;
-  bool DeleteTuple(const std::string &, const RID &, Context *) override;
-  bool UpdateTuple(const std::string &, const RID &, const Tuple &,
+  bool InsertTuple(const std::string &, const Tuple &, Context *) override;
+  bool DeleteTuple(const std::string &, const Tuple &, Context *) override;
+  bool UpdateTuple(const std::string &, const Tuple &, const Tuple &,
                    Context *) override;
-  bool InsertIndexEntry(const std::string &, const std::vector<std::string> &,
-                        const std::vector<char> &, const RID &,
-                        Context *) override;
-  void DeleteIndexEntry(const std::string &, const std::vector<std::string> &,
-                        const std::vector<char> &, Context *) override;
-  void WaitForIndexGap(const std::string &, const std::vector<std::string> &,
-                       const std::vector<char> &, Context *) override;
 
   void CreateTable(const std::string &, const std::vector<ColDef> &,
                    Context *) override;

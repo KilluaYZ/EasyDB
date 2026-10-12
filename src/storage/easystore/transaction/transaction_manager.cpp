@@ -16,13 +16,11 @@
 
 #include "storage/easystore/transaction/transaction_manager.h"
 
-#include "common/context.h"
 #include "buffer/buffer_pool_manager.h"
+#include "common/context.h"
 #include "storage/easystore/catalog/catalog_manager.h"
 #include "storage/easystore/catalog/ddl_manager.h"
-#include "storage/easystore/recovery/log_recovery.h"
 #include "storage/easystore/transaction/rollback_manager.h"
-#include "storage/easystore/table/table_manager.h"
 #include "storage/easystore/transaction/txn_defs.h"
 
 namespace easydb {
@@ -178,12 +176,6 @@ void TransactionManager::CreateStaticCheckpoint(Transaction *txn,
 
   // 2. Create a checkpoint
   CheckpointLogRecord checkpoint(txn->GetTransactionId(), txn->GetPrevLsn());
-  auto *recovery = new RecoveryManager(
-      disk_manager_, buffer_pool_manager_, catalog_manager_, table_manager_,
-      ddl_manager_, this, log_manager);
-  recovery->analyze4chkpt(&checkpoint);
-  delete recovery;
-
   // Flush the log to disk
   lsn_t checkpoint_lsn = log_manager->add_log_to_buffer(&checkpoint);
   txn->SetPrevLsn(checkpoint_lsn);

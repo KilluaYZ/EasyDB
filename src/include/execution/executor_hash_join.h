@@ -175,7 +175,6 @@ class HashJoinExecutor : public AbstractExecutor {
   void beginTuple() override;
   void nextTuple() override;
   std::unique_ptr<Tuple> Next() override;
-  RID &rid() override { return _abstract_rid; }
 
   size_t tupleLen() const override { return len_; }
   const Schema &schema() const override { return schema_; }

@@ -83,7 +83,6 @@ class IndexScanExecutor : public AbstractExecutor {
   /**
    * @brief 当前元组的记录ID
    */
-  RID rid_;
 
   /**
    * @brief 索引扫描器
@@ -154,19 +153,13 @@ class IndexScanExecutor : public AbstractExecutor {
   bool IsEnd() const override { return scan_->IsEnd(); }
 
   /**
-   * @brief 获取当前元组的RID
-   * @return 当前元组的RID的引用
-   */
-  RID &rid() override { return rid_; }
-
-  /**
    * @brief 获取下一个元组
    * @return 下一个元组的智能指针，如果没有更多元组则返回nullptr
    * @note 根据RID从表中读取完整的元组数据
    */
   std::unique_ptr<Tuple> Next() override {
     // assert(!IsEnd());
-    return storage_engine_->ReadTuple(tab_name_, rid_, context_);
+    return scan_->GetTuple();
   }
 
  private:

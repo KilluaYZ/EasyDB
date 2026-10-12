@@ -24,7 +24,6 @@
 #include "optimizer/optimizer.h"
 #include "planner/plan.h"
 #include "planner/planner.h"
-#include "storage/easystore/recovery/log_recovery.h"
 #include "storage/easystore/easystore.h"
 
 // #define SOCK_PORT 8765
@@ -38,8 +37,6 @@ bool for_web = false;
 
 DiskManager *disk_manager;
 BufferPoolManager *buffer_pool_manager;
-RmManager *rm_manager;
-IxManager *ix_manager;
 std::unique_ptr<EasyStore> storage_engine;
 LockManager *lock_manager;
 TransactionManager *txn_manager;
@@ -47,7 +44,6 @@ std::unique_ptr<Planner> planner;
 std::unique_ptr<Optimizer> optimizer;
 std::unique_ptr<QlManager> ql_manager;
 LogManager *log_manager;
-RecoveryManager *recovery;
 std::unique_ptr<Analyze> analyze;
 std::unique_ptr<Portal> portal;
 
@@ -126,8 +122,8 @@ void *client_handler(void *sock_fd) {
     offset = 0;
 
     // 开启事务，初始化系统所需的上下文信息（包括事务对象指针、锁管理器指针、日志管理器指针、存放结果的buffer、记录结果长度的变量）
-    Context *context = new Context(lock_manager, log_manager,
-                                   nullptr, data_send, &offset);
+    Context *context =
+        new Context(lock_manager, log_manager, nullptr, data_send, &offset);
     SetTransaction(&txn_id, context);
     context->InitJson();
 
@@ -379,16 +375,14 @@ int main(int argc, char **argv) {
     storage_engine = std::make_unique<EasyStore>(db_name);
     disk_manager = storage_engine->GetDiskManager();
     buffer_pool_manager = storage_engine->GetBufferPoolManager();
-    rm_manager = storage_engine->GetRecordManager();
-    ix_manager = storage_engine->GetIndexManager();
     lock_manager = storage_engine->GetLockManager();
     txn_manager = storage_engine->GetTransactionManager();
     planner = std::make_unique<Planner>(storage_engine.get());
-    optimizer = std::make_unique<Optimizer>(storage_engine.get(), planner.get());
+    optimizer =
+        std::make_unique<Optimizer>(storage_engine.get(), planner.get());
     ql_manager = std::make_unique<QlManager>(storage_engine.get(), txn_manager,
                                              planner.get());
     log_manager = storage_engine->GetLogManager();
-    recovery = storage_engine->GetRecoveryManager();
 
     portal = std::make_unique<Portal>(storage_engine.get());
     analyze = std::make_unique<Analyze>(storage_engine.get());
@@ -400,11 +394,6 @@ int main(int argc, char **argv) {
     }
     // Open database
     storage_engine->OpenDB(db_name);
-
-    // recovery database
-    recovery->analyze();
-    recovery->redo();
-    recovery->undo();
 
     // 开启服务端，开始接受客户端连接
     start_server();

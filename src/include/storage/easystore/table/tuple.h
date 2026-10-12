@@ -21,7 +21,6 @@
 
 #include "catalog/schema.h"
 #include "common/config.h"
-#include "common/rid.h"
 #include "type/value.h"
 
 namespace easydb {
@@ -55,20 +54,11 @@ static_assert(sizeof(TupleMeta) == TUPLE_META_SIZE);
  * ---------------------------------------------------------------------
  */
 class Tuple {
-  friend class RmPageHandle;
-  friend class RmFileHandle;
-  friend class TablePage;
-  friend class TableHeap;
-  friend class TableIterator;
-
  public:
   // Default constructor (to create a dummy tuple)
   Tuple() = default;
 
-  // constructor for table heap tuple
-  explicit Tuple(RID rid) : rid_(rid) {}
-
-  static auto Empty() -> Tuple { return Tuple{RID{INVALID_PAGE_ID, 0}}; }
+  static auto Empty() -> Tuple { return Tuple{}; }
 
   // constructor for creating a new tuple based on input value
   Tuple(std::vector<Value> values, const Schema *schema);
@@ -97,12 +87,6 @@ class Tuple {
 
   // deserialize tuple data(deep copy)
   void DeserializeFrom(const char *storage);
-
-  // return RID of current tuple
-  inline auto GetRid() const -> RID { return rid_; }
-
-  // return RID of current tuple
-  inline auto SetRid(RID rid) { rid_ = rid; }
 
   // Get the address of this tuple in the table's backing store
   inline auto GetData() const -> const char * { return data_.data(); }
@@ -146,7 +130,6 @@ class Tuple {
 
   auto GetDataPtr(const Column col) const -> const char *;
 
-  RID rid_{};  // if pointing to the table heap, the rid is valid
   std::vector<char> data_;
 };
 

@@ -12,8 +12,6 @@
 #include "defs.h"
 #include "execution_manager.h"
 #include "executor_abstract.h"
-#include "storage/easystore/index/ix_manager.h"
-#include "storage/easystore/index/ix_scan.h"
 #include "system/sm_defs.h"
 #include "system/sm_meta.h"
 
@@ -162,7 +160,6 @@ class AggregationExecutor : public AbstractExecutor {
    * @brief 获取当前元组的RID
    * @return 抽象RID的引用
    */
-  RID &rid() override { return _abstract_rid; }
 
   /**
    * @brief 获取元组长度

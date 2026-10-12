@@ -67,7 +67,6 @@ class SeqScanExecutor : public AbstractExecutor {
   /**
    * @brief 当前元组的记录ID
    */
-  RID rid_;
 
   /**
    * @brief 表迭代器（记录扫描器）
@@ -110,12 +109,6 @@ class SeqScanExecutor : public AbstractExecutor {
    * @return 下一个元组的智能指针，如果没有更多元组则返回nullptr
    */
   std::unique_ptr<Tuple> Next() override;
-
-  /**
-   * @brief 获取当前元组的RID
-   * @return 当前元组的RID的引用
-   */
-  RID &rid() override { return rid_; }
 
   /**
    * @brief 判断是否到达末尾

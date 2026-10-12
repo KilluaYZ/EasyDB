@@ -50,7 +50,6 @@ class LockManager {
                           */
     S_IX, /**< SIX锁（意向排他锁+共享锁），表级锁，允许在表上加S锁，在行上加X锁
            */
-    GAP   /**< 间隙锁，用于索引，防止幻读 */
   };
 
   /**
@@ -65,7 +64,6 @@ class LockManager {
     S,        /**< 共享锁 */
     X,        /**< 排他锁 */
     SIX,      /**< SIX锁 */
-    GAP       /**< 间隙锁 */
   };
 
   /**
@@ -142,7 +140,6 @@ class LockManager {
    * @param tab_fd 表文件描述符
    * @return true 如果加锁成功，false 否则
    */
-  bool LockGapOnIndex(Transaction *txn, const Iid &rid, int tab_fd);
 
   /**
    * @brief 处理索引间隙锁的wait-die机制
@@ -150,7 +147,6 @@ class LockManager {
    * @param iid 索引项ID
    * @param tab_fd 表文件描述符
    */
-  void HandleIndexGapWaitDie(Transaction *txn, const Iid &rid, int tab_fd);
 
   /**
    * @brief 在记录上申请排他锁（行级写锁）

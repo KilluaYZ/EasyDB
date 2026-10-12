@@ -30,27 +30,14 @@ class StorageEngine {
       const std::vector<char> &lower, const std::vector<char> &upper,
       Context *context) = 0;
   virtual std::unique_ptr<Tuple> ReadTuple(const std::string &table_name,
-                                           const RID &rid,
+                                           const Tuple &key,
                                            Context *context) = 0;
-  virtual RID InsertTuple(const std::string &table_name, const Tuple &tuple,
-                          Context *context) = 0;
-  virtual bool DeleteTuple(const std::string &table_name, const RID &rid,
+  virtual bool InsertTuple(const std::string &table_name, const Tuple &tuple,
                            Context *context) = 0;
-  virtual bool UpdateTuple(const std::string &table_name, const RID &rid,
+  virtual bool DeleteTuple(const std::string &table_name, const Tuple &key,
+                           Context *context) = 0;
+  virtual bool UpdateTuple(const std::string &table_name, const Tuple &key,
                            const Tuple &tuple, Context *context) = 0;
-
-  virtual bool InsertIndexEntry(const std::string &table_name,
-                                const std::vector<std::string> &columns,
-                                const std::vector<char> &key, const RID &rid,
-                                Context *context) = 0;
-  virtual void DeleteIndexEntry(const std::string &table_name,
-                                const std::vector<std::string> &columns,
-                                const std::vector<char> &key,
-                                Context *context) = 0;
-  virtual void WaitForIndexGap(const std::string &table_name,
-                               const std::vector<std::string> &columns,
-                               const std::vector<char> &key,
-                               Context *context) = 0;
 
   virtual void CreateTable(const std::string &table_name,
                            const std::vector<ColDef> &columns,

@@ -60,34 +60,6 @@ void SortExecutor::nextTuple() {
   }
 }
 
-void SortExecutor::printRecord(RmRecord record, std::vector<ColMeta> cols) {
-  std::string str;
-  int str_size = 0;
-  char *data = record.data;
-  for (auto &col : cols) {
-    switch (col.type) {
-      case TYPE_INT:
-        printf(" %d  ", *(int *)(data + col.offset));
-        break;
-      case TYPE_FLOAT:
-        printf(" %f   ", *(float *)(data + col.offset));
-        break;
-      case TYPE_VARCHAR:
-      case TYPE_CHAR:
-        str_size = col.len < strlen(data + col.offset)
-                       ? col.len
-                       : strlen(data + col.offset);
-        str.assign(data + col.offset, str_size);
-        str[str_size] = '\0';
-        printf(" %s  ", str.c_str());
-        break;
-      default:
-        throw InternalError("unsupported data type.");
-    }
-  }
-  printf("\n");
-}
-
 void SortExecutor::printRecord(char *data, std::vector<ColMeta> cols) {
   std::string str;
   int str_size = 0;

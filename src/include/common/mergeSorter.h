@@ -13,8 +13,6 @@
 #include <iostream>
 #include "common/common.h"
 #include "defs.h"
-#include "storage/easystore/index/ix_manager.h"
-#include "storage/easystore/index/ix_scan.h"
 #include "storage/easystore/table/tuple.h"
 #include "system/sm_defs.h"
 #include "system/sm_meta.h"

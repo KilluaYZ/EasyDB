@@ -14,9 +14,9 @@
 #include "defs.h"
 #include "execution_manager.h"
 #include "executor_abstract.h"
+#include "storage/easystore/transaction/txn_defs.h"
 #include "system/sm_defs.h"
 #include "system/sm_meta.h"
-#include "storage/easystore/transaction/txn_defs.h"
 
 namespace easydb {
 
@@ -47,7 +47,7 @@ class UpdateExecutor : public AbstractExecutor {
    * @brief 需要更新的记录的位置列表
    * @note 存储所有满足条件的元组的RID
    */
-  std::vector<RID> rids_;
+  std::vector<Tuple> tuples_;
 
   /**
    * @brief 表名称
@@ -77,7 +77,7 @@ class UpdateExecutor : public AbstractExecutor {
    */
   UpdateExecutor(StorageEngine *storage_engine, const std::string &tab_name,
                  std::vector<SetClause> set_clauses,
-                 std::vector<Condition> conds, std::vector<RID> rids,
+                 std::vector<Condition> conds, std::vector<Tuple> tuples,
                  Context *context);
 
   /**
@@ -88,11 +88,5 @@ class UpdateExecutor : public AbstractExecutor {
    *   - 更新操作包括：读取旧值、计算新值、更新表、更新索引、记录日志
    */
   std::unique_ptr<Tuple> Next() override;
-
-  /**
-   * @brief 获取当前元组的RID
-   * @return 抽象RID的引用
-   */
-  RID &rid() override { return _abstract_rid; }
 };
 }  // namespace easydb

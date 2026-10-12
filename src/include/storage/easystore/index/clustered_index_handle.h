@@ -23,12 +23,16 @@ class ClusteredIndexHandle {
   ClusteredIndexHandle(int fd, BufferPoolManager *buffer_pool_manager,
                        uint16_t key_size, KeyComparator comparator);
 
-  static auto Initialize(int fd, DiskManager *disk_manager,
-                         uint16_t key_size) -> bool;
+  static auto Initialize(int fd, DiskManager *disk_manager, uint16_t key_size)
+      -> bool;
 
-  auto Insert(const std::vector<char> &key,
-              const std::vector<char> &tuple) -> bool;
+  auto Insert(const std::vector<char> &key, const std::vector<char> &tuple)
+      -> bool;
   auto Get(const std::vector<char> &key) -> std::optional<std::vector<char>>;
+  auto Update(const std::vector<char> &key, const std::vector<char> &tuple)
+      -> bool;
+  auto Delete(const std::vector<char> &key) -> bool;
+  auto ScanAll() -> std::vector<ClusteredLeafEntry>;
 
   void Flush();
   auto GetRootPage() const -> page_id_t { return root_page_; }
@@ -36,12 +40,13 @@ class ClusteredIndexHandle {
 
  private:
   auto FindLeaf(const std::vector<char> &key, page_id_t *leaf_page,
-               uint16_t *child_index) -> bool;
+                uint16_t *child_index) -> bool;
   auto InsertIntoRoot(page_id_t left_page, page_id_t right_page,
                       const std::vector<char> &separator) -> bool;
   auto InsertIntoInternalRoot(page_id_t right_page,
                               const std::vector<char> &separator,
                               uint16_t child_index) -> bool;
+  auto RefreshRootSeparators() -> bool;
   auto UpdateFileHeader() -> bool;
 
   int fd_;

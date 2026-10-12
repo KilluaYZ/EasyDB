@@ -14,8 +14,6 @@
 #include "common/context.h"
 #include "common/errors.h"
 #include "defs.h"
-#include "storage/easystore/index/ix_manager.h"
-#include "storage/easystore/index/ix_scan.h"
 #include "storage/storage_engine.h"
 #include "system/sm_defs.h"
 #include "system/sm_meta.h"
@@ -31,16 +29,13 @@ namespace easydb {
  */
 class AbstractExecutor {
  public:
-  /** @brief 抽象RID（用于某些执行器） */
-  RID _abstract_rid;
-
   /** @brief 事务上下文指针 */
   Context *context_;
 
   /**
    * @brief 默认构造函数
    */
-  AbstractExecutor() : _abstract_rid(), context_(nullptr) {}
+  AbstractExecutor() : context_(nullptr) {}
 
   /**
    * @brief 从shared_ptr构造执行器
@@ -50,7 +45,6 @@ class AbstractExecutor {
   AbstractExecutor(std::shared_ptr<void> &ptr) {
     auto derived_ptr = std::static_pointer_cast<AbstractExecutor>(ptr);
     // 使用 derived_ptr 初始化 AbstractExecutor 的成员变量
-    _abstract_rid = derived_ptr->_abstract_rid;
     context_ = derived_ptr->context_;
   }
 
@@ -112,13 +106,6 @@ class AbstractExecutor {
    * @return 表名字符串，默认返回空字符串
    */
   virtual std::string getTabName() const {}
-
-  /**
-   * @brief 获取当前元组的RID
-   * @return 当前元组的RID的引用
-   * @note 纯虚函数，派生类必须实现
-   */
-  virtual RID &rid() = 0;
 
   /**
    * @brief 获取下一个元组

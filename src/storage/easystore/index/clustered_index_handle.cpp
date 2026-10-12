@@ -75,17 +75,16 @@ ClusteredIndexHandle::ClusteredIndexHandle(
       buffer_pool_manager_(buffer_pool_manager),
       key_size_(key_size),
       comparator_(std::move(comparator)) {
-  const auto file_size =
-      buffer_pool_manager_->GetDiskManager()->GetFileSize(
-          buffer_pool_manager_->GetDiskManager()->GetFileName(fd_));
+  const auto file_size = buffer_pool_manager_->GetDiskManager()->GetFileSize(
+      buffer_pool_manager_->GetDiskManager()->GetFileName(fd_));
   const auto page_count =
       static_cast<page_id_t>((file_size + PAGE_SIZE - 1) / PAGE_SIZE);
   buffer_pool_manager_->GetDiskManager()->SetFd2Pageno(fd_, page_count);
   PageId page_id{fd_, 0};
   auto *page = buffer_pool_manager_->FetchPage(page_id);
   if (page == nullptr) return;
-  const auto *header = reinterpret_cast<const FileHeader *>(
-      page->GetData() + PAGE_HEADER_OFFSET);
+  const auto *header = reinterpret_cast<const FileHeader *>(page->GetData() +
+                                                            PAGE_HEADER_OFFSET);
   if (header->magic == FILE_MAGIC && header->version == FILE_VERSION) {
     key_size_ = header->key_size;
     root_page_ = header->root_page;
@@ -101,8 +100,8 @@ auto ClusteredIndexHandle::Initialize(int fd, DiskManager *disk_manager,
   if (disk_manager == nullptr || key_size == 0) return false;
   Page page;
   std::memset(page.GetData(), 0, PAGE_SIZE);
-  auto *file_header = reinterpret_cast<FileHeader *>(
-      page.GetData() + PAGE_HEADER_OFFSET);
+  auto *file_header =
+      reinterpret_cast<FileHeader *>(page.GetData() + PAGE_HEADER_OFFSET);
   file_header->magic = FILE_MAGIC;
   file_header->version = FILE_VERSION;
   file_header->key_size = key_size;
@@ -121,8 +120,8 @@ auto ClusteredIndexHandle::UpdateFileHeader() -> bool {
   PageId page_id{fd_, 0};
   auto *page = buffer_pool_manager_->FetchPage(page_id);
   if (page == nullptr) return false;
-  auto *header = reinterpret_cast<FileHeader *>(page->GetData() +
-                                                 PAGE_HEADER_OFFSET);
+  auto *header =
+      reinterpret_cast<FileHeader *>(page->GetData() + PAGE_HEADER_OFFSET);
   header->magic = FILE_MAGIC;
   header->version = FILE_VERSION;
   header->key_size = key_size_;
@@ -135,8 +134,8 @@ auto ClusteredIndexHandle::UpdateFileHeader() -> bool {
 }
 
 auto ClusteredIndexHandle::FindLeaf(const std::vector<char> &key,
-                                    page_id_t *leaf_page,
-                                    uint16_t *child_index) -> bool {
+                                    page_id_t *leaf_page, uint16_t *child_index)
+    -> bool {
   if (key.size() != key_size_ || root_page_ == INVALID_PAGE_ID) return false;
   if (root_is_leaf_) {
     *leaf_page = root_page_;
@@ -188,6 +187,100 @@ auto ClusteredIndexHandle::Get(const std::vector<char> &key)
   return result;
 }
 
+auto ClusteredIndexHandle::Update(const std::vector<char> &key,
+                                  const std::vector<char> &tuple) -> bool {
+  page_id_t leaf_page = INVALID_PAGE_ID;
+  uint16_t ignored = 0;
+  if (!FindLeaf(key, &leaf_page, &ignored)) return false;
+  PageId page_id{fd_, leaf_page};
+  auto *page = buffer_pool_manager_->FetchPage(page_id);
+  if (page == nullptr) return false;
+  ClusteredLeafPage leaf(page);
+  const auto slot = leaf.LowerBound(key, comparator_);
+  bool updated = false;
+  if (slot < leaf.GetSize()) {
+    const auto entry = leaf.GetEntry(slot);
+    if (comparator_(entry.key.data(), key.data()) == 0) {
+      updated = leaf.Update(slot, tuple);
+    }
+  }
+  buffer_pool_manager_->UnpinPage(page_id, updated);
+  return updated;
+}
+
+auto ClusteredIndexHandle::Delete(const std::vector<char> &key) -> bool {
+  page_id_t leaf_page = INVALID_PAGE_ID;
+  uint16_t ignored = 0;
+  if (!FindLeaf(key, &leaf_page, &ignored)) return false;
+  PageId page_id{fd_, leaf_page};
+  auto *page = buffer_pool_manager_->FetchPage(page_id);
+  if (page == nullptr) return false;
+  ClusteredLeafPage leaf(page);
+  const auto slot = leaf.LowerBound(key, comparator_);
+  bool deleted = false;
+  if (slot < leaf.GetSize()) {
+    const auto entry = leaf.GetEntry(slot);
+    if (comparator_(entry.key.data(), key.data()) == 0) {
+      deleted = leaf.Erase(slot);
+    }
+  }
+  buffer_pool_manager_->UnpinPage(page_id, deleted);
+  if (deleted && !root_is_leaf_) RefreshRootSeparators();
+  return deleted;
+}
+
+auto ClusteredIndexHandle::RefreshRootSeparators() -> bool {
+  PageId root_id{fd_, root_page_};
+  auto *root = buffer_pool_manager_->FetchPage(root_id);
+  if (root == nullptr) return false;
+  auto *header =
+      reinterpret_cast<InternalHeader *>(root->GetData() + PAGE_HEADER_OFFSET);
+  if (header->magic != INTERNAL_MAGIC || header->version != FILE_VERSION) {
+    buffer_pool_manager_->UnpinPage(root_id, false);
+    return false;
+  }
+  std::vector<std::vector<char>> separators;
+  separators.reserve(header->key_count);
+  for (uint16_t i = 1; i <= header->key_count; ++i) {
+    PageId child_id{fd_, Children(root)[i]};
+    auto *child = buffer_pool_manager_->FetchPage(child_id);
+    if (child == nullptr) {
+      buffer_pool_manager_->UnpinPage(root_id, false);
+      return false;
+    }
+    ClusteredLeafPage leaf(child);
+    if (leaf.GetSize() == 0) {
+      buffer_pool_manager_->UnpinPage(child_id, false);
+      buffer_pool_manager_->UnpinPage(root_id, false);
+      return false;
+    }
+    separators.push_back(leaf.GetEntry(0).key);
+    buffer_pool_manager_->UnpinPage(child_id, false);
+  }
+  for (uint16_t i = 0; i < header->key_count; ++i) {
+    std::memcpy(MutableSeparator(root, header->key_count, key_size_, i),
+                separators[i].data(), key_size_);
+  }
+  buffer_pool_manager_->UnpinPage(root_id, true);
+  return true;
+}
+
+auto ClusteredIndexHandle::ScanAll() -> std::vector<ClusteredLeafEntry> {
+  std::vector<ClusteredLeafEntry> result;
+  for (auto leaf_page = first_leaf_; leaf_page != INVALID_PAGE_ID;) {
+    PageId page_id{fd_, leaf_page};
+    auto *page = buffer_pool_manager_->FetchPage(page_id);
+    if (page == nullptr) break;
+    ClusteredLeafPage leaf(page);
+    for (uint16_t slot = 0; slot < leaf.GetSize(); ++slot) {
+      result.push_back(leaf.GetEntry(slot));
+    }
+    leaf_page = leaf.GetNextLeaf();
+    buffer_pool_manager_->UnpinPage(page_id, false);
+  }
+  return result;
+}
+
 auto ClusteredIndexHandle::Insert(const std::vector<char> &key,
                                   const std::vector<char> &tuple) -> bool {
   if (key.size() != key_size_ || root_page_ == INVALID_PAGE_ID) return false;
@@ -211,11 +304,14 @@ auto ClusteredIndexHandle::Insert(const std::vector<char> &key,
 
   std::vector<ClusteredLeafEntry> entries;
   entries.reserve(leaf.GetSize() + 1);
-  for (uint16_t i = 0; i < leaf.GetSize(); ++i) entries.push_back(leaf.GetEntry(i));
+  for (uint16_t i = 0; i < leaf.GetSize(); ++i)
+    entries.push_back(leaf.GetEntry(i));
   entries.insert(entries.begin() + slot, {key, tuple});
   const auto middle = entries.size() / 2;
-  std::vector<ClusteredLeafEntry> left(entries.begin(), entries.begin() + middle);
-  std::vector<ClusteredLeafEntry> right(entries.begin() + middle, entries.end());
+  std::vector<ClusteredLeafEntry> left(entries.begin(),
+                                       entries.begin() + middle);
+  std::vector<ClusteredLeafEntry> right(entries.begin() + middle,
+                                        entries.end());
   PageId right_id{fd_};
   auto *right_page = buffer_pool_manager_->NewPage(&right_id);
   if (right_page == nullptr || !leaf.RebuildFromEntries(left)) {
@@ -243,7 +339,8 @@ auto ClusteredIndexHandle::Insert(const std::vector<char> &key,
     last_leaf_ = right_id.page_no;
   }
   if (root_is_leaf_) {
-    if (!InsertIntoRoot(leaf_page, right_id.page_no, right.front().key)) return false;
+    if (!InsertIntoRoot(leaf_page, right_id.page_no, right.front().key))
+      return false;
   } else if (!InsertIntoInternalRoot(right_id.page_no, right.front().key,
                                      child_index)) {
     return false;
@@ -251,21 +348,23 @@ auto ClusteredIndexHandle::Insert(const std::vector<char> &key,
   return UpdateFileHeader();
 }
 
-auto ClusteredIndexHandle::InsertIntoRoot(
-    page_id_t left_page, page_id_t right_page,
-    const std::vector<char> &separator) -> bool {
+auto ClusteredIndexHandle::InsertIntoRoot(page_id_t left_page,
+                                          page_id_t right_page,
+                                          const std::vector<char> &separator)
+    -> bool {
   PageId root_id{fd_};
   auto *root = buffer_pool_manager_->NewPage(&root_id);
   if (root == nullptr) return false;
   std::memset(root->GetData(), 0, PAGE_SIZE);
-  auto *header = reinterpret_cast<InternalHeader *>(root->GetData() +
-                                                     PAGE_HEADER_OFFSET);
+  auto *header =
+      reinterpret_cast<InternalHeader *>(root->GetData() + PAGE_HEADER_OFFSET);
   header->magic = INTERNAL_MAGIC;
   header->version = FILE_VERSION;
   header->key_count = 1;
   MutableChildren(root)[0] = left_page;
   MutableChildren(root)[1] = right_page;
-  std::memcpy(MutableSeparator(root, 1, key_size_, 0), separator.data(), key_size_);
+  std::memcpy(MutableSeparator(root, 1, key_size_, 0), separator.data(),
+              key_size_);
   root_page_ = root_id.page_no;
   root_is_leaf_ = false;
   buffer_pool_manager_->UnpinPage(root_id, true);
@@ -278,8 +377,8 @@ auto ClusteredIndexHandle::InsertIntoInternalRoot(
   PageId root_id{fd_, root_page_};
   auto *root = buffer_pool_manager_->FetchPage(root_id);
   if (root == nullptr) return false;
-  auto *header = reinterpret_cast<InternalHeader *>(root->GetData() +
-                                                     PAGE_HEADER_OFFSET);
+  auto *header =
+      reinterpret_cast<InternalHeader *>(root->GetData() + PAGE_HEADER_OFFSET);
   if (header->key_count >= InternalCapacity(key_size_)) {
     buffer_pool_manager_->UnpinPage(root_id, false);
     return false;
@@ -290,8 +389,9 @@ auto ClusteredIndexHandle::InsertIntoInternalRoot(
     std::memcpy(separators.data() + static_cast<size_t>(i) * key_size_,
                 Separator(root, header->key_count, key_size_, i), key_size_);
   }
-  separators.insert(separators.begin() + static_cast<size_t>(child_index) * key_size_,
-                   separator.begin(), separator.end());
+  separators.insert(
+      separators.begin() + static_cast<size_t>(child_index) * key_size_,
+      separator.begin(), separator.end());
   auto *children = MutableChildren(root);
   for (int i = header->key_count + 1; i > child_index + 1; --i) {
     children[i] = children[i - 1];
@@ -300,14 +400,13 @@ auto ClusteredIndexHandle::InsertIntoInternalRoot(
   ++header->key_count;
   for (uint16_t i = 0; i < header->key_count; ++i) {
     std::memcpy(MutableSeparator(root, header->key_count, key_size_, i),
-                separators.data() + static_cast<size_t>(i) * key_size_, key_size_);
+                separators.data() + static_cast<size_t>(i) * key_size_,
+                key_size_);
   }
   buffer_pool_manager_->UnpinPage(root_id, true);
   return true;
 }
 
-void ClusteredIndexHandle::Flush() {
-  buffer_pool_manager_->FlushAllPages(fd_);
-}
+void ClusteredIndexHandle::Flush() { buffer_pool_manager_->FlushAllPages(fd_); }
 
 }  // namespace easydb

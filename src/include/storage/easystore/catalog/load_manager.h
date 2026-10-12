@@ -6,7 +6,7 @@
 
 #include "storage/easystore/catalog/catalog_manager.h"
 #include "storage/easystore/statistics/statistics_manager.h"
-#include "storage/easystore/table/table_manager.h"
+#include "storage/easystore/table/clustered_table_manager.h"
 
 namespace easydb {
 
@@ -15,11 +15,12 @@ class Context;
 
 class LoadManager {
  public:
-  LoadManager(CatalogManager *catalog_manager, TableManager *table_manager,
+  LoadManager(CatalogManager *catalog_manager,
+              ClusteredTableManager *clustered_table_manager,
               BufferPoolManager *buffer_pool_manager,
               StatisticsManager *statistics_manager)
       : catalog_manager_(catalog_manager),
-        table_manager_(table_manager),
+        clustered_table_manager_(clustered_table_manager),
         buffer_pool_manager_(buffer_pool_manager),
         statistics_manager_(statistics_manager) {}
 
@@ -32,7 +33,7 @@ class LoadManager {
   void LoadData(const std::string &file_name, const std::string &table_name);
 
   CatalogManager *catalog_manager_;
-  TableManager *table_manager_;
+  ClusteredTableManager *clustered_table_manager_;
   BufferPoolManager *buffer_pool_manager_;
   StatisticsManager *statistics_manager_;
   int load_status_ = -1;

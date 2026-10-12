@@ -45,7 +45,6 @@ class EmptyExecutor : public AbstractExecutor {
    * @brief 获取当前元组的RID
    * @return RID的引用
    */
-  RID &rid() { return rid(); }
 
   /**
    * @brief 获取下一个元组

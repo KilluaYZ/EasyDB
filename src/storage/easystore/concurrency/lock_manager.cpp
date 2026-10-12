@@ -94,86 +94,6 @@ bool LockManager::LockSharedOnRecord(Transaction *txn, const RID &rid,
 }
 
 /**
- * @brief Locks a gap on an index for a transaction.
- *
- * This function is responsible for locking a gap on an index for a given
- * transaction. It follows the SS2PL (Strict Two-Phase Locking) protocol to
- * ensure transaction isolation and consistency.
- *
- * @param txn Pointer to the transaction object.
- * @param iid The identifier of the index gap to be locked.
- * @param tab_fd The file descriptor of the table containing the index.
- * @return True if the lock is successfully granted, false otherwise.
- */
-bool LockManager::LockGapOnIndex(Transaction *txn, const Iid &iid, int tab_fd) {
-  // 1. Check the txn state(SS2PL)
-  if (!CheckTxnStateLock(txn)) {
-    return false;
-  }
-
-  // 2. Check if the lock is already granted
-  LockDataId lock_data_id(tab_fd, iid, LockDataType::GAP);
-  std::unique_lock<std::mutex> lock(latch_);
-  LockRequestQueue &request_queue = lock_table_[lock_data_id];
-  for (auto &req : request_queue.request_queue_) {
-    if (req.txn_id_ == txn->GetTransactionId()) {
-      return true;
-    }
-  }
-  // Because LockDataId's type is GAP, group lock mode will always be
-  // NON_LOCK/GAP We don't need to check group lock mode because there is no
-  // conflict lock request
-  // 3. Grant the lock
-  LockRequest lock_request(txn->GetTransactionId(), LockMode::GAP);
-  lock_request.granted_ = true;
-  request_queue.request_queue_.emplace_back(lock_request);
-  // Update the group lock mode(change from NON_LOCK/GAP)
-  request_queue.group_lock_mode_ = GroupLockMode::GAP;
-  txn->GetLockSet()->insert(lock_data_id);
-
-  return true;
-}
-
-/**
- * Handles the wait-die mechanism for transactions waiting on a gap lock in the
- * lock manager. This function is called when a transaction is waiting for a gap
- * lock on a specific index. It checks if there are any lock requests from other
- * transactions and applies the wait-die mechanism if necessary.
- *
- * @param txn       The transaction waiting for the gap lock.
- * @param iid       The identifier of the index.
- * @param tab_fd    The file descriptor of the table.
- */
-void LockManager::HandleIndexGapWaitDie(Transaction *txn, const Iid &iid,
-                                        int tab_fd) {
-  LockDataId lock_data_id(tab_fd, iid, LockDataType::GAP);
-  std::unique_lock<std::mutex> lock(latch_);
-  LockRequestQueue &request_queue = lock_table_[lock_data_id];
-  // the condition to wake
-  auto wake = [&]() {
-    // If no other lock request or the lock request is from the same
-    // transaction, wake Note that group_lock_mode_ will only be NON_LOCK or GAP
-    if (request_queue.group_lock_mode_ == GroupLockMode::NON_LOCK) {
-      return true;
-    }
-    for (auto &req : request_queue.request_queue_) {
-      if (req.txn_id_ != txn->GetTransactionId()) {
-        return false;
-      }
-    }
-    return true;
-  };
-  // If there is a lock request from other transactions, wait
-  for (auto &req : request_queue.request_queue_) {
-    if (req.txn_id_ != txn->GetTransactionId()) {
-      /* wait-die */
-      WaitDie(txn, req, request_queue, lock, wake);
-      break;
-    }
-  }
-}
-
-/**
  * @description: 申请行级排他锁
  * @return {bool} 加锁是否成功
  * @param {Transaction*} txn 要申请锁的事务对象指针
@@ -676,8 +596,6 @@ bool LockManager::Unlock(Transaction *txn, LockDataId lock_data_id) {
   } else if (lock_mode_count[static_cast<int>(LockMode::INTENTION_SHARED)] >
              0) {
     request_queue.group_lock_mode_ = GroupLockMode::IS;
-  } else if (lock_mode_count[static_cast<int>(LockMode::GAP)] > 0) {
-    request_queue.group_lock_mode_ = GroupLockMode::GAP;
   } else {
     request_queue.group_lock_mode_ = GroupLockMode::NON_LOCK;
   }

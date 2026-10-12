@@ -1,11 +1,11 @@
 #include "storage/easystore/catalog/load_manager.h"
 
+#include <algorithm>
 #include <fstream>
+#include <limits>
+#include <set>
 #include <sstream>
 #include <unordered_map>
-#include <set>
-#include <algorithm>
-#include <limits>
 
 #include "buffer/buffer_pool_manager.h"
 #include "common/context.h"
@@ -18,10 +18,9 @@ namespace easydb {
 void LoadManager::AsyncLoadData(const std::string &file_name,
                                 const std::string &table_name, Context *) {
   load_status_ = 0;
-  futures_.emplace_back(std::async(std::launch::async, [this, file_name,
-                                                        table_name] {
-    LoadData(file_name, table_name);
-  }));
+  futures_.emplace_back(std::async(
+      std::launch::async,
+      [this, file_name, table_name] { LoadData(file_name, table_name); }));
 }
 
 void LoadManager::Finish() {
@@ -36,7 +35,7 @@ void LoadManager::LoadData(const std::string &file_name,
     throw TableNotFoundError(table_name);
   }
   const auto &table = catalog_manager_->GetTable(table_name);
-  auto *file = table_manager_->Get(table_name);
+  auto *table_handle = clustered_table_manager_->Get(table_name);
   std::ifstream input(file_name);
   if (!input.is_open()) {
     throw Exception("load data: open file failed: " + file_name);
@@ -91,7 +90,9 @@ void LoadManager::LoadData(const std::string &file_name,
       }
     }
     Tuple tuple(values, &table.schema);
-    file->InsertTuple(TupleMeta{0, false}, tuple, nullptr);
+    if (!table_handle->Insert(tuple)) {
+      throw Exception("load data: duplicate clustered key");
+    }
     ++count;
   }
 
@@ -102,7 +103,7 @@ void LoadManager::LoadData(const std::string &file_name,
     statistics_manager_->SetTableAttrMin(table_name, name, min_values[name]);
     statistics_manager_->SetTableAttrSum(table_name, name, sums[name]);
     statistics_manager_->SetTableAttrDistinct(table_name, name,
-                                               distinct_values[name].size());
+                                              distinct_values[name].size());
   }
   buffer_pool_manager_->FlushAllDirtyPages();
 }

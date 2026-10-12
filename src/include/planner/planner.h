@@ -23,7 +23,6 @@ See the Mulan PSL v2 for more details. */
 // #include "execution/execution_manager.h"
 #include "parser/parser.h"
 #include "plan.h"
-#include "storage/easystore/record/rm.h"
 #include "storage/storage_engine.h"
 #include "type/type_id.h"
 

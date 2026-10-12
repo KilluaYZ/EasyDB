@@ -15,9 +15,6 @@
 #include "common/mergeSorter.h"
 #include "execution_manager.h"
 #include "executor_abstract.h"
-#include "storage/easystore/record/rm_defs.h"
-#include "storage/easystore/index/ix_manager.h"
-#include "storage/easystore/index/ix_scan.h"
 #include "system/sm_defs.h"
 #include "system/sm_meta.h"
 namespace easydb {
@@ -214,8 +211,6 @@ class MergeJoinExecutor : public AbstractExecutor {
   std::unique_ptr<Tuple> Next() override {
     return std::make_unique<Tuple>(joined_records_);
   }
-
-  RID &rid() override { return _abstract_rid; }
 
   size_t tupleLen() const override { return len_; };
 

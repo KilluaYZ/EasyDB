@@ -25,12 +25,12 @@ namespace easydb {
 DeleteExecutor::DeleteExecutor(StorageEngine *storage_engine,
                                const std::string &tab_name,
                                std::vector<Condition> conds,
-                               std::vector<RID> rids, Context *context) {
+                               std::vector<Tuple> tuples, Context *context) {
   storage_engine_ = storage_engine;
   tab_name_ = tab_name;
   tab_ = storage_engine_->GetTableMeta(tab_name);
   conds_ = conds;
-  rids_ = rids;
+  tuples_ = std::move(tuples);
   context_ = context;
 
   // lock table
@@ -46,42 +46,15 @@ DeleteExecutor::DeleteExecutor(StorageEngine *storage_engine,
  */
 std::unique_ptr<Tuple> DeleteExecutor::Next() {
   // 遍历要删除的记录
-  int rid_size = rids_.size();
-  for (int i = 0; i < rid_size; i++) {
-    RID rid = rids_[i];
+  int tuple_count = tuples_.size();
+  for (int i = 0; i < tuple_count; i++) {
+    const auto &key_tuple = tuples_[i];
 
     // get records
-    auto rec = storage_engine_->ReadTuple(tab_name_, rid, context_);
-
-    // delete corresponding index
-    for (auto index : tab_.indexes) {
-      auto key_schema = Schema::CopySchema(&tab_.schema, index.col_ids);
-      auto key_tuple =
-          rec->KeyFromTuple(tab_.schema, key_schema, index.col_ids);
-      std::vector<char> key(index.col_tot_len);
-      int offset = 0;
-      for (int i = 0; i < index.col_num; ++i) {
-        auto val = key_tuple.GetValue(&key_schema, i);
-        ix_memcpy(key.data() + offset, val, index.cols[i].len);
-        offset += index.cols[i].len;
-      }
-      // Wait for GAP lock first
-      if (context_ != nullptr) {
-        std::vector<std::string> index_columns;
-        for (const auto &column : index.cols)
-          index_columns.push_back(column.name);
-        storage_engine_->WaitForIndexGap(tab_name_, index_columns, key,
-                                         context_);
-      }
-      std::vector<std::string> index_columns;
-      for (const auto &column : index.cols)
-        index_columns.push_back(column.name);
-      storage_engine_->DeleteIndexEntry(tab_name_, index_columns, key,
-                                        context_);
-    }
+    auto rec = storage_engine_->ReadTuple(tab_name_, key_tuple, context_);
 
     // delete records
-    storage_engine_->DeleteTuple(tab_name_, rid, context_);
+    storage_engine_->DeleteTuple(tab_name_, key_tuple, context_);
 
     // // Log the delete operation
     // DeleteLogRecord del_log_rec(context_->txn_->GetTransactionId(), *rec,
@@ -93,7 +66,7 @@ std::unique_ptr<Tuple> DeleteExecutor::Next() {
 
     // Update context_ for rollback
     WriteRecord *write_record =
-        new WriteRecord(WType::DELETE_TUPLE, tab_name_, rid, *rec);
+        new WriteRecord(WType::DELETE_TUPLE, tab_name_, key_tuple, *rec);
     context_->txn_->AppendWriteRecord(write_record);
 
     storage_engine_->UpdateTableCount(tab_name_, -1);

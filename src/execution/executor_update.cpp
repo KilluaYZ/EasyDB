@@ -26,13 +26,13 @@ UpdateExecutor::UpdateExecutor(StorageEngine *storage_engine,
                                const std::string &tab_name,
                                std::vector<SetClause> set_clauses,
                                std::vector<Condition> conds,
-                               std::vector<RID> rids, Context *context) {
+                               std::vector<Tuple> tuples, Context *context) {
   storage_engine_ = storage_engine;
   tab_name_ = tab_name;
   set_clauses_ = set_clauses;
   tab_ = storage_engine_->GetTableMeta(tab_name);
   conds_ = conds;
-  rids_ = rids;
+  tuples_ = std::move(tuples);
   context_ = context;
 
   // lock table
@@ -48,11 +48,11 @@ UpdateExecutor::UpdateExecutor(StorageEngine *storage_engine,
  */
 std::unique_ptr<Tuple> UpdateExecutor::Next() {
   // 遍历要更新的记录
-  int rid_size = rids_.size();
-  for (int i = 0; i < rid_size; i++) {
-    RID rid = rids_[i];
+  int tuple_count = tuples_.size();
+  for (int i = 0; i < tuple_count; i++) {
+    const auto &key_tuple = tuples_[i];
     // get records and construct updated value buf
-    auto tuple = storage_engine_->ReadTuple(tab_name_, rid, context_);
+    auto tuple = storage_engine_->ReadTuple(tab_name_, key_tuple, context_);
     auto old_values = tuple->GetValueVec(&tab_.schema);
     auto new_values = old_values;
 
@@ -75,76 +75,13 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
 
     Tuple new_tuple{new_values, &tab_.schema};
 
-    // update corresponding index
-    // 1. construct key_d and key_i
-    // 2. delete old index entry and insert new index entry
-    for (auto index : tab_.indexes) {
-      auto ids = index.col_ids;
-      char *key_d = new char[index.col_tot_len];
-      char *key_i = new char[index.col_tot_len];
-      int offset = 0;
-      for (int i = 0; i < index.col_num; ++i) {
-        // memcpy(key_d + offset, rec->data + index.cols[i].offset,
-        // index.cols[i].len); memcpy(key_i + offset, buf.data +
-        // index.cols[i].offset, index.cols[i].len);
-        auto id = ids[i];
-        auto val_d = old_values[id];
-        auto val_i = new_values[id];
-        ix_memcpy(key_d + offset, val_d, index.cols[i].len);
-        ix_memcpy(key_i + offset, val_i, index.cols[i].len);
-        offset += index.cols[i].len;
-      }
-      // check if the key is the same as before
-      if (memcmp(key_d, key_i, index.col_tot_len) == 0) {
-        continue;
-      }
-
-      // Wait for GAP lock before insert
-      if (context_ != nullptr) {
-        std::vector<std::string> index_columns;
-        for (const auto &column : index.cols)
-          index_columns.push_back(column.name);
-        storage_engine_->WaitForIndexGap(
-            tab_name_, index_columns,
-            std::vector<char>(key_i, key_i + index.col_tot_len), context_);
-      }
-
-      // check if the new key duplicated
-      std::vector<std::string> index_columns;
-      for (const auto &column : index.cols)
-        index_columns.push_back(column.name);
-      std::vector<char> new_key(key_i, key_i + index.col_tot_len);
-      auto is_insert = storage_engine_->InsertIndexEntry(
-          tab_name_, index_columns, new_key, rid, context_);
-      if (!is_insert) {
-        std::vector<std::string> col_names;
-        for (auto col : index.cols) {
-          col_names.emplace_back(col.name);
-        }
-        throw IndexExistsError(tab_name_, col_names);
-      }
-
-      // Wait for GAP lock before delete
-      if (context_ != nullptr) {
-        storage_engine_->WaitForIndexGap(
-            tab_name_, index_columns,
-            std::vector<char>(key_d, key_d + index.col_tot_len), context_);
-      }
-
-      storage_engine_->DeleteIndexEntry(
-          tab_name_, index_columns,
-          std::vector<char>(key_d, key_d + index.col_tot_len), context_);
-      delete[] key_d;
-      delete[] key_i;
-    }
-
     // // Log the update operation(before update old value: *rec)
     // UpdateLogRecord update_log_rec(context_->txn_->GetTransactionId(), *rec,
     // buf, rid, tab_name_);
 
     // update records
     // fh_->UpdateTupleInPlace(TupleMeta{0, false}, new_tuple, context_);
-    storage_engine_->UpdateTuple(tab_name_, rid, new_tuple, context_);
+    storage_engine_->UpdateTuple(tab_name_, key_tuple, new_tuple, context_);
 
     // // Log the update operation(after update)
     // update_log_rec.prev_lsn_ = context_->txn_->GetPrevLsn();
@@ -155,7 +92,7 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
 
     // Update context_ for rollback
     WriteRecord *write_record =
-        new WriteRecord(WType::UPDATE_TUPLE, tab_name_, rid, *tuple);
+        new WriteRecord(WType::UPDATE_TUPLE, tab_name_, key_tuple, *tuple);
     context_->txn_->AppendWriteRecord(write_record);
   }
 

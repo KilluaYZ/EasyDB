@@ -48,10 +48,8 @@ SeqScanExecutor::SeqScanExecutor(StorageEngine *storage_engine,
  */
 void SeqScanExecutor::beginTuple() {
   scan_ = storage_engine_->ScanTable(tab_name_, context_);
-  rid_ = scan_->GetRid();
   while (!IsEnd() && !predicate()) {
     scan_->Next();
-    rid_ = scan_->GetRid();
   }
 }
 
@@ -61,13 +59,10 @@ void SeqScanExecutor::beginTuple() {
 void SeqScanExecutor::nextTuple() {
   do {
     scan_->Next();
-    rid_ = scan_->GetRid();
   } while (!IsEnd() && !predicate());
 }
 
-std::unique_ptr<Tuple> SeqScanExecutor::Next() {
-  return storage_engine_->ReadTuple(tab_name_, rid_, context_);
-}
+std::unique_ptr<Tuple> SeqScanExecutor::Next() { return scan_->GetTuple(); }
 
 /**
  * @description: 判断当前记录是否满足所有查询条件（包括子查询）

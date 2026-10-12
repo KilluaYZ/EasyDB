@@ -66,17 +66,13 @@ easydb_sources = files(
   'src/type/value.cpp',
   'src/type/varlen_type.cpp',
   'src/storage/disk/disk_manager.cpp',
-  'src/storage/easystore/index/ix_index_handle.cpp',
-  'src/storage/easystore/index/ix_extendible_hash_index_handle.cpp',
   'src/storage/easystore/index/clustered_leaf_page.cpp',
   'src/storage/easystore/index/clustered_index_handle.cpp',
-  'src/storage/easystore/index/ix_scan.cpp',
-  'src/storage/easystore/page/table_page.cpp',
+  'src/storage/easystore/table/clustered_table_handle.cpp',
+  'src/storage/easystore/table/clustered_table_manager.cpp',
   'src/storage/easystore/table/tuple.cpp',
   'src/buffer/buffer_pool_manager.cpp',
   'src/buffer/lru_replacer.cpp',
-  'src/storage/easystore/record/rm_file_handle.cpp',
-  'src/storage/easystore/record/rm_scan.cpp',
   'src/planner/planner.cpp',
   'src/execution/execution_manager.cpp',
   'src/execution/executor_sort.cpp',
@@ -94,7 +90,6 @@ easydb_sources = files(
   'src/storage/easystore/transaction/transaction_manager.cpp',
   'src/storage/easystore/transaction/rollback_manager.cpp',
   'src/storage/easystore/recovery/log_manager.cpp',
-  'src/storage/easystore/recovery/log_recovery.cpp',
   'src/storage/easystore/catalog/ddl_manager.cpp',
   'src/storage/easystore/catalog/load_manager.cpp',
   'src/analyze/analyze.cpp',
@@ -138,14 +133,12 @@ test_sources = files(
   'test/buffer/buffer_test.cpp',
   'test/buffer/lru_replacer_test.cpp',
   'test/buffer/lru_test.cpp',
-  'test/comprehensive_test/comprehensive_test.cpp',
   'test/execution/hash_join_test.cpp',
   'test/parser/parser_ast_printer.cpp',
   'test/parser/parser_test.cpp',
   'test/storage/disk/disk_manager_test.cpp',
   'test/storage/index/clustered_leaf_page_test.cpp',
   'test/storage/index/clustered_index_handle_test.cpp',
-  'test/storage/index/extendible_hash_index_test.cpp',
   'test/type/type_test.cpp',
 )
 test_names = [
@@ -153,14 +146,12 @@ test_names = [
   'buffer_test',
   'lru_replacer_test',
   'lru_test',
-  'comprehensive_test',
   'hash_join_test',
   'parser_ast_printer',
   'parser_test',
   'disk_manager_test',
   'clustered_leaf_page_test',
   'clustered_index_handle_test',
-  'extendible_hash_index_test',
   'type_test',
 ]
 
@@ -175,10 +166,8 @@ foreach i : range(test_sources.length())
     link_with: easydb,
     override_options: ['warning_level=0'],
   )
-  # These two binaries are build artifacts rather than self-contained tests:
-  # parser_ast_printer needs CLI arguments, while comprehensive_test expects
-  # benchmark data under ../../tmp/benchmark_data.
-  if test_name != 'parser_ast_printer' and test_name != 'comprehensive_test'
+  # Parser printer is a build artifact needing CLI arguments.
+  if test_name != 'parser_ast_printer'
     test(test_name, test_exe)
   endif
 endforeach

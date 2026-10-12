@@ -13,9 +13,9 @@
 #include "common/errors.h"
 #include "execution_manager.h"
 #include "executor_abstract.h"
+#include "storage/easystore/transaction/txn_defs.h"
 #include "system/sm_defs.h"
 #include "system/sm_meta.h"
-#include "storage/easystore/transaction/txn_defs.h"
 
 namespace easydb {
 
@@ -51,7 +51,6 @@ class InsertExecutor : public AbstractExecutor {
    * @brief 插入的位置（记录ID）
    * @note 由于系统默认插入时不指定位置，因此当前rid_在插入后才赋值
    */
-  RID rid_;
 
   /**
    * @brief 系统管理器指针
@@ -77,12 +76,6 @@ class InsertExecutor : public AbstractExecutor {
    *   - 插入操作包括：创建元组、插入到表、更新索引、记录日志
    */
   std::unique_ptr<Tuple> Next() override;
-
-  /**
-   * @brief 获取插入的元组的RID
-   * @return 插入的元组的RID的引用
-   */
-  RID &rid() override { return rid_; }
 };
 
 }  // namespace easydb

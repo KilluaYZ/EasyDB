@@ -30,7 +30,6 @@ class CatalogManager;
 class DiskManager;
 class DdlManager;
 class RollbackManager;
-class TableManager;
 
 /**
  * @brief 系统采用的并发控制算法枚举
@@ -50,21 +49,17 @@ enum class ConcurrencyMode {
  * - 与锁管理器和日志管理器的协调
  */
 class TransactionManager {
-  friend class RecoveryManager;
-
  public:
   TransactionManager(
       LockManager *lock_manager, RollbackManager *rollback_manager,
       DiskManager *disk_manager, BufferPoolManager *buffer_pool_manager,
-      CatalogManager *catalog_manager,
-      TableManager *table_manager, DdlManager *ddl_manager,
+      CatalogManager *catalog_manager, DdlManager *ddl_manager,
       ConcurrencyMode concurrency_mode = ConcurrencyMode::TWO_PHASE_LOCKING) {
     lock_manager_ = lock_manager;
     rollback_manager_ = rollback_manager;
     disk_manager_ = disk_manager;
     buffer_pool_manager_ = buffer_pool_manager;
     catalog_manager_ = catalog_manager;
-    table_manager_ = table_manager;
     ddl_manager_ = ddl_manager;
     concurrency_mode_ = concurrency_mode;
   }
@@ -200,7 +195,6 @@ class TransactionManager {
   RollbackManager *rollback_manager_ = nullptr;
   BufferPoolManager *buffer_pool_manager_ = nullptr;
   CatalogManager *catalog_manager_ = nullptr;
-  TableManager *table_manager_ = nullptr;
   DdlManager *ddl_manager_ = nullptr;
 
   /** @brief 锁管理器指针 */

@@ -11,7 +11,6 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include "common/config.h"
-#include "storage/easystore/index/ix_defs.h"
 #include "storage/easystore/table/tuple.h"
 
 namespace easydb {
@@ -77,8 +76,8 @@ class WriteRecord {
    * @param tab_name 表名
    * @param rid 插入的元组的记录ID
    */
-  WriteRecord(WType wtype, const std::string &tab_name, const RID &rid)
-      : wtype_(wtype), tab_name_(tab_name), rid_(rid) {}
+  WriteRecord(WType wtype, const std::string &tab_name, const Tuple &key)
+      : wtype_(wtype), tab_name_(tab_name), key_(key) {}
 
   /**
    * @brief DELETE和UPDATE操作的构造函数
@@ -87,9 +86,9 @@ class WriteRecord {
    * @param rid 操作的元组的记录ID
    * @param tuple 元组值（DELETE时存储旧值，UPDATE时存储旧值用于回滚）
    */
-  WriteRecord(WType wtype, const std::string &tab_name, const RID &rid,
+  WriteRecord(WType wtype, const std::string &tab_name, const Tuple &key,
               const Tuple &tuple)
-      : wtype_(wtype), tab_name_(tab_name), rid_(rid), tuple_(tuple) {}
+      : wtype_(wtype), tab_name_(tab_name), key_(key), tuple_(tuple) {}
 
   /**
    * @brief 析构函数
@@ -106,7 +105,7 @@ class WriteRecord {
    * @brief 获取记录ID
    * @return 记录ID的引用
    */
-  inline RID &GetRid() { return rid_; }
+  inline Tuple &GetKey() { return key_; }
 
   /**
    * @brief 获取写操作类型
@@ -127,8 +126,8 @@ class WriteRecord {
   /** @brief 表名 */
   std::string tab_name_;
 
-  /** @brief 记录ID */
-  RID rid_;
+  /** @brief 聚簇主键 tuple */
+  Tuple key_;
 
   /** @brief 元组值（用于DELETE和UPDATE操作的回滚） */
   Tuple tuple_;
@@ -136,12 +135,11 @@ class WriteRecord {
 
 /**
  * @brief 多粒度锁的加锁对象类型枚举
- * @note 包括表、记录和间隙三种类型
+ * @note 包括表和记录两种类型
  */
 enum class LockDataType {
   TABLE = 0,  /**< 表级锁 */
   RECORD = 1, /**< 行级锁（记录锁） */
-  GAP = 2     /**< 间隙锁（用于索引，防止幻读） */
 };
 
 /**
@@ -176,19 +174,6 @@ class LockDataId {
     assert(type == LockDataType::RECORD);
     fd_ = fd;
     rid_ = rid;
-    type_ = type;
-  }
-
-  /**
-   * @brief 间隙锁的构造函数
-   * @param fd 文件描述符
-   * @param iid 索引项ID
-   * @param type 锁数据类型（必须是LockDataType::GAP）
-   */
-  LockDataId(int fd, const Iid &iid, LockDataType type) {
-    assert(type == LockDataType::GAP);
-    fd_ = fd;
-    rid_ = {iid.page_id_, iid.slot_num_};
     type_ = type;
   }
 

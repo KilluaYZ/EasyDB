@@ -14,7 +14,6 @@
 #include <string>
 #include <vector>
 #include "defs.h"
-#include "storage/easystore/record/rm_defs.h"
 #include "storage/easystore/table/tuple.h"
 #include "system/sm_meta.h"
 #include "type/value.h"

@@ -1,36 +1,30 @@
 #pragma once
 
 #include "storage/easystore/catalog/catalog_manager.h"
-#include "storage/easystore/index/index_manager.h"
-#include "storage/easystore/table/table_manager.h"
+#include "storage/easystore/table/clustered_table_manager.h"
 #include "storage/easystore/transaction/txn_defs.h"
 
 namespace easydb {
 
 class Context;
-class IxManager;
-
 class RollbackManager {
  public:
-  RollbackManager(CatalogManager *catalog_manager, TableManager *table_manager,
-                  IndexManager *index_manager)
-      : catalog_manager_(catalog_manager),
-        table_manager_(table_manager),
-        index_manager_(index_manager) {}
+  RollbackManager(CatalogManager *catalog_manager,
+                  ClusteredTableManager *table_manager)
+      : catalog_manager_(catalog_manager), table_manager_(table_manager) {}
 
   void Rollback(WriteRecord *write_record, Context *context);
 
  private:
-  void RollbackInsert(const std::string &table_name, RID rid,
+  void RollbackInsert(const std::string &table_name, Tuple &key,
                       Context *context);
-  void RollbackDelete(const std::string &table_name, RID rid, Tuple &tuple,
+  void RollbackDelete(const std::string &table_name, Tuple &key, Tuple &tuple,
                       Context *context);
-  void RollbackUpdate(const std::string &table_name, RID rid, Tuple &tuple,
+  void RollbackUpdate(const std::string &table_name, Tuple &key, Tuple &tuple,
                       Context *context);
 
   CatalogManager *catalog_manager_;
-  TableManager *table_manager_;
-  IndexManager *index_manager_;
+  ClusteredTableManager *table_manager_;
 };
 
 }  // namespace easydb

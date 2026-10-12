@@ -14,8 +14,6 @@
 #include "defs.h"
 #include "execution_manager.h"
 #include "executor_abstract.h"
-#include "storage/easystore/index/ix_manager.h"
-#include "storage/easystore/index/ix_scan.h"
 #include "storage/easystore/table/tuple.h"
 #include "system/sm_defs.h"
 #include "system/sm_meta.h"
@@ -136,7 +134,6 @@ class SortExecutor : public AbstractExecutor {
    * @brief 获取当前元组的RID
    * @return 抽象RID的引用
    */
-  RID &rid() override { return _abstract_rid; }
 
   // const std::vector<ColMeta> &cols() const override { return prev_->cols();
   // };
@@ -173,8 +170,6 @@ class SortExecutor : public AbstractExecutor {
    * @param record 记录对象
    * @param cols 列元数据向量
    */
-  void printRecord(RmRecord record, std::vector<ColMeta> cols);
-
   /**
    * @brief 打印记录（用于调试）
    * @param data 记录数据指针
