@@ -28,8 +28,9 @@ use crate::record::rm_file_handle::RmFileHandle;
 use crate::record::rm_manager::RmManager;
 use crate::recovery::{LogManager, LogRecord};
 use crate::storage::disk::DiskManager;
-use crate::storage_engine::{IndexDescriptor, IndexKind, StorageEngine, TableDescriptor};
-use crate::transaction::{IsolationLevel, Transaction, TransactionState, WType, WriteRecord};
+use crate::storage_engine::heap::{HeapIndex, HeapTable};
+use crate::storage_engine::{IndexDescriptor, IndexKind, StorageEngine, StorageTable, TableDescriptor};
+use crate::transaction::{IsolationLevel, Transaction, TransactionState, WriteRecord};
 use crate::types::ColType;
 
 pub mod format;
@@ -622,49 +623,8 @@ impl Database {
     }
 
     fn undo_write(&self, rec: &WriteRecord) -> Result<(), EasyDbError> {
-        let Some(meta) = self.tables.get(&rec.table) else {
-            return Ok(()); // 表已删除：无可撤销
-        };
-
-        let indexes = planner::index_maintenance(self, &rec.table)?;
-        let schema = crate::catalog::Schema::new(meta.cols.clone());
-        match rec.wtype {
-            WType::Insert => {
-                // 撤销插入：删索引条目 + 删记录
-                let row = crate::record::tuple::decode_tuple(&schema, &rec.data)?;
-                for ix in &indexes {
-                    ix.handle.delete_entry(&ix.key(&row)?, rec.rid)?;
-                }
-                meta.fh.delete_tuple(rec.rid)?;
-            }
-            WType::Delete => {
-                // 撤销删除：回写旧数据 + 复活 + 补索引条目
-                meta.fh.rewrite_tuple(rec.rid, &rec.data)?;
-                meta.fh.undelete_tuple(rec.rid, rec.old_meta)?;
-                let row = crate::record::tuple::decode_tuple(&schema, &rec.data)?;
-                for ix in &indexes {
-                    ix.handle.insert_entry(&ix.key(&row)?, rec.rid)?;
-                }
-            }
-            WType::Update => {
-                // 撤销版本更新：删除新版本，恢复旧版本及其链元数据。
-                let old_row = crate::record::tuple::decode_tuple(&schema, &rec.data)?;
-                if let Some(new_rid) = rec.new_rid {
-                    let new_data = meta.fh.get_tuple(new_rid)?.1;
-                    let new_row = crate::record::tuple::decode_tuple(&schema, &new_data)?;
-                    for ix in &indexes {
-                        ix.handle.delete_entry(&ix.key(&new_row)?, new_rid)?;
-                    }
-                    meta.fh.delete_tuple(new_rid)?;
-                }
-                meta.fh.rewrite_tuple(rec.rid, &rec.data)?;
-                meta.fh.undelete_tuple(rec.rid, rec.old_meta)?;
-                for ix in &indexes {
-                    ix.handle.insert_entry(&ix.key(&old_row)?, rec.rid)?;
-                }
-            }
-        }
-        Ok(())
+        let table = self.open_table(&rec.table)?;
+        table.rollback(rec)
     }
 
     // ---- 恢复后挂载（P7 持久化目录就绪前的过渡入口）----
@@ -850,8 +810,20 @@ impl Database {
         let handle = ExtendibleHashIndex::create(&path, &self.disk)?;
         let fh = meta.fh.clone();
         let table_cols = meta.cols.clone();
-        let mut scan =
-            crate::execution::scan::SeqScanExec::new_unlocked(fh, table_cols, Vec::new());
+        let heap_table = HeapTable::new(
+            TableDescriptor {
+                name: table.to_string(),
+                columns: table_cols.clone(),
+                indexes: Vec::new(),
+            },
+            fh,
+            Vec::new(),
+        );
+        let mut scan = crate::execution::scan::StorageScanExec::from_scan(
+            heap_table.scan_unlocked(),
+            table_cols,
+            Vec::new(),
+        );
         while let Some(row) = scan.next()? {
             let values: Vec<crate::types::Value> = cols
                 .iter()
@@ -930,8 +902,17 @@ impl Database {
         {
             let fh = meta.fh.clone();
             let table_cols = meta.cols.clone();
-            let mut scan = crate::execution::scan::SeqScanExec::new_unlocked(
+            let heap_table = HeapTable::new(
+                TableDescriptor {
+                    name: table.to_string(),
+                    columns: table_cols.clone(),
+                    indexes: Vec::new(),
+                },
                 fh,
+                Vec::new(),
+            );
+            let mut scan = crate::execution::scan::StorageScanExec::from_scan(
+                heap_table.scan_unlocked(),
                 table_cols.clone(),
                 Vec::new(),
             );
@@ -1000,6 +981,24 @@ impl Database {
 impl StorageEngine for Database {
     fn table_descriptor(&self, table: &str) -> Result<TableDescriptor, EasyDbError> {
         Database::table_descriptor(self, table)
+    }
+
+    fn open_table(&self, table: &str) -> Result<Arc<dyn StorageTable>, EasyDbError> {
+        let meta = self.table(table)?;
+        let descriptor = self.table_descriptor(table)?;
+        let indexes = meta
+            .indexes
+            .iter()
+            .map(|index| HeapIndex::BTree {
+                columns: index.cols.clone(),
+                handle: index.handle.clone(),
+            })
+            .chain(meta.hash_indexes.iter().map(|index| HeapIndex::Hash {
+                columns: index.cols.clone(),
+                handle: index.handle.clone(),
+            }))
+            .collect();
+        Ok(Arc::new(HeapTable::new(descriptor, meta.fh.clone(), indexes)))
     }
 }
 

@@ -29,6 +29,8 @@ use crate::record::rm_defs::TupleMeta;
 use crate::record::rm_file_handle::RmFileHandle;
 use crate::record::rm_manager::RmManager;
 use crate::storage::disk::DiskManager;
+use crate::storage_engine::heap::HeapTable;
+use crate::storage_engine::TableDescriptor;
 use crate::transaction::WType;
 
 /// 日志记录类型（对应 C++ `LogType`）。
@@ -506,8 +508,17 @@ pub fn recover(
                 std::fs::remove_file(&path)?;
             }
             let handle = ExtendibleHashIndex::create(&path, &disk)?;
-            let mut scan = crate::execution::scan::SeqScanExec::new_unlocked(
+            let heap_table = HeapTable::new(
+                TableDescriptor {
+                    name: meta.name.clone(),
+                    columns: meta.cols.clone(),
+                    indexes: Vec::new(),
+                },
                 fh.clone(),
+                Vec::new(),
+            );
+            let mut scan = crate::execution::scan::StorageScanExec::from_scan(
+                heap_table.scan_unlocked(),
                 meta.cols.clone(),
                 Vec::new(),
             );
@@ -569,8 +580,17 @@ pub fn recover(
             ix.create_index(&path, &specs)?;
             let fd = disk.open_file(&path)?;
             let handle = Arc::new(IxIndexHandle::open(disk.clone(), bpm.clone(), fd)?);
-            let mut scan = crate::execution::scan::SeqScanExec::new_unlocked(
+            let heap_table = HeapTable::new(
+                TableDescriptor {
+                    name: meta.name.clone(),
+                    columns: meta.cols.clone(),
+                    indexes: Vec::new(),
+                },
                 fh.clone(),
+                Vec::new(),
+            );
+            let mut scan = crate::execution::scan::StorageScanExec::from_scan(
+                heap_table.scan_unlocked(),
                 meta.cols.clone(),
                 Vec::new(),
             );

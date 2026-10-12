@@ -12,13 +12,11 @@
 
 use crate::analyze::{BoundCond, BoundRhs, BoundSelect, BoundSetClause, Query, TabCol};
 use crate::common::errors::EasyDbError;
-use crate::execution::dml::{
-    DeleteExec, IndexMaintenance, IndexMaintenanceHandle, InsertExec, UpdateExec,
-};
+use crate::execution::dml::{DeleteExec, InsertExec, UpdateExec};
 use crate::execution::query_execs::{
     AggItem, AggregateExec, NestedLoopJoinExec, ProjectExec, SortExec,
 };
-use crate::execution::scan::{HashIndexScanExec, IndexScanExec, SeqScanExec};
+use crate::execution::scan::StorageScanExec;
 use crate::execution::{ExecCtx, Executor, ResolvedCond, ResolvedRhs, RowSchema};
 use crate::parser::ast::{CompOp, OrderDir};
 use crate::system::Database;
@@ -655,72 +653,16 @@ pub fn build_dml_scan(
     build_executor(&plan_table_scan(db, table, conds)?, db, ctx)
 }
 
-pub fn index_maintenance(db: &Database, table: &str) -> Result<Vec<IndexMaintenance>, EasyDbError> {
-    let meta = db.table(table)?;
-    let mut out = Vec::new();
-    for ix in &meta.indexes {
-        let mut col_idx = Vec::with_capacity(ix.cols.len());
-        let mut col_types = Vec::with_capacity(ix.cols.len());
-        let mut col_lens = Vec::with_capacity(ix.cols.len());
-        for name in &ix.cols {
-            let col = meta
-                .cols
-                .iter()
-                .find(|c| c.name() == *name)
-                .ok_or_else(|| EasyDbError::Internal("index column missing".to_string()))?;
-            col_idx.push(
-                meta.cols
-                    .iter()
-                    .position(|c| c.name() == *name)
-                    .unwrap_or(0),
-            );
-            col_types.push(col.col_type());
-            col_lens.push(col.storage_size() as usize);
-        }
-        out.push(IndexMaintenance {
-            handle: IndexMaintenanceHandle::BTree(ix.handle.clone()),
-            col_idx,
-            col_types,
-            col_lens,
-        });
-    }
-    for ix in &meta.hash_indexes {
-        let mut col_idx = Vec::with_capacity(ix.cols.len());
-        let mut col_types = Vec::with_capacity(ix.cols.len());
-        let mut col_lens = Vec::with_capacity(ix.cols.len());
-        for name in &ix.cols {
-            let col = meta
-                .cols
-                .iter()
-                .find(|c| c.name() == *name)
-                .ok_or_else(|| EasyDbError::Internal("index column missing".to_string()))?;
-            col_idx.push(meta.col_pos(name));
-            col_types.push(col.col_type());
-            col_lens.push(col.storage_size() as usize);
-        }
-        out.push(IndexMaintenance {
-            handle: IndexMaintenanceHandle::Hash(ix.handle.clone()),
-            col_idx,
-            col_types,
-            col_lens,
-        });
-    }
-    Ok(out)
-}
-
 pub fn build_insert(
     db: &Database,
     table: &str,
     rows: Vec<Vec<Value>>,
     ctx: &ExecCtx,
 ) -> Result<InsertExec, EasyDbError> {
-    let meta = db.table(table)?;
+    let storage_table = db.open_table(table)?;
     Ok(InsertExec::new(
-        meta.fh.clone(),
-        table,
-        meta.cols.clone(),
+        storage_table,
         rows,
-        index_maintenance(db, table)?,
         ctx,
     ))
 }
@@ -731,13 +673,11 @@ pub fn build_delete(
     conds: &[BoundCond],
     ctx: &ExecCtx,
 ) -> Result<DeleteExec, EasyDbError> {
-    let meta = db.table(table)?;
+    let storage_table = db.open_table(table)?;
     let scan = build_dml_scan(db, table, conds, ctx)?;
     Ok(DeleteExec::new(
         scan,
-        meta.fh.clone(),
-        table,
-        index_maintenance(db, table)?,
+        storage_table,
         ctx,
     ))
 }
@@ -750,6 +690,7 @@ pub fn build_update(
     ctx: &ExecCtx,
 ) -> Result<UpdateExec, EasyDbError> {
     let meta = db.table(table)?;
+    let storage_table = db.open_table(table)?;
     let scan = build_dml_scan(db, table, conds, ctx)?;
     let schema_cols: Vec<(String, String)> = meta
         .cols
@@ -766,11 +707,9 @@ pub fn build_update(
     }
     Ok(UpdateExec::new(
         scan,
-        meta.fh.clone(),
-        table,
+        storage_table,
         meta.cols.clone(),
         resolved,
-        index_maintenance(db, table)?,
         ctx,
     ))
 }
@@ -827,106 +766,25 @@ fn build_scan(
     db: &Database,
     ctx: &ExecCtx,
 ) -> Result<Box<dyn Executor>, EasyDbError> {
-    let meta = db.table(&scan.table)?;
-    let fh = meta.fh.clone();
-    let cols = meta.cols.clone();
+    let table = db.open_table(&scan.table)?;
+    let cols = table.descriptor().columns.clone();
     let schema = RowSchema::new(
         cols.iter()
             .map(|c| (c.tab_name().to_string(), c.name().to_string()))
             .collect(),
     );
     let conds = resolve_conds(&scan.conds, &schema)?;
-
-    if let Some(ix) = &scan.index {
-        if ix.hash {
-            let index_meta = meta
-                .hash_indexes
-                .iter()
-                .find(|m| m.cols == ix.cols)
-                .ok_or_else(|| EasyDbError::Internal("hash index meta missing".to_string()))?;
-            let values = ix
-                .lower
-                .as_ref()
-                .ok_or_else(|| EasyDbError::Internal("hash index needs an equality key".into()))?;
-            let types: Vec<ColType> = ix
-                .cols
-                .iter()
-                .map(|name| cols.iter().find(|c| c.name() == *name).unwrap().col_type())
-                .collect();
-            let lens: Vec<usize> = ix
-                .cols
-                .iter()
-                .map(|name| {
-                    cols.iter()
-                        .find(|c| c.name() == *name)
-                        .unwrap()
-                        .storage_size() as usize
-                })
-                .collect();
-            let key = crate::index::ix_defs::encode_key(&types, &lens, values)?;
-            return Ok(Box::new(HashIndexScanExec::new(
-                index_meta.handle.clone(),
-                fh,
-                cols,
-                key,
-                conds,
-                ctx,
-            )?));
-        }
-        let index_meta = meta
-            .indexes
-            .iter()
-            .find(|m| m.cols == ix.cols)
-            .ok_or_else(|| EasyDbError::Internal("index meta missing".to_string()))?;
-        let encode = |vals: &Option<Vec<Value>>| -> Result<Option<Vec<u8>>, EasyDbError> {
-            match vals {
-                Some(v) => {
-                    let types: Vec<ColType> = ix
-                        .cols
-                        .iter()
-                        .map(|name| {
-                            cols.iter()
-                                .find(|c| c.name() == *name)
-                                .map(|c| c.col_type())
-                                .unwrap_or(ColType::Int)
-                        })
-                        .collect();
-                    let lens: Vec<usize> = ix
-                        .cols
-                        .iter()
-                        .map(|name| {
-                            cols.iter()
-                                .find(|c| c.name() == *name)
-                                .map(|c| c.storage_size() as usize)
-                                .unwrap_or(0)
-                        })
-                        .collect();
-                    Ok(Some(crate::index::ix_defs::encode_key(&types, &lens, v)?))
-                }
-                None => Ok(None),
-            }
-        };
-        let lower = encode(&ix.lower)?;
-        let upper = encode(&ix.upper)?;
-        Ok(Box::new(IndexScanExec::new(
-            index_meta.handle.clone(),
-            fh,
-            cols,
-            lower,
-            upper,
-            conds,
-            ctx,
-            &scan.table,
-        )?))
-    } else {
-        Ok(Box::new(SeqScanExec::new(
-            fh,
-            cols,
-            conds,
-            ctx,
-            &scan.table,
-        )?))
-    }
+    let request = scan
+        .index
+        .as_ref()
+        .map(|ix| StorageScanExec::index_request(
+            ix.cols.clone(),
+            ix.lower.clone(),
+            ix.upper.clone(),
+            ix.hash,
+        ))
+        .unwrap_or_default();
+    Ok(Box::new(StorageScanExec::new(table, request, conds, ctx)?))
 }
 
 // right_table_of 保留给连接顺序重排（后续版本）
