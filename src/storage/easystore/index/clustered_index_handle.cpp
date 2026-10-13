@@ -194,6 +194,22 @@ auto ClusteredIndexHandle::GetRecord(const std::vector<char> &key)
   return result;
 }
 
+auto ClusteredIndexHandle::FindInsertGap(const std::vector<char> &key)
+    -> std::optional<std::pair<std::vector<char>, std::vector<char>>> {
+  if (key.size() != key_size_ || root_page_ == INVALID_PAGE_ID) {
+    return std::nullopt;
+  }
+
+  std::vector<char> predecessor;
+  for (const auto &entry : ScanAll()) {
+    if (comparator_(entry.key.data(), key.data()) >= 0) {
+      return std::make_pair(std::move(predecessor), entry.key);
+    }
+    predecessor = entry.key;
+  }
+  return std::make_pair(std::move(predecessor), std::vector<char>{});
+}
+
 auto ClusteredIndexHandle::Update(const std::vector<char> &key,
                                   const std::vector<char> &tuple) -> bool {
   const auto record = GetRecord(key);

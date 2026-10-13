@@ -172,6 +172,28 @@ void QlManager::run_cmd_utility(std::shared_ptr<Plan> plan, txn_id_t *txn_id,
         break;
       }
     }
+  } else if (auto x = std::dynamic_pointer_cast<SetIsolationLevelPlan>(plan)) {
+    if (context == nullptr || context->txn_ == nullptr) {
+      throw InternalError("SET TRANSACTION requires an active transaction");
+    }
+    IsolationLevel isolation_level;
+    switch (x->level_) {
+      case ast::IsolationReadUncommitted:
+        isolation_level = IsolationLevel::READ_UNCOMMITTED;
+        break;
+      case ast::IsolationReadCommitted:
+        isolation_level = IsolationLevel::READ_COMMITTED;
+        break;
+      case ast::IsolationRepeatableRead:
+        isolation_level = IsolationLevel::REPEATABLE_READ;
+        break;
+      case ast::IsolationSerializable:
+        isolation_level = IsolationLevel::SERIALIZABLE;
+        break;
+      default:
+        throw InternalError("invalid transaction isolation level");
+    }
+    context->txn_->SetIsolationLevel(isolation_level);
   } else if (auto x = std::dynamic_pointer_cast<LoadDataPlan>(plan)) {
     // assert(x->tag == T_LoadData);
     storage_engine_->AsyncLoadData(x->file_name_, x->tab_name_, context);

@@ -153,10 +153,7 @@ class IndexScanExecutor : public AbstractExecutor {
    * @return 下一个元组的智能指针，如果没有更多元组则返回nullptr
    * @note 直接从聚簇索引叶子节点读取完整元组
    */
-  std::unique_ptr<Tuple> Next() override {
-    // assert(!IsEnd());
-    return scan_->GetTuple();
-  }
+  std::unique_ptr<Tuple> Next() override;
 
  private:
   /**
@@ -166,6 +163,8 @@ class IndexScanExecutor : public AbstractExecutor {
    *       注意：某些条件可能已经在索引扫描时被使用，但仍需要检查所有条件
    */
   bool predicate();
+
+  void LockCurrentRecord(const Tuple &tuple);
 };
 
 }  // namespace easydb

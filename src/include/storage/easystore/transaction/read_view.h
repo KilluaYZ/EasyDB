@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "storage/easystore/table/tuple.h"
+#include "storage/easystore/transaction/txn_defs.h"
 
 namespace easydb {
 
@@ -27,6 +28,14 @@ class ReadView {
     const auto it = committed_txns_.find(meta.trx_id_);
     return it != committed_txns_.end() && it->second <= snapshot_ts_ &&
            !meta.is_deleted_;
+  }
+
+  auto IsVisible(const TupleMeta &meta, IsolationLevel isolation_level) const
+      -> bool {
+    if (isolation_level == IsolationLevel::READ_UNCOMMITTED) {
+      return !meta.is_deleted_;
+    }
+    return IsVisible(meta);
   }
 
   timestamp_t GetSnapshotTs() const { return snapshot_ts_; }

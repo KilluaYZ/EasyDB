@@ -3,6 +3,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "common/context.h"
@@ -36,6 +37,8 @@ class StorageEngine {
   virtual std::optional<TupleMeta> ReadTupleMeta(
       const std::string &table_name, const Tuple &key,
       Context *context) = 0;
+  virtual std::optional<std::pair<std::vector<char>, std::vector<char>>>
+  FindInsertGap(const std::string &table_name, const Tuple &tuple) = 0;
   virtual bool InsertTuple(const std::string &table_name, const Tuple &tuple,
                            Context *context) = 0;
   virtual bool DeleteTuple(const std::string &table_name, const Tuple &key,

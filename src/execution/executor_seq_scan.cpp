@@ -12,6 +12,17 @@
 
 namespace easydb {
 
+namespace {
+
+auto ClusteredKeyBytes(const Tuple &tuple, const TabMeta &table)
+    -> std::vector<char> {
+  const auto key_schema = Schema::CopySchema(&table.schema, {0});
+  const auto key_tuple = tuple.KeyFromTuple(table.schema, key_schema, {0});
+  return {key_tuple.GetData(), key_tuple.GetData() + key_tuple.GetLength()};
+}
+
+}  // namespace
+
 /**
  * @description: 顺序扫描执行器的构造函数
  * @param storage_engine 系统管理器指针
@@ -36,10 +47,25 @@ SeqScanExecutor::SeqScanExecutor(StorageEngine *storage_engine,
 
   fed_conds_ = conds_;
 
-  // lock table
-  if (context_ != nullptr) {
+  // Consistent reads under RU/RC/RR use MVCC and do not take a table S lock.
+  // A sequential scan has no useful index interval to lock, so SERIALIZABLE
+  // keeps a table S lock as the conservative predicate lock.
+  if (context_ != nullptr && context_->txn_ != nullptr &&
+      context_->txn_->GetIsolationLevel() == IsolationLevel::SERIALIZABLE) {
     context_->lock_mgr_->LockSharedOnTable(
         context_->txn_, storage_engine_->GetTableLockId(tab_name_));
+  }
+}
+
+void SeqScanExecutor::LockCurrentRecord(const Tuple &tuple) {
+  if (context_ == nullptr || context_->txn_ == nullptr ||
+      !context_->locking_read_) {
+    return;
+  }
+  const auto key = ClusteredKeyBytes(tuple, storage_engine_->GetTableMeta(tab_name_));
+  if (!context_->lock_mgr_->LockExclusiveOnRecord(
+          context_->txn_, storage_engine_->GetTableLockId(tab_name_), key)) {
+    throw InternalError("failed to acquire clustered record X lock");
   }
 }
 
@@ -62,7 +88,13 @@ void SeqScanExecutor::nextTuple() {
   } while (!IsEnd() && !predicate());
 }
 
-std::unique_ptr<Tuple> SeqScanExecutor::Next() { return scan_->GetTuple(); }
+std::unique_ptr<Tuple> SeqScanExecutor::Next() {
+  auto tuple = scan_->GetTuple();
+  if (tuple != nullptr) {
+    LockCurrentRecord(*tuple);
+  }
+  return tuple;
+}
 
 /**
  * @description: 判断当前记录是否满足所有查询条件（包括子查询）

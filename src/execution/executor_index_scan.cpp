@@ -18,6 +18,17 @@
 
 namespace easydb {
 
+namespace {
+
+auto ClusteredKeyBytes(const Tuple &tuple, const TabMeta &table)
+    -> std::vector<char> {
+  const auto key_schema = Schema::CopySchema(&table.schema, {0});
+  const auto key_tuple = tuple.KeyFromTuple(table.schema, key_schema, {0});
+  return {key_tuple.GetData(), key_tuple.GetData() + key_tuple.GetLength()};
+}
+
+}  // namespace
+
 /**
  * @description: 索引扫描执行器的构造函数
  * @param storage_engine 系统管理器指针
@@ -71,8 +82,11 @@ IndexScanExecutor::IndexScanExecutor(StorageEngine *storage_engine,
     fed_conds_ = conds_;
   }
 
-  // lock table
-  if (context_ != nullptr) {
+  // Index scans use MVCC for ordinary reads. Locking reads retain the table
+  // intention lock and acquire record/range locks after bounds are known.
+  if (context_ != nullptr && context_->txn_ != nullptr &&
+      (context_->locking_read_ ||
+       context_->txn_->GetIsolationLevel() == IsolationLevel::SERIALIZABLE)) {
     context_->lock_mgr_->LockISOnTable(
         context_->txn_, storage_engine_->GetTableLockId(tab_name_));
     // // IS lock only works for unique index (one column)
@@ -84,6 +98,26 @@ IndexScanExecutor::IndexScanExecutor(StorageEngine *storage_engine,
     //     std::cout << "IndexScanExecutor lock_shared_on_table" << std::endl;
     // }
   }
+}
+
+void IndexScanExecutor::LockCurrentRecord(const Tuple &tuple) {
+  if (context_ == nullptr || context_->txn_ == nullptr ||
+      !context_->locking_read_) {
+    return;
+  }
+  const auto key = ClusteredKeyBytes(tuple, tab_);
+  if (!context_->lock_mgr_->LockExclusiveOnRecord(
+          context_->txn_, storage_engine_->GetTableLockId(tab_name_), key)) {
+    throw InternalError("failed to acquire clustered record X lock");
+  }
+}
+
+std::unique_ptr<Tuple> IndexScanExecutor::Next() {
+  auto tuple = scan_->GetTuple();
+  if (tuple != nullptr) {
+    LockCurrentRecord(*tuple);
+  }
+  return tuple;
 }
 
 /**
@@ -182,6 +216,33 @@ void IndexScanExecutor::beginTuple() {
   // 2. Initialize the index scan
   std::vector<char> lower(key_lower, key_lower + index_meta_.col_tot_len);
   std::vector<char> upper(key_upper, key_upper + index_meta_.col_tot_len);
+
+  if (context_ != nullptr && context_->txn_ != nullptr &&
+      (context_->locking_read_ ||
+       context_->txn_->GetIsolationLevel() == IsolationLevel::SERIALIZABLE)) {
+    const bool exclusive = context_->locking_read_;
+    const auto table_id = storage_engine_->GetTableLockId(tab_name_);
+    // The executor currently serializes keys in their native storage format.
+    // That format is not an order-preserving byte encoding for every type
+    // (notably signed integers), so the generated [0x00, 0xff] bounds cannot
+    // safely represent a complete interval.  Use an unbounded Next-Key lock
+    // for locking reads until typed bound encoding is introduced.  This is
+    // deliberately conservative but prevents phantoms from escaping through
+    // an incorrectly ordered range lock.
+    const std::vector<char> lock_lower;
+    const std::vector<char> lock_upper;
+    const bool locked = exclusive
+                            ? context_->lock_mgr_->LockExclusiveOnNextKey(
+                                  context_->txn_, table_id, lock_lower,
+                                  lock_upper)
+                            : context_->lock_mgr_->LockSharedOnNextKey(
+                                  context_->txn_, table_id, lock_lower,
+                                  lock_upper);
+    if (!locked) {
+      throw InternalError("failed to acquire index range lock");
+    }
+  }
+
   scan_ = storage_engine_->ScanIndex(tab_name_, index_col_names_, lower, upper,
                                      context_);
 

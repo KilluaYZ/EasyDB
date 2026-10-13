@@ -33,6 +33,9 @@ class ClusteredIndexHandle {
   auto Get(const std::vector<char> &key) -> std::optional<std::vector<char>>;
   auto GetRecord(const std::vector<char> &key)
       -> std::optional<ClusteredLeafEntry>;
+  /** Return the predecessor/successor bounds of the gap containing key. */
+  auto FindInsertGap(const std::vector<char> &key)
+      -> std::optional<std::pair<std::vector<char>, std::vector<char>>>;
   auto Update(const std::vector<char> &key, const std::vector<char> &tuple)
       -> bool;
   auto Update(const std::vector<char> &key, const std::vector<char> &tuple,

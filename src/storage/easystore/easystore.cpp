@@ -159,6 +159,45 @@ class ClusteredScan final : public TableScan, public IndexScan {
   size_t position_{0};
 };
 
+// Resolve the version visible to this transaction.  The clustered leaf keeps
+// only the newest version; older versions are reconstructed from the undo
+// chain.  Keeping this logic shared by point reads and scans is important:
+// otherwise RR/RC would behave differently for SELECT-by-key and full scans.
+auto VisibleTuple(const ClusteredLeafEntry &record, Context *context,
+                  TransactionManager *transaction_manager,
+                  LogManager *log_manager) -> std::optional<Tuple> {
+  if (context == nullptr || context->txn_ == nullptr) {
+    return record.tuple;
+  }
+  // UPDATE/DELETE use current reads: after their locks are acquired they must
+  // operate on the newest clustered version, not on a consistent-read image.
+  if (context->locking_read_) {
+    return record.tuple;
+  }
+  if (context->read_view_ == nullptr) {
+    context->read_view_ = transaction_manager->GetReadView(context->txn_);
+  }
+
+  const auto isolation = context->txn_->GetIsolationLevel();
+  if (context->read_view_->IsVisible(record.meta, isolation)) {
+    return record.tuple;
+  }
+
+  TupleMeta historical_meta = record.meta;
+  Tuple historical_tuple(record.tuple);
+  while (historical_meta.undo_ptr_ != INVALID_LSN) {
+    auto log = log_manager->FindLog(historical_meta.undo_ptr_);
+    auto *tuple_log = dynamic_cast<TupleLogRecord *>(log.get());
+    if (tuple_log == nullptr) break;
+    historical_meta = tuple_log->GetOldMeta();
+    historical_tuple = tuple_log->GetOldTuple();
+    if (context->read_view_->IsVisible(historical_meta, isolation)) {
+      return historical_tuple;
+    }
+  }
+  return std::nullopt;
+}
+
 }  // namespace
 
 bool EasyStore::HasTable(const std::string &name) const {
@@ -176,21 +215,19 @@ int EasyStore::GetTableLockId(const std::string &name) const {
 std::unique_ptr<TableScan> EasyStore::ScanTable(const std::string &name,
                                                 Context *context) {
   auto records = runtime_->clustered_table_manager->Get(name)->ScanRecords();
-  if (context != nullptr && context->txn_ != nullptr) {
-    if (context->read_view_ == nullptr) {
-      context->read_view_ =
-          runtime_->transaction_manager->GetReadView(context->txn_);
-    }
-    records.erase(std::remove_if(records.begin(), records.end(),
-                                 [&](const auto &record) {
-                                   return !context->read_view_->IsVisible(
-                                       record.meta);
-                                 }),
-                  records.end());
-  }
   std::vector<Tuple> tuples;
   tuples.reserve(records.size());
-  for (const auto &record : records) tuples.emplace_back(record.tuple);
+  for (const auto &record : records) {
+    if (context != nullptr && context->txn_ != nullptr &&
+        context->locking_read_ &&
+        !runtime_->lock_manager->LockExclusiveOnRecord(
+            context->txn_, GetTableLockId(name), record.key)) {
+      throw InternalError("failed to acquire clustered record X lock");
+    }
+    auto tuple = VisibleTuple(record, context, runtime_->transaction_manager.get(),
+                              runtime_->log_manager.get());
+    if (tuple.has_value()) tuples.emplace_back(std::move(*tuple));
+  }
   return std::make_unique<ClusteredScan>(std::move(tuples));
 }
 
@@ -199,21 +236,19 @@ std::unique_ptr<IndexScan> EasyStore::ScanIndex(
     const std::vector<char> &lower_key, const std::vector<char> &upper_key,
     Context *context) {
   auto records = runtime_->clustered_table_manager->Get(table)->ScanRecords();
-  if (context != nullptr && context->txn_ != nullptr) {
-    if (context->read_view_ == nullptr) {
-      context->read_view_ =
-          runtime_->transaction_manager->GetReadView(context->txn_);
-    }
-    records.erase(std::remove_if(records.begin(), records.end(),
-                                 [&](const auto &record) {
-                                   return !context->read_view_->IsVisible(
-                                       record.meta);
-                                 }),
-                  records.end());
-  }
   std::vector<Tuple> tuples;
   tuples.reserve(records.size());
-  for (const auto &record : records) tuples.emplace_back(record.tuple);
+  for (const auto &record : records) {
+    if (context != nullptr && context->txn_ != nullptr &&
+        context->locking_read_ &&
+        !runtime_->lock_manager->LockExclusiveOnRecord(
+            context->txn_, GetTableLockId(table), record.key)) {
+      throw InternalError("failed to acquire clustered record X lock");
+    }
+    auto tuple = VisibleTuple(record, context, runtime_->transaction_manager.get(),
+                              runtime_->log_manager.get());
+    if (tuple.has_value()) tuples.emplace_back(std::move(*tuple));
+  }
   return std::make_unique<ClusteredScan>(std::move(tuples));
 }
 
@@ -222,32 +257,10 @@ std::unique_ptr<Tuple> EasyStore::ReadTuple(const std::string &table,
                                             Context *context) {
   auto record = runtime_->clustered_table_manager->Get(table)->GetRecord(key);
   if (!record.has_value()) return nullptr;
-  if (context != nullptr && context->txn_ != nullptr) {
-    if (context->read_view_ == nullptr) {
-      context->read_view_ =
-          runtime_->transaction_manager->GetReadView(context->txn_);
-    }
-    if (!context->read_view_->IsVisible(record->meta)) {
-      if (record->meta.trx_id_ == context->txn_->GetTransactionId() &&
-          record->meta.is_deleted_) {
-        return nullptr;
-      }
-      auto historical_meta = record->meta;
-      Tuple historical_tuple(record->tuple);
-      while (historical_meta.undo_ptr_ != INVALID_LSN) {
-        auto log = runtime_->log_manager->FindLog(historical_meta.undo_ptr_);
-        auto *tuple_log = dynamic_cast<TupleLogRecord *>(log.get());
-        if (tuple_log == nullptr) break;
-        historical_meta = tuple_log->GetOldMeta();
-        historical_tuple = tuple_log->GetOldTuple();
-        if (context->read_view_->IsVisible(historical_meta)) {
-          return std::make_unique<Tuple>(historical_tuple);
-        }
-      }
-      return nullptr;
-    }
-  }
-  return std::make_unique<Tuple>(record->tuple);
+  auto tuple = VisibleTuple(*record, context, runtime_->transaction_manager.get(),
+                            runtime_->log_manager.get());
+  if (!tuple.has_value()) return nullptr;
+  return std::make_unique<Tuple>(std::move(*tuple));
 }
 
 std::optional<TupleMeta> EasyStore::ReadTupleMeta(const std::string &table,
@@ -256,6 +269,11 @@ std::optional<TupleMeta> EasyStore::ReadTupleMeta(const std::string &table,
   auto record = runtime_->clustered_table_manager->Get(table)->GetRecord(key);
   if (!record.has_value()) return std::nullopt;
   return record->meta;
+}
+
+std::optional<std::pair<std::vector<char>, std::vector<char>>>
+EasyStore::FindInsertGap(const std::string &table, const Tuple &tuple) {
+  return runtime_->clustered_table_manager->Get(table)->FindInsertGap(tuple);
 }
 
 bool EasyStore::InsertTuple(const std::string &table, const Tuple &tuple,

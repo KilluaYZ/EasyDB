@@ -162,5 +162,10 @@ class SeqScanExecutor : public AbstractExecutor {
    * @note 用于过滤不满足WHERE条件的元组
    */
   bool predicate();
+
+  // UPDATE/DELETE scans are locking reads.  Lock the clustered record before
+  // evaluating the predicate so the row cannot change between qualification
+  // and the later DML operation.
+  void LockCurrentRecord(const Tuple &tuple);
 };
 }  // namespace easydb

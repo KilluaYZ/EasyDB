@@ -15,6 +15,19 @@
 
 namespace easydb {
 
+namespace {
+
+auto ClusteredKeyBytes(const Tuple &tuple, const TabMeta &table)
+    -> std::vector<char> {
+  // ClusteredTableManager currently defines the first column as the primary
+  // key. Keep the lock key identical to the key used by clustered storage.
+  const auto key_schema = Schema::CopySchema(&table.schema, {0});
+  const auto key_tuple = tuple.KeyFromTuple(table.schema, key_schema, {0});
+  return {key_tuple.GetData(), key_tuple.GetData() + key_tuple.GetLength()};
+}
+
+}  // namespace
+
 /**
  * @description: 插入执行器的构造函数
  * @param storage_engine 系统管理器指针
@@ -49,6 +62,23 @@ std::unique_ptr<Tuple> InsertExecutor::Next() {
   // 构造元组
   Tuple tuple{values_, &tab_.schema};
   TupleMeta new_meta;
+  if (context_ != nullptr && context_->txn_ != nullptr) {
+    const auto key = ClusteredKeyBytes(tuple, tab_);
+    const auto gap = storage_engine_->FindInsertGap(tab_name_, tuple);
+    if (!gap.has_value()) {
+      throw InternalError("failed to locate clustered insert gap");
+    }
+    if (!context_->lock_mgr_->LockInsertIntention(
+            context_->txn_, storage_engine_->GetTableLockId(tab_name_),
+            gap->first, gap->second)) {
+      throw InternalError("failed to acquire clustered insert intention lock");
+    }
+    if (!context_->lock_mgr_->LockExclusiveOnRecord(
+            context_->txn_, storage_engine_->GetTableLockId(tab_name_), key)) {
+      throw InternalError("failed to acquire clustered record X lock");
+    }
+  }
+
   if (context_ != nullptr && context_->txn_ != nullptr) {
     new_meta.trx_id_ = context_->txn_->GetTransactionId();
   }

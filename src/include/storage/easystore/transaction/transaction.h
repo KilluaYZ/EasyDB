@@ -42,11 +42,12 @@ class Transaction {
   /**
    * @brief 构造函数，创建新事务
    * @param txn_id 事务ID
-   * @param isolation_level 隔离级别，默认为SERIALIZABLE（可串行化）
+   * @param isolation_level 隔离级别，默认为REPEATABLE_READ
    */
   explicit Transaction(txn_id_t txn_id, IsolationLevel isolation_level =
-                                            IsolationLevel::SERIALIZABLE)
-      : state_(TransactionState::DEFAULT),
+                                            IsolationLevel::REPEATABLE_READ)
+      : txn_mode_(false),
+        state_(TransactionState::DEFAULT),
         isolation_level_(isolation_level),
         txn_id_(txn_id) {
     lock_set_ = std::make_shared<std::unordered_set<LockDataId>>();
@@ -114,6 +115,11 @@ class Transaction {
    * @return 事务的隔离级别
    */
   inline IsolationLevel GetIsolationLevel() { return isolation_level_; }
+
+  inline void SetIsolationLevel(IsolationLevel isolation_level) {
+    isolation_level_ = isolation_level;
+    read_view_.reset();
+  }
 
   /**
    * @brief 获取事务状态
@@ -195,7 +201,7 @@ class Transaction {
 
   /**
    * @brief 事务的隔离级别
-   * @note 默认隔离级别为SERIALIZABLE（可串行化），提供最高的事务隔离性
+   * @note 默认隔离级别为REPEATABLE_READ，与InnoDB保持一致
    */
   IsolationLevel isolation_level_;
 

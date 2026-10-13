@@ -85,6 +85,13 @@ enum SetKnobType {
   EnableOptimizer  /**< 启用优化器 */
 };
 
+enum IsolationLevelValue {
+  IsolationReadUncommitted,
+  IsolationReadCommitted,
+  IsolationRepeatableRead,
+  IsolationSerializable,
+};
+
 /**
  * @brief 抽象语法树节点基类
  *
@@ -782,6 +789,14 @@ struct SetStmt : public TreeNode {
    */
   SetStmt(SetKnobType &type, bool bool_value)
       : set_knob_type_(type), bool_val_(bool_value) {}
+};
+
+struct SetIsolationLevel : public TreeNode {
+  IsolationLevelValue level;
+  bool session_scope;
+
+  explicit SetIsolationLevel(IsolationLevelValue level_, bool session_scope_ = false)
+      : level(level_), session_scope(session_scope_) {}
 };
 
 /**

@@ -54,6 +54,7 @@ std::string default_database_name;
 struct ConnectionSession {
   DatabaseManager *database_manager;
   std::string database_name;
+  IsolationLevel isolation_level{IsolationLevel::REPEATABLE_READ};
   EasyStore *storage_engine;
   DiskManager *disk_manager;
   BufferPoolManager *buffer_pool_manager;
@@ -108,7 +109,8 @@ void sigint_handler(int signo) {
 // 判断当前正在执行的是显式事务还是单条SQL语句的事务，并更新事务ID
 void SetTransaction(txn_id_t *txn_id, Context *context,
                     TransactionManager *transaction_manager,
-                    LogManager *log_manager) {
+                    LogManager *log_manager,
+                    IsolationLevel session_isolation_level) {
   context->txn_ = transaction_manager->GetTransaction(*txn_id);
   if (context->txn_ == nullptr ||
       context->txn_->GetState() == TransactionState::COMMITTED ||
@@ -116,6 +118,7 @@ void SetTransaction(txn_id_t *txn_id, Context *context,
     context->txn_ = transaction_manager->Begin(nullptr, log_manager);
     *txn_id = context->txn_->GetTransactionId();
     context->txn_->SetTxnMode(false);
+    context->txn_->SetIsolationLevel(session_isolation_level);
   }
 }
 
@@ -215,7 +218,8 @@ void *client_handler(void *sock_fd) {
     // 开启事务，初始化系统所需的上下文信息（包括事务对象指针、锁管理器指针、日志管理器指针、存放结果的buffer、记录结果长度的变量）
     Context *context = new Context(session.lock_manager, session.log_manager,
                                    nullptr, data_send, &offset);
-    SetTransaction(&txn_id, context, session.txn_manager, session.log_manager);
+    SetTransaction(&txn_id, context, session.txn_manager, session.log_manager,
+                   session.isolation_level);
     context->InitJson();
 
     // 用于判断是否已经调用了yy_delete_buffer来删除buf
@@ -247,6 +251,12 @@ void *client_handler(void *sock_fd) {
                     session.portal->start(plan, context);
                 session.portal->run(portalStmt, session.ql_manager.get(),
                                     &txn_id, context);
+                if (auto isolation_plan =
+                        std::dynamic_pointer_cast<SetIsolationLevelPlan>(plan);
+                    isolation_plan != nullptr &&
+                    isolation_plan->session_scope_) {
+                  session.isolation_level = context->txn_->GetIsolationLevel();
+                }
                 session.portal->drop();
               }
             } else {

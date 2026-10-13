@@ -22,7 +22,8 @@ using namespace ast;
 
 // keywords
 %token SHOW TABLES DATABASE DATABASES USE CREATE TABLE DROP DESC INSERT INTO VALUES DELETE FROM ASC ORDER BY AS COUNT MAX MIN SUM GROUP HAVING IN
-WHERE UPDATE SET SELECT INT CHAR VARCHAR FLOAT DATETIME NOT_NULL INDEX AND JOIN EXIT HELP TXN_BEGIN TXN_COMMIT TXN_ABORT TXN_ROLLBACK ORDER_BY 
+WHERE UPDATE SET SELECT INT CHAR VARCHAR FLOAT DATETIME NOT_NULL INDEX AND JOIN EXIT HELP TXN_BEGIN TXN_COMMIT TXN_ABORT TXN_ROLLBACK ORDER_BY
+TRANSACTION SESSION ISOLATION LEVEL READ COMMITTED REPEATABLE UNCOMMITTED SERIALIZABLE
 UNIQUE ENABLE_NESTLOOP ENABLE_SORTMERGE ENABLE_HASHJOIN ENABLE_OPTIMIZER
 STATIC_CHECKPOINT LOAD OUTPUT_FILE
 
@@ -37,6 +38,7 @@ STATIC_CHECKPOINT LOAD OUTPUT_FILE
 
 // specify types for non-terminal symbol
 %type <sv_node> stmt dbStmt ddl dml txnStmt setStmt setOutputStmt
+%type <sv_int> isolation_level
 %type <sv_field> field
 %type <sv_fields> fieldList
 %type <sv_type_len> type
@@ -148,6 +150,23 @@ setStmt:
     {
         $$ = std::make_shared<SetStmt>($2, $4);
     }
+    | SET TRANSACTION ISOLATION LEVEL isolation_level
+    {
+        $$ = std::make_shared<SetIsolationLevel>(
+            static_cast<ast::IsolationLevelValue>($5));
+    }
+    | SET SESSION TRANSACTION ISOLATION LEVEL isolation_level
+    {
+        $$ = std::make_shared<SetIsolationLevel>(
+            static_cast<ast::IsolationLevelValue>($6), true);
+    }
+    ;
+
+isolation_level:
+        READ UNCOMMITTED { $$ = ast::IsolationReadUncommitted; }
+    |   READ COMMITTED { $$ = ast::IsolationReadCommitted; }
+    |   REPEATABLE READ { $$ = ast::IsolationRepeatableRead; }
+    |   SERIALIZABLE { $$ = ast::IsolationSerializable; }
     ;
 
 setOutputStmt:

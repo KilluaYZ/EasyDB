@@ -444,6 +444,11 @@ bool LockManager::ResourcesConflict(const LockDataId &left,
   auto point_in_range = [](const std::vector<char> &point,
                            const std::vector<char> &lower,
                            const std::vector<char> &upper) {
+    // A point Next-Key lock is represented by equal bounds. This is useful
+    // for equality predicates, where the lock must still cover the record.
+    if (!lower.empty() && lower == upper) {
+      return point == lower;
+    }
     const bool after_lower = lower.empty() || point >= lower;
     const bool before_upper = upper.empty() || point < upper;
     return after_lower && before_upper;

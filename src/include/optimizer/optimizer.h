@@ -81,6 +81,9 @@ class Optimizer {
     } else if (auto x = std::dynamic_pointer_cast<ast::SetStmt>(query->parse)) {
       // Set Knob Plan
       return std::make_shared<SetKnobPlan>(x->set_knob_type_, x->bool_val_);
+    } else if (auto x = std::dynamic_pointer_cast<ast::SetIsolationLevel>(
+                   query->parse)) {
+      return std::make_shared<SetIsolationLevelPlan>(x->level, x->session_scope);
     } else if (auto x = std::dynamic_pointer_cast<ast::CreateStaticCheckpoint>(
                    query->parse)) {
       // create static_checkpoint;

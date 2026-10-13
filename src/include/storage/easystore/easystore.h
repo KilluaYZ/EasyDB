@@ -56,6 +56,8 @@ class EasyStore final : public StorageEngine {
                                    Context *) override;
   std::optional<TupleMeta> ReadTupleMeta(const std::string &, const Tuple &,
                                          Context *) override;
+  std::optional<std::pair<std::vector<char>, std::vector<char>>>
+  FindInsertGap(const std::string &, const Tuple &) override;
   bool InsertTuple(const std::string &, const Tuple &, Context *) override;
   bool DeleteTuple(const std::string &, const Tuple &, Context *) override;
   bool UpdateTuple(const std::string &, const Tuple &, const Tuple &,

@@ -130,19 +130,29 @@ class TransactionManager {
   std::shared_ptr<ReadView> GetReadView(Transaction *txn) {
     if (txn == nullptr) return nullptr;
     std::scoped_lock lock(latch_);
-    if (txn->GetReadView() != nullptr) return txn->GetReadView();
+    const auto isolation_level = txn->GetIsolationLevel();
+    if (txn->GetReadView() != nullptr &&
+        isolation_level != IsolationLevel::READ_COMMITTED &&
+        isolation_level != IsolationLevel::READ_UNCOMMITTED) {
+      return txn->GetReadView();
+    }
 
     std::unordered_set<txn_id_t> active_txns;
     for (const auto &[txn_id, other] : txn_map) {
       if (other != nullptr && other->GetState() != TransactionState::COMMITTED &&
           other->GetState() != TransactionState::ABORTED) {
-        active_txns.insert(txn_id);
+        if (isolation_level != IsolationLevel::READ_UNCOMMITTED) {
+          active_txns.insert(txn_id);
+        }
       }
     }
     auto view = std::make_shared<ReadView>(
         next_timestamp_.load(), txn->GetTransactionId(),
         std::move(active_txns), committed_txns_);
-    txn->SetReadView(view);
+    if (isolation_level != IsolationLevel::READ_COMMITTED &&
+        isolation_level != IsolationLevel::READ_UNCOMMITTED) {
+      txn->SetReadView(view);
+    }
     return view;
   }
 

@@ -189,6 +189,10 @@ class TreePrinter {
       std::cout << "SET_STMT\n";
       print_val(x->set_knob_type_, offset);
       print_val(x->bool_val_, offset);
+    } else if (auto x = std::dynamic_pointer_cast<SetIsolationLevel>(node)) {
+      std::cout << "SET_ISOLATION_LEVEL\n";
+      print_val(x->level, offset);
+      print_val(x->session_scope, offset);
     } else if (auto x = std::dynamic_pointer_cast<TxnBegin>(node)) {
       std::cout << "BEGIN" << std::endl;
     } else if (auto x = std::dynamic_pointer_cast<TxnCommit>(node)) {

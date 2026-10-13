@@ -54,6 +54,7 @@ typedef enum PlanTag {
   T_Transaction_commit,     /**< COMMIT TRANSACTION */
   T_Transaction_abort,      /**< ABORT TRANSACTION */
   T_Transaction_rollback,   /**< ROLLBACK TRANSACTION */
+  T_SetIsolationLevel,       /**< SET TRANSACTION ISOLATION LEVEL */
   T_SeqScan,                /**< 顺序扫描执行器 */
   T_IndexScan,              /**< 索引扫描执行器 */
   T_NestLoop,               /**< 嵌套循环连接 */
@@ -536,6 +537,18 @@ class SetKnobPlan : public Plan {
 
   /** @brief 布尔值 */
   bool bool_value_;
+};
+
+class SetIsolationLevelPlan : public Plan {
+ public:
+  explicit SetIsolationLevelPlan(ast::IsolationLevelValue level,
+                                 bool session_scope)
+      : level_(level), session_scope_(session_scope) {
+    Plan::tag = T_SetIsolationLevel;
+  }
+
+  ast::IsolationLevelValue level_;
+  bool session_scope_;
 };
 
 /**

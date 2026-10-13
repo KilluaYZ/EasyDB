@@ -65,6 +65,15 @@ arith_op "+"|"-"|"*"|"/"
 "COMMIT" { return TXN_COMMIT; }
 "ABORT" { return TXN_ABORT; }
 "ROLLBACK" { return TXN_ROLLBACK; }
+"TRANSACTION" { return TRANSACTION; }
+"SESSION" { return SESSION; }
+"ISOLATION" { return ISOLATION; }
+"LEVEL" { return LEVEL; }
+"READ" { return READ; }
+"COMMITTED" { return COMMITTED; }
+"REPEATABLE" { return REPEATABLE; }
+"UNCOMMITTED" { return UNCOMMITTED; }
+"SERIALIZABLE" { return SERIALIZABLE; }
 "TABLES" { return TABLES; }
 "CREATE" { return CREATE; }
 "TABLE" { return TABLE; }

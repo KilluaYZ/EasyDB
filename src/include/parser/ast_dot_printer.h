@@ -301,6 +301,11 @@ class TreeDotPrinter {
       print_edge(_node_id, parent);
       print_val(x->set_knob_type_, _node_id);
       print_val(x->bool_val_, _node_id);
+    } else if (auto x = std::dynamic_pointer_cast<SetIsolationLevel>(node)) {
+      int _node_id = alloc_node("SET_ISOLATION_LEVEL");
+      print_edge(_node_id, parent);
+      print_val(x->level, _node_id);
+      print_val(x->session_scope, _node_id);
     } else if (auto x = std::dynamic_pointer_cast<TxnBegin>(node)) {
       // std::cout << "BEGIN" << std::endl;
       int _node_id = alloc_node("BEGIN");

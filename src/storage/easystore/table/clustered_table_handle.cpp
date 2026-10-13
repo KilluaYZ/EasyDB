@@ -38,6 +38,14 @@ auto ClusteredTableHandle::GetRecord(const Tuple &key_tuple)
   return index_->GetRecord(MakeKey(key_tuple));
 }
 
+auto ClusteredTableHandle::FindInsertGap(const Tuple &tuple)
+    -> std::optional<std::pair<std::vector<char>, std::vector<char>>> {
+  if (index_ == nullptr || schema_ == nullptr || key_schema_ == nullptr) {
+    return std::nullopt;
+  }
+  return index_->FindInsertGap(MakeKey(tuple));
+}
+
 auto ClusteredTableHandle::Update(const Tuple &key_tuple, const Tuple &tuple)
     -> bool {
   const auto record = GetRecord(key_tuple);

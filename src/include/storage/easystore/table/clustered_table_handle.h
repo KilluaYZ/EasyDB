@@ -32,6 +32,8 @@ class ClusteredTableHandle {
   auto Insert(const Tuple &tuple, const TupleMeta &meta) -> bool;
   auto Get(const Tuple &key_tuple) -> std::optional<Tuple>;
   auto GetRecord(const Tuple &key_tuple) -> std::optional<ClusteredLeafEntry>;
+  auto FindInsertGap(const Tuple &tuple)
+      -> std::optional<std::pair<std::vector<char>, std::vector<char>>>;
   auto Update(const Tuple &key_tuple, const Tuple &tuple) -> bool;
   auto Update(const Tuple &key_tuple, const Tuple &tuple,
               const TupleMeta &meta) -> bool;

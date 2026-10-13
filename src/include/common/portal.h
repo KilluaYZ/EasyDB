@@ -79,6 +79,11 @@ class Portal {
       return std::make_shared<PortalStmt>(
           PORTAL_CMD_UTILITY, std::vector<TabCol>(),
           std::unique_ptr<AbstractExecutor>(), plan);
+    } else if (auto x =
+                   std::dynamic_pointer_cast<SetIsolationLevelPlan>(plan)) {
+      return std::make_shared<PortalStmt>(
+          PORTAL_CMD_UTILITY, std::vector<TabCol>(),
+          std::unique_ptr<AbstractExecutor>(), plan);
     } else if (auto x = std::dynamic_pointer_cast<LoadDataPlan>(plan)) {
       return std::make_shared<PortalStmt>(
           PORTAL_CMD_UTILITY, std::vector<TabCol>(),
@@ -100,6 +105,9 @@ class Portal {
                                               std::move(root), plan);
         }
         case T_Update: {
+          context->locking_read_ = true;
+          context->lock_mgr_->LockIXOnTable(
+              context->txn_, storage_engine_->GetTableLockId(x->tab_name_));
           std::unique_ptr<AbstractExecutor> scan =
               convert_plan_executor(x->subplan_, context);
           std::vector<Tuple> tuples;
@@ -116,6 +124,9 @@ class Portal {
                                               std::move(root), plan);
         }
         case T_Delete: {
+          context->locking_read_ = true;
+          context->lock_mgr_->LockIXOnTable(
+              context->txn_, storage_engine_->GetTableLockId(x->tab_name_));
           std::unique_ptr<AbstractExecutor> scan =
               convert_plan_executor(x->subplan_, context);
           std::vector<Tuple> tuples;
@@ -123,7 +134,6 @@ class Portal {
             auto tuple = scan->Next();
             if (tuple != nullptr) tuples.push_back(*tuple);
           }
-
           std::unique_ptr<AbstractExecutor> root =
               std::make_unique<DeleteExecutor>(storage_engine_, x->tab_name_,
                                                x->conds_, tuples, context);

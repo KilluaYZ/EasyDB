@@ -55,6 +55,8 @@ class Context {
   int *offset_;
   bool ellipsis_;
   std::shared_ptr<ReadView> read_view_;
+  // UPDATE/DELETE build their target set through a locking index scan.
+  bool locking_read_{false};
   lsn_t current_undo_lsn_{INVALID_LSN};
   json result_json;
 

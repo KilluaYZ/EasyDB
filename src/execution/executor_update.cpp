@@ -13,6 +13,17 @@
 
 namespace easydb {
 
+namespace {
+
+auto ClusteredKeyBytes(const Tuple &tuple, const TabMeta &table)
+    -> std::vector<char> {
+  const auto key_schema = Schema::CopySchema(&table.schema, {0});
+  const auto key_tuple = tuple.KeyFromTuple(table.schema, key_schema, {0});
+  return {key_tuple.GetData(), key_tuple.GetData() + key_tuple.GetLength()};
+}
+
+}  // namespace
+
 /**
  * @description: 更新执行器的构造函数
  * @param storage_engine 系统管理器指针
@@ -51,6 +62,15 @@ std::unique_ptr<Tuple> UpdateExecutor::Next() {
   int tuple_count = tuples_.size();
   for (int i = 0; i < tuple_count; i++) {
     const auto &key_tuple = tuples_[i];
+    if (context_ != nullptr && context_->txn_ != nullptr) {
+      const auto key = ClusteredKeyBytes(key_tuple, tab_);
+      if (!context_->lock_mgr_->LockExclusiveOnRecord(
+              context_->txn_, storage_engine_->GetTableLockId(tab_name_),
+              key)) {
+        throw InternalError("failed to acquire clustered record X lock");
+      }
+    }
+
     // get records and construct updated value buf
     auto tuple = storage_engine_->ReadTuple(tab_name_, key_tuple, context_);
     auto old_values = tuple->GetValueVec(&tab_.schema);
